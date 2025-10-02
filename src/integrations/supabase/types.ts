@@ -14,7 +14,56 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      companies: {
+        Row: {
+          created_at: string | null
+          email: string
+          id: string
+          name: string
+          speciality_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          email: string
+          id?: string
+          name: string
+          speciality_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          email?: string
+          id?: string
+          name?: string
+          speciality_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "companies_speciality_id_fkey"
+            columns: ["speciality_id"]
+            isOneToOne: false
+            referencedRelation: "specialities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      specialities: {
+        Row: {
+          created_at: string | null
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          name: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
