@@ -17,7 +17,7 @@ type Company = {
   id: string;
   name: string;
   email: string;
-  speciality_id: string;
+  speciality_id: string | null;
   created_at: string;
   specialities?: { name: string } | null;
 };
@@ -80,7 +80,7 @@ export const CompaniesTable = () => {
                 <TableRow key={company.id}>
                   <TableCell className="font-medium">{company.name}</TableCell>
                   <TableCell>{company.email}</TableCell>
-                  <TableCell>{company.specialities?.name}</TableCell>
+                  <TableCell>{company.specialities?.name || "—"}</TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
                       <Button

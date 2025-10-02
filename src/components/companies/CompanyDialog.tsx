@@ -32,14 +32,14 @@ type Company = {
   id: string;
   name: string;
   email: string;
-  speciality_id: string;
+  speciality_id: string | null;
   created_at: string;
 };
 
 const companySchema = z.object({
   name: z.string().min(1, "Name is required").max(100),
   email: z.string().email("Invalid email").max(255),
-  speciality_id: z.string().min(1, "Speciality is required"),
+  speciality_id: z.string().optional(),
 });
 
 type CompanyFormData = z.infer<typeof companySchema>;
