@@ -4,6 +4,7 @@ import * as z from "zod";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -99,7 +100,12 @@ export const CompanyDialog = ({ open, onOpenChange, company }: CompanyDialogProp
           .eq("id", company.id);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from("companies").insert(data);
+        const insertData = {
+          name: data.name,
+          email: data.email,
+          speciality_id: data.speciality_id || null,
+        };
+        const { error } = await supabase.from("companies").insert([insertData]);
         if (error) throw error;
       }
     },
@@ -119,6 +125,9 @@ export const CompanyDialog = ({ open, onOpenChange, company }: CompanyDialogProp
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{company ? "Edit Company" : "Add Company"}</DialogTitle>
+          <DialogDescription>
+            {company ? "Update company information" : "Add a new construction company"}
+          </DialogDescription>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit((data) => mutation.mutate(data))} className="space-y-4">

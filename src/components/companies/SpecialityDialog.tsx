@@ -4,6 +4,7 @@ import * as z from "zod";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -44,7 +45,8 @@ export const SpecialityDialog = ({ open, onOpenChange }: SpecialityDialogProps) 
 
   const mutation = useMutation({
     mutationFn: async (data: SpecialityFormData) => {
-      const { error } = await supabase.from("specialities").insert(data);
+      const insertData = { name: data.name };
+      const { error } = await supabase.from("specialities").insert([insertData]);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -53,8 +55,12 @@ export const SpecialityDialog = ({ open, onOpenChange }: SpecialityDialogProps) 
       onOpenChange(false);
       form.reset();
     },
-    onError: () => {
-      toast.error("Failed to add speciality");
+    onError: (error: any) => {
+      if (error?.code === '23505') {
+        toast.error("This speciality already exists");
+      } else {
+        toast.error("Failed to add speciality");
+      }
     },
   });
 
@@ -63,6 +69,7 @@ export const SpecialityDialog = ({ open, onOpenChange }: SpecialityDialogProps) 
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Add New Speciality</DialogTitle>
+          <DialogDescription>Add a new construction speciality type</DialogDescription>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit((data) => mutation.mutate(data))} className="space-y-4">
