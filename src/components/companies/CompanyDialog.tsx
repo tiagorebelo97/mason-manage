@@ -29,6 +29,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useEffect } from "react";
+import { useLanguage } from "@/contexts/LanguageContext";
 type Company = {
   id: string;
   name: string;
@@ -53,6 +54,7 @@ interface CompanyDialogProps {
 
 export const CompanyDialog = ({ open, onOpenChange, company }: CompanyDialogProps) => {
   const queryClient = useQueryClient();
+  const { t } = useLanguage();
 
   const form = useForm<CompanyFormData>({
     resolver: zodResolver(companySchema),
@@ -124,9 +126,9 @@ export const CompanyDialog = ({ open, onOpenChange, company }: CompanyDialogProp
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{company ? "Edit Company" : "Add Company"}</DialogTitle>
+          <DialogTitle>{company ? t('company.editCompany') : t('dialog.addCompany')}</DialogTitle>
           <DialogDescription>
-            {company ? "Update company information" : "Add a new construction company"}
+            {company ? t('dialog.updateCompany') : t('dialog.addCompanyDesc')}
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -136,7 +138,7 @@ export const CompanyDialog = ({ open, onOpenChange, company }: CompanyDialogProp
               name="name"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Name</FormLabel>
+                  <FormLabel>{t('company.name')}</FormLabel>
                   <FormControl>
                     <Input {...field} />
                   </FormControl>
@@ -149,7 +151,7 @@ export const CompanyDialog = ({ open, onOpenChange, company }: CompanyDialogProp
               name="email"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Email</FormLabel>
+                  <FormLabel>{t('company.email')}</FormLabel>
                   <FormControl>
                     <Input type="email" {...field} />
                   </FormControl>
@@ -162,7 +164,7 @@ export const CompanyDialog = ({ open, onOpenChange, company }: CompanyDialogProp
               name="speciality_id"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Speciality</FormLabel>
+                  <FormLabel>{t('company.speciality')}</FormLabel>
                   <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl>
                       <SelectTrigger>
@@ -183,10 +185,10 @@ export const CompanyDialog = ({ open, onOpenChange, company }: CompanyDialogProp
             />
             <div className="flex justify-end gap-2">
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-                Cancel
+                {t('dialog.cancel')}
               </Button>
               <Button type="submit" disabled={mutation.isPending}>
-                {mutation.isPending ? "Saving..." : company ? "Update" : "Add"}
+                {mutation.isPending ? "..." : company ? t('dialog.save') : t('dialog.create')}
               </Button>
             </div>
           </form>

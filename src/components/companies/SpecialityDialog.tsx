@@ -21,6 +21,7 @@ import { Button } from "@/components/ui/button";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 const specialitySchema = z.object({
   name: z.string().min(1, "Name is required").max(100),
@@ -35,6 +36,7 @@ interface SpecialityDialogProps {
 
 export const SpecialityDialog = ({ open, onOpenChange }: SpecialityDialogProps) => {
   const queryClient = useQueryClient();
+  const { t } = useLanguage();
 
   const form = useForm<SpecialityFormData>({
     resolver: zodResolver(specialitySchema),
@@ -68,8 +70,8 @@ export const SpecialityDialog = ({ open, onOpenChange }: SpecialityDialogProps) 
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Add New Speciality</DialogTitle>
-          <DialogDescription>Add a new construction speciality type</DialogDescription>
+          <DialogTitle>{t('dialog.addSpeciality')}</DialogTitle>
+          <DialogDescription>{t('dialog.addSpecialityDesc')}</DialogDescription>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit((data) => mutation.mutate(data))} className="space-y-4">
@@ -78,7 +80,7 @@ export const SpecialityDialog = ({ open, onOpenChange }: SpecialityDialogProps) 
               name="name"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Speciality Name</FormLabel>
+                  <FormLabel>{t('company.name')}</FormLabel>
                   <FormControl>
                     <Input placeholder="e.g., Electrical, Plumbing, HVAC" {...field} />
                   </FormControl>
@@ -88,10 +90,10 @@ export const SpecialityDialog = ({ open, onOpenChange }: SpecialityDialogProps) 
             />
             <div className="flex justify-end gap-2">
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-                Cancel
+                {t('dialog.cancel')}
               </Button>
               <Button type="submit" disabled={mutation.isPending}>
-                {mutation.isPending ? "Adding..." : "Add Speciality"}
+                {mutation.isPending ? "..." : t('dialog.create')}
               </Button>
             </div>
           </form>

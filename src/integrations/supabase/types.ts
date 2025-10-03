@@ -46,6 +46,30 @@ export type Database = {
           },
         ]
       }
+      profiles: {
+        Row: {
+          created_at: string
+          id: string
+          preferred_language: string
+          updated_at: string
+          username: string | null
+        }
+        Insert: {
+          created_at?: string
+          id: string
+          preferred_language?: string
+          updated_at?: string
+          username?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          preferred_language?: string
+          updated_at?: string
+          username?: string | null
+        }
+        Relationships: []
+      }
       specialities: {
         Row: {
           created_at: string | null

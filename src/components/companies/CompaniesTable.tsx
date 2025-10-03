@@ -13,6 +13,7 @@ import { Pencil, Trash2, Download } from "lucide-react";
 import { useState } from "react";
 import { CompanyDialog } from "./CompanyDialog";
 import { toast } from "sonner";
+import { useLanguage } from "@/contexts/LanguageContext";
 type Company = {
   id: string;
   name: string;
@@ -25,6 +26,7 @@ type Company = {
 export const CompaniesTable = () => {
   const [editingCompany, setEditingCompany] = useState<Company | null>(null);
   const queryClient = useQueryClient();
+  const { t } = useLanguage();
 
   const { data: companies, isLoading } = useQuery({
     queryKey: ["companies"],
@@ -45,16 +47,16 @@ export const CompaniesTable = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["companies"] });
-      toast.success("Company deleted successfully");
+      toast.success(t('company.deleteSuccess'));
     },
     onError: () => {
-      toast.error("Failed to delete company");
+      toast.error(t('company.deleteError'));
     },
   });
 
   const exportToCSV = () => {
     if (!companies || companies.length === 0) {
-      toast.error("No data to export");
+      toast.error(t('company.exportError'));
       return;
     }
 
@@ -80,11 +82,11 @@ export const CompaniesTable = () => {
     link.click();
     document.body.removeChild(link);
     
-    toast.success("Companies exported successfully");
+    toast.success(t('company.exportSuccess'));
   };
 
   if (isLoading) {
-    return <div className="text-center py-8">Loading companies...</div>;
+    return <div className="text-center py-8">{t('common.loading')}</div>;
   }
 
   return (
@@ -92,24 +94,24 @@ export const CompaniesTable = () => {
       <div className="mb-4 flex justify-end">
         <Button variant="outline" onClick={exportToCSV}>
           <Download className="mr-2 h-4 w-4" />
-          Export CSV
+          {t('company.exportCSV')}
         </Button>
       </div>
       <div className="rounded-md border">
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Name</TableHead>
-              <TableHead>Email</TableHead>
-              <TableHead>Speciality</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
+              <TableHead>{t('company.name')}</TableHead>
+              <TableHead>{t('company.email')}</TableHead>
+              <TableHead>{t('company.speciality')}</TableHead>
+              <TableHead className="text-right">{t('company.actions')}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {companies?.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={4} className="text-center text-muted-foreground">
-                  No companies found. Add your first company!
+                  {t('company.noCompanies')}
                 </TableCell>
               </TableRow>
             ) : (
