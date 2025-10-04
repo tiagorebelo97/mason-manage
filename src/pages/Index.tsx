@@ -6,6 +6,7 @@ import { Plus, LogOut, Globe } from "lucide-react";
 import { CompaniesTable } from "@/components/companies/CompaniesTable";
 import { CompanyDialog } from "@/components/companies/CompanyDialog";
 import { SpecialityDialog } from "@/components/companies/SpecialityDialog";
+import { SpecialitiesManager } from "@/components/companies/SpecialitiesManager";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { toast } from "sonner";
 import {
@@ -88,6 +89,11 @@ const Index = () => {
         </div>
 
         <CompaniesTable />
+
+        <div className="mt-8">
+          <h2 className="text-2xl font-bold mb-4">Manage Specialities</h2>
+          <SpecialitiesManager />
+        </div>
 
         <CompanyDialog 
           open={isCompanyDialogOpen} 

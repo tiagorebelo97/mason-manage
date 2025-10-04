@@ -30,6 +30,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useEffect } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
+
 type Company = {
   id: string;
   name: string;
@@ -54,7 +55,7 @@ interface CompanyDialogProps {
 
 export const CompanyDialog = ({ open, onOpenChange, company }: CompanyDialogProps) => {
   const queryClient = useQueryClient();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
 
   const form = useForm<CompanyFormData>({
     resolver: zodResolver(companySchema),
@@ -71,7 +72,7 @@ export const CompanyDialog = ({ open, onOpenChange, company }: CompanyDialogProp
       const { data, error } = await supabase
         .from("specialities")
         .select("*")
-        .order("name");
+        .order("name_en");
       if (error) throw error;
       return data;
     },
@@ -174,7 +175,7 @@ export const CompanyDialog = ({ open, onOpenChange, company }: CompanyDialogProp
                     <SelectContent>
                       {specialities?.map((speciality) => (
                         <SelectItem key={speciality.id} value={speciality.id}>
-                          {speciality.name}
+                          {language === 'pt' ? speciality.name_pt : speciality.name_en}
                         </SelectItem>
                       ))}
                     </SelectContent>

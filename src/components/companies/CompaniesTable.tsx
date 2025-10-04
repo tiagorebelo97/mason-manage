@@ -20,20 +20,20 @@ type Company = {
   email: string;
   speciality_id: string | null;
   created_at: string;
-  specialities?: { name: string } | null;
+  specialities?: { name: string; name_en: string; name_pt: string } | null;
 };
 
 export const CompaniesTable = () => {
   const [editingCompany, setEditingCompany] = useState<Company | null>(null);
   const queryClient = useQueryClient();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
 
   const { data: companies, isLoading } = useQuery({
     queryKey: ["companies"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("companies")
-        .select("*, specialities(name)")
+        .select("*, specialities(name, name_en, name_pt)")
         .order("name");
       if (error) throw error;
       return data;
@@ -64,7 +64,9 @@ export const CompaniesTable = () => {
     const rows = companies.map((company) => [
       company.name,
       company.email,
-      company.specialities?.name || "",
+      company.specialities 
+        ? (language === 'pt' ? company.specialities.name_pt : company.specialities.name_en)
+        : "",
     ]);
 
     const csvContent = [
@@ -119,7 +121,11 @@ export const CompaniesTable = () => {
                 <TableRow key={company.id}>
                   <TableCell className="font-medium">{company.name}</TableCell>
                   <TableCell>{company.email}</TableCell>
-                  <TableCell>{company.specialities?.name || "—"}</TableCell>
+                  <TableCell>
+                    {company.specialities 
+                      ? (language === 'pt' ? company.specialities.name_pt : company.specialities.name_en)
+                      : "—"}
+                  </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
                       <Button

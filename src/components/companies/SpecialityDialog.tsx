@@ -24,7 +24,8 @@ import { toast } from "sonner";
 import { useLanguage } from "@/contexts/LanguageContext";
 
 const specialitySchema = z.object({
-  name: z.string().min(1, "Name is required").max(100),
+  name_en: z.string().min(1, "English name is required").max(100),
+  name_pt: z.string().min(1, "Portuguese name is required").max(100),
 });
 
 type SpecialityFormData = z.infer<typeof specialitySchema>;
@@ -41,13 +42,14 @@ export const SpecialityDialog = ({ open, onOpenChange }: SpecialityDialogProps) 
   const form = useForm<SpecialityFormData>({
     resolver: zodResolver(specialitySchema),
     defaultValues: {
-      name: "",
+      name_en: "",
+      name_pt: "",
     },
   });
 
   const mutation = useMutation({
     mutationFn: async (data: SpecialityFormData) => {
-      const insertData = { name: data.name };
+      const insertData = { name: data.name_en, name_en: data.name_en, name_pt: data.name_pt };
       const { error } = await supabase.from("specialities").insert([insertData]);
       if (error) throw error;
     },
@@ -77,12 +79,25 @@ export const SpecialityDialog = ({ open, onOpenChange }: SpecialityDialogProps) 
           <form onSubmit={form.handleSubmit((data) => mutation.mutate(data))} className="space-y-4">
             <FormField
               control={form.control}
-              name="name"
+              name="name_en"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>{t('company.name')}</FormLabel>
+                  <FormLabel>English Name</FormLabel>
                   <FormControl>
                     <Input placeholder="e.g., Electrical, Plumbing, HVAC" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="name_pt"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Portuguese Name (Nome em Português)</FormLabel>
+                  <FormControl>
+                    <Input placeholder="e.g., Elétrica, Encanamento, HVAC" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
