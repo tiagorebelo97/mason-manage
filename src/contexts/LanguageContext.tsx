@@ -32,6 +32,7 @@ const translations = {
     'company.addCompany': 'Add Company',
     'company.addSpeciality': 'Add Speciality',
     'company.editCompany': 'Edit Company',
+    'company.editSpeciality': 'Edit Speciality',
     'company.name': 'Name',
     'company.email': 'Email',
     'company.speciality': 'Speciality',
@@ -42,6 +43,10 @@ const translations = {
     'company.deleteError': 'Failed to delete company',
     'company.exportSuccess': 'Companies exported successfully',
     'company.exportError': 'No data to export',
+    
+    // Navigation
+    'nav.companies': 'Companies',
+    'nav.specialities': 'Specialities',
     
     // Dialogs
     'dialog.addCompany': 'Add Company',
@@ -77,6 +82,7 @@ const translations = {
     'company.addCompany': 'Adicionar Empresa',
     'company.addSpeciality': 'Adicionar Especialidade',
     'company.editCompany': 'Editar Empresa',
+    'company.editSpeciality': 'Editar Especialidade',
     'company.name': 'Nome',
     'company.email': 'E-mail',
     'company.speciality': 'Especialidade',
@@ -87,6 +93,10 @@ const translations = {
     'company.deleteError': 'Falha ao excluir empresa',
     'company.exportSuccess': 'Empresas exportadas com sucesso',
     'company.exportError': 'Sem dados para exportar',
+    
+    // Navigation
+    'nav.companies': 'Empresas',
+    'nav.specialities': 'Especialidades',
     
     // Dialogs
     'dialog.addCompany': 'Adicionar Empresa',

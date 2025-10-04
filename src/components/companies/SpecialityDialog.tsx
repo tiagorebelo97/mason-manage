@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -33,9 +34,10 @@ type SpecialityFormData = z.infer<typeof specialitySchema>;
 interface SpecialityDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  speciality?: { id: string; name_en: string; name_pt: string } | null;
 }
 
-export const SpecialityDialog = ({ open, onOpenChange }: SpecialityDialogProps) => {
+export const SpecialityDialog = ({ open, onOpenChange, speciality }: SpecialityDialogProps) => {
   const queryClient = useQueryClient();
   const { t } = useLanguage();
 
@@ -47,15 +49,37 @@ export const SpecialityDialog = ({ open, onOpenChange }: SpecialityDialogProps) 
     },
   });
 
+  useEffect(() => {
+    if (speciality) {
+      form.reset({
+        name_en: speciality.name_en,
+        name_pt: speciality.name_pt,
+      });
+    } else {
+      form.reset({
+        name_en: "",
+        name_pt: "",
+      });
+    }
+  }, [speciality, form]);
+
   const mutation = useMutation({
     mutationFn: async (data: SpecialityFormData) => {
-      const insertData = { name: data.name_en, name_en: data.name_en, name_pt: data.name_pt };
-      const { error } = await supabase.from("specialities").insert([insertData]);
-      if (error) throw error;
+      if (speciality) {
+        const { error } = await supabase
+          .from("specialities")
+          .update({ name_en: data.name_en, name_pt: data.name_pt, name: data.name_en })
+          .eq("id", speciality.id);
+        if (error) throw error;
+      } else {
+        const insertData = { name: data.name_en, name_en: data.name_en, name_pt: data.name_pt };
+        const { error } = await supabase.from("specialities").insert([insertData]);
+        if (error) throw error;
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["specialities"] });
-      toast.success("Speciality added successfully");
+      toast.success(speciality ? "Speciality updated successfully" : "Speciality added successfully");
       onOpenChange(false);
       form.reset();
     },
@@ -72,7 +96,7 @@ export const SpecialityDialog = ({ open, onOpenChange }: SpecialityDialogProps) 
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{t('dialog.addSpeciality')}</DialogTitle>
+          <DialogTitle>{speciality ? t('company.editSpeciality') : t('dialog.addSpeciality')}</DialogTitle>
           <DialogDescription>{t('dialog.addSpecialityDesc')}</DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -108,7 +132,7 @@ export const SpecialityDialog = ({ open, onOpenChange }: SpecialityDialogProps) 
                 {t('dialog.cancel')}
               </Button>
               <Button type="submit" disabled={mutation.isPending}>
-                {mutation.isPending ? "..." : t('dialog.create')}
+                {mutation.isPending ? "..." : (speciality ? t('dialog.save') : t('dialog.create'))}
               </Button>
             </div>
           </form>

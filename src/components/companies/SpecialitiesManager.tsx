@@ -1,9 +1,11 @@
+import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Trash2 } from "lucide-react";
+import { Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { SpecialityDialog } from "./SpecialityDialog";
 import {
   Table,
   TableBody,
@@ -14,6 +16,7 @@ import {
 } from "@/components/ui/table";
 
 export const SpecialitiesManager = () => {
+  const [editingSpeciality, setEditingSpeciality] = useState<{ id: string; name_en: string; name_pt: string } | null>(null);
   const queryClient = useQueryClient();
   const { language } = useLanguage();
 
@@ -67,18 +70,35 @@ export const SpecialitiesManager = () => {
               <TableCell>{speciality.name_en}</TableCell>
               <TableCell>{speciality.name_pt}</TableCell>
               <TableCell className="text-right">
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  onClick={() => deleteMutation.mutate(speciality.id)}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
+                <div className="flex justify-end gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setEditingSpeciality(speciality)}
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => deleteMutation.mutate(speciality.id)}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
               </TableCell>
             </TableRow>
           ))}
         </TableBody>
       </Table>
+
+      {editingSpeciality && (
+        <SpecialityDialog
+          open={!!editingSpeciality}
+          onOpenChange={(open) => !open && setEditingSpeciality(null)}
+          speciality={editingSpeciality}
+        />
+      )}
     </div>
   );
 };
