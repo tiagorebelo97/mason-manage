@@ -20,7 +20,7 @@ type Company = {
   email: string;
   speciality_id: string | null;
   created_at: string;
-  specialities?: { name: string; name_en: string; name_pt: string } | null;
+  company_specialities?: Array<{ specialities: { name: string; name_en: string; name_pt: string } }>;
 };
 
 export const CompaniesTable = () => {
@@ -33,7 +33,7 @@ export const CompaniesTable = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("companies")
-        .select("*, specialities(name, name_en, name_pt)")
+        .select("*, company_specialities(specialities(name, name_en, name_pt))")
         .order("name");
       if (error) throw error;
       return data;
@@ -60,14 +60,17 @@ export const CompaniesTable = () => {
       return;
     }
 
-    const headers = ["Name", "Email", "Speciality"];
-    const rows = companies.map((company) => [
-      company.name,
-      company.email,
-      company.specialities 
-        ? (language === 'pt' ? company.specialities.name_pt : company.specialities.name_en)
-        : "",
-    ]);
+    const headers = ["Name", "Email", "Specialities"];
+    const rows = companies.map((company) => {
+      const specialitiesNames = company.company_specialities
+        ?.map(cs => language === 'pt' ? cs.specialities.name_pt : cs.specialities.name_en)
+        .join("; ") || "";
+      return [
+        company.name,
+        company.email,
+        specialitiesNames,
+      ];
+    });
 
     const csvContent = [
       headers.join(","),
@@ -122,8 +125,10 @@ export const CompaniesTable = () => {
                   <TableCell className="font-medium">{company.name}</TableCell>
                   <TableCell>{company.email}</TableCell>
                   <TableCell>
-                    {company.specialities 
-                      ? (language === 'pt' ? company.specialities.name_pt : company.specialities.name_en)
+                    {company.company_specialities && company.company_specialities.length > 0
+                      ? company.company_specialities
+                          .map(cs => language === 'pt' ? cs.specialities.name_pt : cs.specialities.name_en)
+                          .join(", ")
                       : "—"}
                   </TableCell>
                   <TableCell className="text-right">
