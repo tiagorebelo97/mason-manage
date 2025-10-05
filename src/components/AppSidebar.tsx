@@ -83,7 +83,7 @@ export function AppSidebar() {
             </Button>
           </div>
           <Button
-            variant="outline"
+            variant="secondary"
             size="sm"
             onClick={handleLogout}
             className="w-full"
