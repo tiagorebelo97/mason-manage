@@ -2,24 +2,16 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Plus, LogOut, Globe } from "lucide-react";
+import { Plus } from "lucide-react";
 import { CompaniesTable } from "@/components/companies/CompaniesTable";
 import { CompanyDialog } from "@/components/companies/CompanyDialog";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { toast } from "sonner";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 
 const Index = () => {
   const [isCompanyDialogOpen, setIsCompanyDialogOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
-  const { language, setLanguage, t } = useLanguage();
+  const { t } = useLanguage();
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -38,12 +30,6 @@ const Index = () => {
     return () => subscription.unsubscribe();
   }, [navigate]);
 
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-    toast.success(t('auth.logoutSuccess'));
-    navigate('/auth');
-  };
-
   if (loading) {
     return <div className="min-h-screen bg-background flex items-center justify-center">{t('common.loading')}</div>;
   }
@@ -53,26 +39,10 @@ const Index = () => {
       <div className="mb-8">
         <div className="flex items-center justify-between mb-2">
           <h1 className="text-4xl font-bold text-foreground">{t('company.title')}</h1>
-          <div className="flex gap-2 items-center">
-            <Select value={language} onValueChange={(val) => setLanguage(val as 'en' | 'pt')}>
-              <SelectTrigger className="w-[100px]">
-                <Globe className="h-4 w-4 mr-2" />
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="en">EN</SelectItem>
-                <SelectItem value="pt">PT</SelectItem>
-              </SelectContent>
-            </Select>
-            <Button variant="outline" onClick={handleLogout}>
-              <LogOut className="mr-2 h-4 w-4" />
-              {t('auth.logout')}
-            </Button>
-            <Button onClick={() => setIsCompanyDialogOpen(true)}>
-              <Plus className="mr-2 h-4 w-4" />
-              {t('company.addCompany')}
-            </Button>
-          </div>
+          <Button onClick={() => setIsCompanyDialogOpen(true)}>
+            <Plus className="mr-2 h-4 w-4" />
+            {t('company.addCompany')}
+          </Button>
         </div>
         <p className="text-muted-foreground">{t('company.subtitle')}</p>
       </div>
