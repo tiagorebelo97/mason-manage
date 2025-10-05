@@ -18,13 +18,7 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -36,13 +30,14 @@ type Company = {
   name: string;
   email: string;
   speciality_id: string | null;
+  speciality_ids?: string[];
   created_at: string;
 };
 
 const companySchema = z.object({
   name: z.string().min(1, "Name is required").max(100),
   email: z.string().email("Invalid email").max(255),
-  speciality_id: z.string().optional(),
+  speciality_ids: z.array(z.string()).optional(),
 });
 
 type CompanyFormData = z.infer<typeof companySchema>;
@@ -62,7 +57,7 @@ export const CompanyDialog = ({ open, onOpenChange, company }: CompanyDialogProp
     defaultValues: {
       name: "",
       email: "",
-      speciality_id: "",
+      speciality_ids: [],
     },
   });
 
@@ -78,38 +73,85 @@ export const CompanyDialog = ({ open, onOpenChange, company }: CompanyDialogProp
     },
   });
 
+  // Fetch existing company specialities when editing
+  const { data: companySpecialities } = useQuery({
+    queryKey: ["company-specialities", company?.id],
+    queryFn: async () => {
+      if (!company?.id) return [];
+      const { data, error } = await supabase
+        .from("company_specialities")
+        .select("speciality_id")
+        .eq("company_id", company.id);
+      if (error) throw error;
+      return data.map(item => item.speciality_id);
+    },
+    enabled: !!company?.id,
+  });
+
   useEffect(() => {
     if (company) {
       form.reset({
         name: company.name,
         email: company.email,
-        speciality_id: company.speciality_id,
+        speciality_ids: companySpecialities || [],
       });
     } else {
       form.reset({
         name: "",
         email: "",
-        speciality_id: "",
+        speciality_ids: [],
       });
     }
-  }, [company, form]);
+  }, [company, companySpecialities, form]);
 
   const mutation = useMutation({
     mutationFn: async (data: CompanyFormData) => {
       if (company) {
-        const { error } = await supabase
+        // Update company basic info
+        const { error: updateError } = await supabase
           .from("companies")
-          .update(data)
+          .update({ name: data.name, email: data.email })
           .eq("id", company.id);
-        if (error) throw error;
+        if (updateError) throw updateError;
+
+        // Delete existing specialities
+        const { error: deleteError } = await supabase
+          .from("company_specialities")
+          .delete()
+          .eq("company_id", company.id);
+        if (deleteError) throw deleteError;
+
+        // Insert new specialities
+        if (data.speciality_ids && data.speciality_ids.length > 0) {
+          const specialityInserts = data.speciality_ids.map(speciality_id => ({
+            company_id: company.id,
+            speciality_id,
+          }));
+          const { error: insertError } = await supabase
+            .from("company_specialities")
+            .insert(specialityInserts);
+          if (insertError) throw insertError;
+        }
       } else {
-        const insertData = {
-          name: data.name,
-          email: data.email,
-          speciality_id: data.speciality_id || null,
-        };
-        const { error } = await supabase.from("companies").insert([insertData]);
-        if (error) throw error;
+        // Create new company
+        const { data: newCompany, error: insertError } = await supabase
+          .from("companies")
+          .insert([{ name: data.name, email: data.email }])
+          .select()
+          .single();
+        if (insertError) throw insertError;
+
+        // Insert specialities
+        if (data.speciality_ids && data.speciality_ids.length > 0) {
+          const specialityInserts = data.speciality_ids.map(speciality_id => ({
+            company_id: newCompany.id,
+            speciality_id,
+          }));
+          const { error: specialityError } = await supabase
+            .from("company_specialities")
+            .insert(specialityInserts);
+          if (specialityError) throw specialityError;
+        }
       }
     },
     onSuccess: () => {
@@ -162,24 +204,47 @@ export const CompanyDialog = ({ open, onOpenChange, company }: CompanyDialogProp
             />
             <FormField
               control={form.control}
-              name="speciality_id"
-              render={({ field }) => (
+              name="speciality_ids"
+              render={() => (
                 <FormItem>
-                  <FormLabel>{t('company.speciality')}</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select a speciality" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {specialities?.map((speciality) => (
-                        <SelectItem key={speciality.id} value={speciality.id}>
-                          {language === 'pt' ? speciality.name_pt : speciality.name_en}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <div className="mb-4">
+                    <FormLabel>{t('company.speciality')}</FormLabel>
+                  </div>
+                  <div className="space-y-2">
+                    {specialities?.map((speciality) => (
+                      <FormField
+                        key={speciality.id}
+                        control={form.control}
+                        name="speciality_ids"
+                        render={({ field }) => {
+                          return (
+                            <FormItem
+                              key={speciality.id}
+                              className="flex flex-row items-start space-x-3 space-y-0"
+                            >
+                              <FormControl>
+                                <Checkbox
+                                  checked={field.value?.includes(speciality.id)}
+                                  onCheckedChange={(checked) => {
+                                    return checked
+                                      ? field.onChange([...(field.value || []), speciality.id])
+                                      : field.onChange(
+                                          field.value?.filter(
+                                            (value) => value !== speciality.id
+                                          )
+                                        )
+                                  }}
+                                />
+                              </FormControl>
+                              <FormLabel className="font-normal cursor-pointer">
+                                {language === 'pt' ? speciality.name_pt : speciality.name_en}
+                              </FormLabel>
+                            </FormItem>
+                          )
+                        }}
+                      />
+                    ))}
+                  </div>
                   <FormMessage />
                 </FormItem>
               )}
