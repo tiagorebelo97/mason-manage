@@ -56,7 +56,25 @@ serve(async (req) => {
     }
 
     const data = await response.json();
-    const translatedText = data.choices[0].message.content.trim();
+    
+    // Validate the response structure
+    if (!data || !data.choices || !Array.isArray(data.choices) || data.choices.length === 0) {
+      console.error('Invalid response structure from AI gateway:', data);
+      return new Response(
+        JSON.stringify({ error: 'Invalid response from translation service' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    
+    const translatedText = data.choices[0].message?.content?.trim();
+    
+    if (!translatedText) {
+      console.error('Empty translation result from AI gateway');
+      return new Response(
+        JSON.stringify({ error: 'Translation service returned empty result' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     return new Response(
       JSON.stringify({ translatedText }),
