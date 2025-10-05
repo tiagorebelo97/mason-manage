@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -23,6 +23,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { Loader2 } from "lucide-react";
 
 const specialitySchema = z.object({
   name_en: z.string().min(1, "English name is required").max(100),
@@ -40,6 +41,7 @@ interface SpecialityDialogProps {
 export const SpecialityDialog = ({ open, onOpenChange, speciality }: SpecialityDialogProps) => {
   const queryClient = useQueryClient();
   const { t } = useLanguage();
+  const [translating, setTranslating] = useState<'en' | 'pt' | null>(null);
 
   const form = useForm<SpecialityFormData>({
     resolver: zodResolver(specialitySchema),
@@ -48,6 +50,44 @@ export const SpecialityDialog = ({ open, onOpenChange, speciality }: SpecialityD
       name_pt: "",
     },
   });
+
+  const translateText = async (text: string, targetLang: 'en' | 'pt') => {
+    try {
+      setTranslating(targetLang);
+      const { data, error } = await supabase.functions.invoke('translate', {
+        body: { text, targetLanguage: targetLang }
+      });
+      
+      if (error) throw error;
+      return data.translatedText;
+    } catch (error) {
+      console.error('Translation error:', error);
+      toast.error('Translation failed');
+      return '';
+    } finally {
+      setTranslating(null);
+    }
+  };
+
+  const handleEnglishChange = async (value: string) => {
+    form.setValue('name_en', value);
+    if (value && !form.getValues('name_pt')) {
+      const translated = await translateText(value, 'pt');
+      if (translated) {
+        form.setValue('name_pt', translated);
+      }
+    }
+  };
+
+  const handlePortugueseChange = async (value: string) => {
+    form.setValue('name_pt', value);
+    if (value && !form.getValues('name_en')) {
+      const translated = await translateText(value, 'en');
+      if (translated) {
+        form.setValue('name_en', translated);
+      }
+    }
+  };
 
   useEffect(() => {
     if (speciality) {
@@ -106,9 +146,17 @@ export const SpecialityDialog = ({ open, onOpenChange, speciality }: SpecialityD
               name="name_en"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>English Name</FormLabel>
+                  <FormLabel className="flex items-center gap-2">
+                    English Name
+                    {translating === 'pt' && <Loader2 className="h-3 w-3 animate-spin" />}
+                  </FormLabel>
                   <FormControl>
-                    <Input placeholder="e.g., Electrical, Plumbing, HVAC" {...field} />
+                    <Input 
+                      placeholder="e.g., Electrical, Plumbing, HVAC" 
+                      {...field}
+                      onChange={(e) => handleEnglishChange(e.target.value)}
+                      disabled={translating === 'en'}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -119,9 +167,17 @@ export const SpecialityDialog = ({ open, onOpenChange, speciality }: SpecialityD
               name="name_pt"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Portuguese Name (Nome em Português)</FormLabel>
+                  <FormLabel className="flex items-center gap-2">
+                    Portuguese Name (Nome em Português)
+                    {translating === 'en' && <Loader2 className="h-3 w-3 animate-spin" />}
+                  </FormLabel>
                   <FormControl>
-                    <Input placeholder="e.g., Elétrica, Encanamento, HVAC" {...field} />
+                    <Input 
+                      placeholder="e.g., Elétrica, Encanamento, HVAC" 
+                      {...field}
+                      onChange={(e) => handlePortugueseChange(e.target.value)}
+                      disabled={translating === 'pt'}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

@@ -1,8 +1,9 @@
-import { Building2, List } from "lucide-react";
+import { Building2, List, Globe } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import {
   Sidebar,
   SidebarContent,
+  SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
   SidebarGroupLabel,
@@ -12,6 +13,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { Button } from "@/components/ui/button";
 
 const menuItems = [
   { title: 'nav.companies', url: "/", icon: Building2 },
@@ -20,7 +22,7 @@ const menuItems = [
 
 export function AppSidebar() {
   const { state } = useSidebar();
-  const { t } = useLanguage();
+  const { language, setLanguage, t } = useLanguage();
 
   const getNavCls = ({ isActive }: { isActive: boolean }) =>
     isActive ? "bg-primary text-primary-foreground font-medium" : "hover:bg-muted/50";
@@ -48,6 +50,28 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
+      <SidebarFooter>
+        <div className="p-2 flex gap-2 justify-center">
+          <Button
+            variant={language === 'en' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setLanguage('en')}
+            className="flex-1"
+          >
+            <Globe className="h-4 w-4 mr-1" />
+            EN
+          </Button>
+          <Button
+            variant={language === 'pt' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setLanguage('pt')}
+            className="flex-1"
+          >
+            <Globe className="h-4 w-4 mr-1" />
+            PT
+          </Button>
+        </div>
+      </SidebarFooter>
     </Sidebar>
   );
 }
