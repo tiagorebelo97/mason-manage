@@ -61,7 +61,7 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
       <SidebarFooter>
-        <div className="p-2 space-y-2">
+        <div className="p-2 space-y-2 group-data-[collapsible=icon]:hidden">
           <div className="flex gap-2">
             <Button
               variant={language === 'en' ? 'default' : 'secondary'}
