@@ -61,10 +61,22 @@ export const SpecialityDialog = ({ open, onOpenChange, speciality }: SpecialityD
       });
       
       if (error) throw error;
+      
+      // Check if the response contains an error field
+      if (data && 'error' in data) {
+        throw new Error(data.error);
+      }
+      
+      // Validate that we received a translated text
+      if (!data || !data.translatedText) {
+        throw new Error('Translation failed - no translated text returned');
+      }
+      
       return data.translatedText;
     } catch (error) {
       console.error('Translation error:', error);
-      toast.error('Translation failed');
+      const errorMessage = error instanceof Error ? error.message : 'Translation failed';
+      toast.error(`Translation failed: ${errorMessage}`);
       return '';
     } finally {
       setTranslating(false);
