@@ -45,6 +45,10 @@ const translations = {
     'company.deleteError': 'Failed to delete company',
     'company.exportSuccess': 'Companies exported successfully',
     'company.exportError': 'No data to export',
+    'company.viewCompany': 'Company Details',
+    'company.viewCompanyDesc': 'View company information',
+    'company.selectSpeciality': 'Select specialities...',
+    'company.noSpeciality': 'No specialities found.',
     
     // Speciality Management
     'speciality.name': 'Name',
@@ -103,6 +107,10 @@ const translations = {
     'company.deleteError': 'Falha ao excluir empresa',
     'company.exportSuccess': 'Empresas exportadas com sucesso',
     'company.exportError': 'Sem dados para exportar',
+    'company.viewCompany': 'Detalhes da Empresa',
+    'company.viewCompanyDesc': 'Visualizar informações da empresa',
+    'company.selectSpeciality': 'Selecionar especialidades...',
+    'company.noSpeciality': 'Nenhuma especialidade encontrada.',
     
     // Speciality Management
     'speciality.name': 'Nome',
