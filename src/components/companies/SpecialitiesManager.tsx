@@ -190,25 +190,6 @@ export const SpecialitiesManager = () => {
             <TableRow>
               <TableHead 
                 className="cursor-pointer select-none hover:bg-muted/50"
-                onClick={() => handleSort("name")}
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center">
-                    {t('speciality.name')}
-                    {getSortIcon("name")}
-                  </div>
-                  <ColumnFilter
-                    options={uniqueNames}
-                    selected={nameFilter}
-                    onChange={setNameFilter}
-                    placeholder={t('speciality.filterName') || 'Filter by name'}
-                    emptyText={t('company.noResults')}
-                    columnName="name"
-                  />
-                </div>
-              </TableHead>
-              <TableHead 
-                className="cursor-pointer select-none hover:bg-muted/50"
                 onClick={() => handleSort("main_specialty")}
               >
                 <div className="flex items-center justify-between">
@@ -226,6 +207,25 @@ export const SpecialitiesManager = () => {
                   />
                 </div>
               </TableHead>
+              <TableHead 
+                className="cursor-pointer select-none hover:bg-muted/50"
+                onClick={() => handleSort("name")}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center">
+                    {t('speciality.name')}
+                    {getSortIcon("name")}
+                  </div>
+                  <ColumnFilter
+                    options={uniqueNames}
+                    selected={nameFilter}
+                    onChange={setNameFilter}
+                    placeholder={t('speciality.filterName') || 'Filter by name'}
+                    emptyText={t('company.noResults')}
+                    columnName="name"
+                  />
+                </div>
+              </TableHead>
               <TableHead className="text-right">{t('company.actions')}</TableHead>
             </TableRow>
           </TableHeader>
@@ -239,24 +239,24 @@ export const SpecialitiesManager = () => {
             ) : (
               filteredAndSortedSpecialities.map((speciality) => (
                 <TableRow key={speciality.id}>
-                  <TableCell>{language === 'pt' ? speciality.name_pt : speciality.name_en}</TableCell>
                   <TableCell>
                     {speciality.main_specialties 
                       ? (language === 'pt' ? speciality.main_specialties.main_specialty_pt : speciality.main_specialties.main_specialty_en)
                       : "—"}
                   </TableCell>
+                  <TableCell>{language === 'pt' ? speciality.name_pt : speciality.name_en}</TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
                       <Button
-                        variant="outline"
-                        size="sm"
+                        variant="ghost"
+                        size="icon"
                         onClick={() => setEditingSpeciality(speciality)}
                       >
                         <Pencil className="h-4 w-4" />
                       </Button>
                       <Button
-                        variant="destructive"
-                        size="sm"
+                        variant="ghost"
+                        size="icon"
                         onClick={() => deleteMutation.mutate(speciality.id)}
                       >
                         <Trash2 className="h-4 w-4" />
@@ -268,15 +268,15 @@ export const SpecialitiesManager = () => {
             )}
           </TableBody>
         </Table>
-
-        {editingSpeciality && (
-          <SpecialityDialog
-            open={!!editingSpeciality}
-            onOpenChange={(open) => !open && setEditingSpeciality(null)}
-            speciality={editingSpeciality}
-          />
-        )}
       </div>
+
+      {editingSpeciality && (
+        <SpecialityDialog
+          open={!!editingSpeciality}
+          onOpenChange={(open) => !open && setEditingSpeciality(null)}
+          speciality={editingSpeciality}
+        />
+      )}
     </>
   );
 };
