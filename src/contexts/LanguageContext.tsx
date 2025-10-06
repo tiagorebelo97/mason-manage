@@ -48,6 +48,10 @@ const translations = {
     'company.filterName': 'Filter by name...',
     'company.filterEmail': 'Filter by email...',
     'company.filterSpeciality': 'Filter by speciality...',
+    'company.viewCompany': 'View Company',
+    'company.viewCompanyDesc': 'Company details',
+    'company.selectSpeciality': 'Select specialities...',
+    'company.noSpeciality': 'No specialities found.',
     
     // Speciality Management
     'speciality.name': 'Name',
@@ -68,6 +72,7 @@ const translations = {
     'dialog.cancel': 'Cancel',
     'dialog.save': 'Save',
     'dialog.create': 'Create',
+    'dialog.close': 'Close',
     
     // Common
     'common.loading': 'Loading companies...',
@@ -109,6 +114,10 @@ const translations = {
     'company.filterName': 'Filtrar por nome...',
     'company.filterEmail': 'Filtrar por e-mail...',
     'company.filterSpeciality': 'Filtrar por especialidade...',
+    'company.viewCompany': 'Ver Empresa',
+    'company.viewCompanyDesc': 'Detalhes da empresa',
+    'company.selectSpeciality': 'Selecionar especialidades...',
+    'company.noSpeciality': 'Nenhuma especialidade encontrada.',
     
     // Speciality Management
     'speciality.name': 'Nome',
@@ -129,6 +138,7 @@ const translations = {
     'dialog.cancel': 'Cancelar',
     'dialog.save': 'Guardar',
     'dialog.create': 'Criar',
+    'dialog.close': 'Fechar',
     
     // Common
     'common.loading': 'A carregar empresas...',
