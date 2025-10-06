@@ -46,9 +46,10 @@ interface CompanyDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   company?: Company | null;
+  readOnly?: boolean;
 }
 
-export const CompanyDialog = ({ open, onOpenChange, company }: CompanyDialogProps) => {
+export const CompanyDialog = ({ open, onOpenChange, company, readOnly = false }: CompanyDialogProps) => {
   const queryClient = useQueryClient();
   const { t, language } = useLanguage();
 
@@ -169,9 +170,11 @@ export const CompanyDialog = ({ open, onOpenChange, company }: CompanyDialogProp
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{company ? t('company.editCompany') : t('dialog.addCompany')}</DialogTitle>
+          <DialogTitle>
+            {readOnly ? t('company.viewCompany') || 'View Company' : (company ? t('company.editCompany') : t('dialog.addCompany'))}
+          </DialogTitle>
           <DialogDescription>
-            {company ? t('dialog.updateCompany') : t('dialog.addCompanyDesc')}
+            {readOnly ? t('company.viewCompanyDesc') || 'Company details' : (company ? t('dialog.updateCompany') : t('dialog.addCompanyDesc'))}
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -183,7 +186,7 @@ export const CompanyDialog = ({ open, onOpenChange, company }: CompanyDialogProp
                 <FormItem>
                   <FormLabel>{t('company.name')}</FormLabel>
                   <FormControl>
-                    <Input {...field} />
+                    <Input {...field} disabled={readOnly} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -196,7 +199,7 @@ export const CompanyDialog = ({ open, onOpenChange, company }: CompanyDialogProp
                 <FormItem>
                   <FormLabel>{t('company.email')}</FormLabel>
                   <FormControl>
-                    <Input type="email" {...field} />
+                    <Input type="email" {...field} disabled={readOnly} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -220,20 +223,30 @@ export const CompanyDialog = ({ open, onOpenChange, company }: CompanyDialogProp
                       onChange={field.onChange}
                       placeholder={t('company.selectSpeciality') || "Select specialities..."}
                       emptyText={t('company.noSpeciality') || "No specialities found."}
+                      disabled={readOnly}
                     />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
-            <div className="flex justify-end gap-2">
-              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-                {t('dialog.cancel')}
-              </Button>
-              <Button type="submit" disabled={mutation.isPending}>
-                {mutation.isPending ? "..." : company ? t('dialog.save') : t('dialog.create')}
-              </Button>
-            </div>
+            {!readOnly && (
+              <div className="flex justify-end gap-2">
+                <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+                  {t('dialog.cancel')}
+                </Button>
+                <Button type="submit" disabled={mutation.isPending}>
+                  {mutation.isPending ? "..." : company ? t('dialog.save') : t('dialog.create')}
+                </Button>
+              </div>
+            )}
+            {readOnly && (
+              <div className="flex justify-end">
+                <Button type="button" onClick={() => onOpenChange(false)}>
+                  {t('dialog.close') || 'Close'}
+                </Button>
+              </div>
+            )}
           </form>
         </Form>
       </DialogContent>

@@ -30,6 +30,7 @@ type SortDirection = "asc" | "desc" | null;
 
 export const CompaniesTable = () => {
   const [editingCompany, setEditingCompany] = useState<Company | null>(null);
+  const [viewingCompany, setViewingCompany] = useState<Company | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [nameFilter, setNameFilter] = useState("");
   const [emailFilter, setEmailFilter] = useState("");
@@ -383,7 +384,11 @@ export const CompaniesTable = () => {
               </TableRow>
             ) : (
               filteredAndSortedCompanies?.map((company) => (
-                <TableRow key={company.id}>
+                <TableRow 
+                  key={company.id}
+                  className="cursor-pointer hover:bg-muted/50"
+                  onClick={() => setViewingCompany(company)}
+                >
                   <TableCell className="font-medium">{company.name}</TableCell>
                   <TableCell>{company.email}</TableCell>
                   <TableCell>
@@ -398,14 +403,20 @@ export const CompaniesTable = () => {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => setEditingCompany(company)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setEditingCompany(company);
+                        }}
                       >
                         <Pencil className="h-4 w-4" />
                       </Button>
                       <Button
                         variant="destructive"
                         size="sm"
-                        onClick={() => deleteMutation.mutate(company.id)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          deleteMutation.mutate(company.id);
+                        }}
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
@@ -423,6 +434,15 @@ export const CompaniesTable = () => {
           open={!!editingCompany}
           onOpenChange={(open) => !open && setEditingCompany(null)}
           company={editingCompany}
+        />
+      )}
+
+      {viewingCompany && (
+        <CompanyDialog
+          open={!!viewingCompany}
+          onOpenChange={(open) => !open && setViewingCompany(null)}
+          company={viewingCompany}
+          readOnly={true}
         />
       )}
     </>
