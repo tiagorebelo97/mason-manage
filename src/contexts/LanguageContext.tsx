@@ -72,21 +72,21 @@ const translations = {
   pt: {
     // Auth
     'auth.login': 'Entrar',
-    'auth.signup': 'Cadastrar',
+    'auth.signup': 'Registar',
     'auth.email': 'E-mail',
-    'auth.password': 'Senha',
-    'auth.username': 'Nome de usuário',
+    'auth.password': 'Palavra-passe',
+    'auth.username': 'Nome de utilizador',
     'auth.logout': 'Sair',
     'auth.noAccount': 'Não tem uma conta?',
     'auth.hasAccount': 'Já tem uma conta?',
     'auth.signupSuccess': 'Conta criada com sucesso!',
-    'auth.loginSuccess': 'Login realizado com sucesso!',
-    'auth.logoutSuccess': 'Logout realizado com sucesso',
+    'auth.loginSuccess': 'Sessão iniciada com sucesso!',
+    'auth.logoutSuccess': 'Sessão terminada com sucesso',
     'auth.error': 'Erro de autenticação',
     
     // Company Management
     'company.title': 'Gestão de Empresas',
-    'company.subtitle': 'Gerencie suas empresas parceiras de construção',
+    'company.subtitle': 'Faça a gestão das suas empresas parceiras de construção',
     'company.addCompany': 'Adicionar Empresa',
     'company.addSpeciality': 'Adicionar Especialidade',
     'company.editCompany': 'Editar Empresa',
@@ -95,12 +95,12 @@ const translations = {
     'company.email': 'E-mail',
     'company.speciality': 'Especialidade',
     'company.actions': 'Ações',
-    'company.noCompanies': 'Nenhuma empresa encontrada. Adicione sua primeira empresa!',
+    'company.noCompanies': 'Nenhuma empresa encontrada. Adicione a sua primeira empresa!',
     'company.noResults': 'Nenhuma empresa corresponde à sua pesquisa.',
     'company.searchPlaceholder': 'Pesquisar por nome, e-mail ou especialidade...',
     'company.exportCSV': 'Exportar Excel',
-    'company.deleteSuccess': 'Empresa excluída com sucesso',
-    'company.deleteError': 'Falha ao excluir empresa',
+    'company.deleteSuccess': 'Empresa eliminada com sucesso',
+    'company.deleteError': 'Falha ao eliminar empresa',
     'company.exportSuccess': 'Empresas exportadas com sucesso',
     'company.exportError': 'Sem dados para exportar',
     
@@ -121,11 +121,11 @@ const translations = {
     'dialog.addSpeciality': 'Adicionar Nova Especialidade',
     'dialog.addSpecialityDesc': 'Selecione o idioma e insira o nome da especialidade. O outro idioma será traduzido automaticamente.',
     'dialog.cancel': 'Cancelar',
-    'dialog.save': 'Salvar',
+    'dialog.save': 'Guardar',
     'dialog.create': 'Criar',
     
     // Common
-    'common.loading': 'Carregando empresas...',
+    'common.loading': 'A carregar empresas...',
   },
 };
 
