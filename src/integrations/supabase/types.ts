@@ -113,6 +113,7 @@ export type Database = {
           name: string
           name_en: string
           name_pt: string
+          main_specialty_id: string | null
         }
         Insert: {
           created_at?: string | null
@@ -120,6 +121,7 @@ export type Database = {
           name: string
           name_en: string
           name_pt: string
+          main_specialty_id?: string | null
         }
         Update: {
           created_at?: string | null
@@ -127,8 +129,137 @@ export type Database = {
           name?: string
           name_en?: string
           name_pt?: string
+          main_specialty_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "specialities_main_specialty_id_fkey"
+            columns: ["main_specialty_id"]
+            isOneToOne: false
+            referencedRelation: "main_specialties"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      main_specialties: {
+        Row: {
+          created_at: string | null
+          id: string
+          type: string
+          main_specialty_en: string
+          main_specialty_pt: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          type: string
+          main_specialty_en: string
+          main_specialty_pt: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          type?: string
+          main_specialty_en?: string
+          main_specialty_pt?: string
         }
         Relationships: []
+      }
+      brands: {
+        Row: {
+          created_at: string | null
+          id: string
+          name: string
+          website: string | null
+          official_email: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          name: string
+          website?: string | null
+          official_email?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          name?: string
+          website?: string | null
+          official_email?: string | null
+        }
+        Relationships: []
+      }
+      brand_specialities: {
+        Row: {
+          brand_id: string
+          created_at: string
+          id: string
+          speciality_id: string
+        }
+        Insert: {
+          brand_id: string
+          created_at?: string
+          id?: string
+          speciality_id: string
+        }
+        Update: {
+          brand_id?: string
+          created_at?: string
+          id?: string
+          speciality_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "brand_specialities_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "brand_specialities_speciality_id_fkey"
+            columns: ["speciality_id"]
+            isOneToOne: false
+            referencedRelation: "specialities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      brand_companies: {
+        Row: {
+          brand_id: string
+          created_at: string
+          id: string
+          company_id: string
+        }
+        Insert: {
+          brand_id: string
+          created_at?: string
+          id?: string
+          company_id: string
+        }
+        Update: {
+          brand_id?: string
+          created_at?: string
+          id?: string
+          company_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "brand_companies_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "brand_companies_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {

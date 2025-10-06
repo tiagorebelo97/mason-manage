@@ -26,7 +26,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -36,18 +36,20 @@ const createSpecialitySchema = (language: 'en' | 'pt') => {
   return z.object({
     name: z.string().min(1, language === 'en' ? "Name is required" : "Nome é obrigatório").max(100),
     inputLanguage: z.enum(['en', 'pt']),
+    main_specialty_id: z.string().optional(),
   });
 };
 
 type SpecialityFormData = {
   name: string;
   inputLanguage: 'en' | 'pt';
+  main_specialty_id?: string;
 };
 
 interface SpecialityDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  speciality?: { id: string; name_en: string; name_pt: string } | null;
+  speciality?: { id: string; name_en: string; name_pt: string; main_specialty_id?: string | null } | null;
 }
 
 export const SpecialityDialog = ({ open, onOpenChange, speciality }: SpecialityDialogProps) => {
@@ -60,6 +62,19 @@ export const SpecialityDialog = ({ open, onOpenChange, speciality }: SpecialityD
     defaultValues: {
       name: "",
       inputLanguage: language,
+      main_specialty_id: "",
+    },
+  });
+
+  const { data: mainSpecialties } = useQuery({
+    queryKey: ["main_specialities", import.meta.env.VITE_SUPABASE_URL],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("main_specialties")
+        .select("*")
+        .order("type");
+      if (error) throw error;
+      return data;
     },
   });
 
@@ -70,11 +85,13 @@ export const SpecialityDialog = ({ open, onOpenChange, speciality }: SpecialityD
       form.reset({ 
         name: nameToShow,
         inputLanguage: language,
+        main_specialty_id: speciality.main_specialty_id || "",
       });
     } else {
       form.reset({ 
         name: "",
         inputLanguage: language,
+        main_specialty_id: "",
       });
     }
   }, [speciality, form, language]);
@@ -99,7 +116,8 @@ export const SpecialityDialog = ({ open, onOpenChange, speciality }: SpecialityD
             .update({ 
               name_en, 
               name_pt, 
-              name: name_en 
+              name: name_en,
+              main_specialty_id: data.main_specialty_id || null,
             })
             .eq("id", speciality.id);
           if (error) throw error;
@@ -107,7 +125,8 @@ export const SpecialityDialog = ({ open, onOpenChange, speciality }: SpecialityD
           const insertData = { 
             name: name_en, 
             name_en, 
-            name_pt 
+            name_pt,
+            main_specialty_id: data.main_specialty_id || null,
           };
           const { error } = await supabase.from("specialities").insert([insertData]);
           if (error) throw error;
@@ -188,6 +207,39 @@ export const SpecialityDialog = ({ open, onOpenChange, speciality }: SpecialityD
                 </FormItem>
               )}
             />
+            <FormField
+              control={form.control}
+              name="main_specialty_id"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>
+                    {t('speciality.mainSpecialty')}
+                  </FormLabel>
+                  <Select
+                    onValueChange={field.onChange}
+                    value={field.value}
+                    disabled={mutation.isPending || isTranslating}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder={t('speciality.selectMainSpecialty')} />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="">
+                        {language === 'en' ? 'None' : 'Nenhum'}
+                      </SelectItem>
+                      {mainSpecialties?.map((ms) => (
+                        <SelectItem key={ms.id} value={ms.id}>
+                          {language === 'pt' ? ms.main_specialty_pt : ms.main_specialty_en}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
             <div className="flex justify-end gap-2">
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={mutation.isPending || isTranslating}>
                 {t('dialog.cancel')}
@@ -202,3 +254,4 @@ export const SpecialityDialog = ({ open, onOpenChange, speciality }: SpecialityD
     </Dialog>
   );
 };
+
