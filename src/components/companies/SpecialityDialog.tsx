@@ -103,7 +103,7 @@ export const SpecialityDialog = ({ open, onOpenChange, speciality }: SpecialityD
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["specialities"] });
+      queryClient.invalidateQueries({ queryKey: ["specialities", import.meta.env.VITE_SUPABASE_URL] });
       toast.success(speciality ? t('company.editSpeciality') + ' successfully' : t('dialog.addSpeciality') + ' successfully');
       onOpenChange(false);
       form.reset();

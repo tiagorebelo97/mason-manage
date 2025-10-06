@@ -5,6 +5,24 @@ import type { Database } from './types';
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
+// Clear localStorage if the database URL has changed
+const STORAGE_KEY_PREFIX = 'sb-';
+const DB_URL_KEY = 'supabase-db-url';
+const storedUrl = localStorage.getItem(DB_URL_KEY);
+
+if (storedUrl && storedUrl !== SUPABASE_URL) {
+  console.log('Database URL changed, clearing cached data...');
+  // Clear all Supabase-related items from localStorage
+  Object.keys(localStorage).forEach(key => {
+    if (key.startsWith(STORAGE_KEY_PREFIX)) {
+      localStorage.removeItem(key);
+    }
+  });
+}
+
+// Store the current database URL
+localStorage.setItem(DB_URL_KEY, SUPABASE_URL);
+
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
 
