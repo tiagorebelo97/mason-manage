@@ -9,6 +9,8 @@ import { AppSidebar } from "@/components/AppSidebar";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Specialities from "./pages/Specialities";
+import MainSpecialties from "./pages/MainSpecialties";
+import Brands from "./pages/Brands";
 import NotFound from "./pages/NotFound";
 
 // Configure QueryClient with cache settings
@@ -48,6 +50,8 @@ const App = () => (
                         <Routes>
                           <Route path="/" element={<Index />} />
                           <Route path="/specialities" element={<Specialities />} />
+                          <Route path="/main-specialties" element={<MainSpecialties />} />
+                          <Route path="/brands" element={<Brands />} />
                           <Route path="*" element={<NotFound />} />
                         </Routes>
                       </main>
