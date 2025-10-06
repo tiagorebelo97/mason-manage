@@ -15,7 +15,7 @@ import { useState, useMemo } from "react";
 import { CompanyDialog } from "./CompanyDialog";
 import { toast } from "sonner";
 import { useLanguage } from "@/contexts/LanguageContext";
-import * as XLSX from "xlsx";
+import * as XLSX from "xlsx-js-style";
 type Company = {
   id: string;
   name: string;
@@ -175,20 +175,84 @@ export const CompaniesTable = () => {
       { wch: 30 }, // Speciality column
     ];
 
-    // Apply bold formatting to header row (first row)
+    // Define styles for proper Excel table appearance
+    const headerStyle = {
+      font: { 
+        bold: true, 
+        color: { rgb: "FFFFFF" },
+        sz: 12
+      },
+      fill: { 
+        fgColor: { rgb: "4472C4" } // Professional blue color
+      },
+      alignment: { 
+        horizontal: 'center', 
+        vertical: 'center' 
+      },
+      border: {
+        top: { style: 'thin', color: { rgb: "000000" } },
+        bottom: { style: 'thin', color: { rgb: "000000" } },
+        left: { style: 'thin', color: { rgb: "000000" } },
+        right: { style: 'thin', color: { rgb: "000000" } }
+      }
+    };
+
+    const evenRowStyle = {
+      fill: { 
+        fgColor: { rgb: "D9E1F2" } // Light blue for even rows
+      },
+      alignment: { 
+        horizontal: 'left', 
+        vertical: 'center' 
+      },
+      border: {
+        top: { style: 'thin', color: { rgb: "000000" } },
+        bottom: { style: 'thin', color: { rgb: "000000" } },
+        left: { style: 'thin', color: { rgb: "000000" } },
+        right: { style: 'thin', color: { rgb: "000000" } }
+      }
+    };
+
+    const oddRowStyle = {
+      fill: { 
+        fgColor: { rgb: "FFFFFF" } // White for odd rows
+      },
+      alignment: { 
+        horizontal: 'left', 
+        vertical: 'center' 
+      },
+      border: {
+        top: { style: 'thin', color: { rgb: "000000" } },
+        bottom: { style: 'thin', color: { rgb: "000000" } },
+        left: { style: 'thin', color: { rgb: "000000" } },
+        right: { style: 'thin', color: { rgb: "000000" } }
+      }
+    };
+
+    // Apply styles to header row (first row)
     const headerRange = XLSX.utils.decode_range(worksheet['!ref'] || 'A1:C1');
     for (let col = headerRange.s.c; col <= headerRange.e.c; col++) {
       const cellAddress = XLSX.utils.encode_cell({ r: 0, c: col });
       if (!worksheet[cellAddress]) continue;
-      
-      // Set cell style with bold font
-      worksheet[cellAddress].s = {
-        font: { bold: true },
-        alignment: { horizontal: 'left', vertical: 'center' },
-      };
+      worksheet[cellAddress].s = headerStyle;
     }
 
-    // Apply table formatting
+    // Apply alternating row styles to data rows
+    for (let row = 1; row <= headerRange.e.r; row++) {
+      const isEvenRow = row % 2 === 0;
+      const rowStyle = isEvenRow ? evenRowStyle : oddRowStyle;
+      
+      for (let col = headerRange.s.c; col <= headerRange.e.c; col++) {
+        const cellAddress = XLSX.utils.encode_cell({ r: row, c: col });
+        if (!worksheet[cellAddress]) {
+          // Create empty cell if it doesn't exist
+          worksheet[cellAddress] = { t: 's', v: '' };
+        }
+        worksheet[cellAddress].s = rowStyle;
+      }
+    }
+
+    // Apply table formatting with autofilter
     worksheet['!autofilter'] = { ref: XLSX.utils.encode_range(headerRange) };
 
     // Create workbook and add worksheet
