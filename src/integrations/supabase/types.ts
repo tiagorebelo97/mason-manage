@@ -46,6 +46,42 @@ export type Database = {
           },
         ]
       }
+      company_specialities: {
+        Row: {
+          company_id: string
+          created_at: string
+          id: string
+          speciality_id: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          id?: string
+          speciality_id: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          id?: string
+          speciality_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "company_specialities_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "company_specialities_speciality_id_fkey"
+            columns: ["speciality_id"]
+            isOneToOne: false
+            referencedRelation: "specialities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           created_at: string
