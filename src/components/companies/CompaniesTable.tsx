@@ -15,6 +15,7 @@ import { useState, useMemo } from "react";
 import { CompanyDialog } from "./CompanyDialog";
 import { toast } from "sonner";
 import { useLanguage } from "@/contexts/LanguageContext";
+import * as XLSX from "xlsx";
 type Company = {
   id: string;
   name: string;
@@ -163,20 +164,39 @@ export const CompaniesTable = () => {
       }
     });
 
-    const csvContent = [
-      headers.join(","),
-      ...rows.map((row) => row.map((cell) => `"${cell}"`).join(",")),
-    ].join("\n");
+    // Create worksheet data with headers
+    const worksheetData = [headers, ...rows];
+    const worksheet = XLSX.utils.aoa_to_sheet(worksheetData);
 
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const link = document.createElement("a");
-    const url = URL.createObjectURL(blob);
-    link.setAttribute("href", url);
-    link.setAttribute("download", `companies_${new Date().toISOString().split("T")[0]}.csv`);
-    link.style.visibility = "hidden";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    // Set column widths
+    worksheet['!cols'] = [
+      { wch: 30 }, // Name column
+      { wch: 30 }, // Email column
+      { wch: 30 }, // Speciality column
+    ];
+
+    // Apply bold formatting to header row (first row)
+    const headerRange = XLSX.utils.decode_range(worksheet['!ref'] || 'A1:C1');
+    for (let col = headerRange.s.c; col <= headerRange.e.c; col++) {
+      const cellAddress = XLSX.utils.encode_cell({ r: 0, c: col });
+      if (!worksheet[cellAddress]) continue;
+      
+      // Set cell style with bold font
+      worksheet[cellAddress].s = {
+        font: { bold: true },
+        alignment: { horizontal: 'left', vertical: 'center' },
+      };
+    }
+
+    // Apply table formatting
+    worksheet['!autofilter'] = { ref: XLSX.utils.encode_range(headerRange) };
+
+    // Create workbook and add worksheet
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Companies');
+
+    // Generate Excel file and trigger download
+    XLSX.writeFile(workbook, `companies_${new Date().toISOString().split("T")[0]}.xlsx`);
     
     toast.success(t('company.exportSuccess'));
   };
