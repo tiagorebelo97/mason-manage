@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -23,17 +23,16 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { translateText } from "@/services/translationService";
 
 const createSpecialitySchema = (language: 'en' | 'pt') => {
   return z.object({
-    name_en: z.string().min(1, language === 'en' ? "English name is required" : "Nome em inglês é obrigatório").max(100),
-    name_pt: z.string().min(1, language === 'en' ? "Portuguese name is required" : "Nome em português é obrigatório").max(100),
+    name: z.string().min(1, language === 'en' ? "Name is required" : "Nome é obrigatório").max(100),
   });
 };
 
 type SpecialityFormData = {
-  name_en: string;
-  name_pt: string;
+  name: string;
 };
 
 interface SpecialityDialogProps {
@@ -45,46 +44,62 @@ interface SpecialityDialogProps {
 export const SpecialityDialog = ({ open, onOpenChange, speciality }: SpecialityDialogProps) => {
   const queryClient = useQueryClient();
   const { language, t } = useLanguage();
+  const [isTranslating, setIsTranslating] = useState(false);
 
   const form = useForm<SpecialityFormData>({
     resolver: zodResolver(createSpecialitySchema(language)),
     defaultValues: {
-      name_en: "",
-      name_pt: "",
+      name: "",
     },
   });
 
   useEffect(() => {
     if (speciality) {
+      // When editing, show the name in the current language
+      const nameToShow = language === 'en' ? speciality.name_en : speciality.name_pt;
       form.reset({ 
-        name_en: speciality.name_en,
-        name_pt: speciality.name_pt
+        name: nameToShow
       });
     } else {
-      form.reset({ name_en: "", name_pt: "" });
+      form.reset({ name: "" });
     }
-  }, [speciality, form]);
+  }, [speciality, form, language]);
 
   const mutation = useMutation({
     mutationFn: async (data: SpecialityFormData) => {
-      if (speciality) {
-        const { error } = await supabase
-          .from("specialities")
-          .update({ 
-            name_en: data.name_en, 
-            name_pt: data.name_pt, 
-            name: data.name_en 
-          })
-          .eq("id", speciality.id);
-        if (error) throw error;
-      } else {
-        const insertData = { 
-          name: data.name_en, 
-          name_en: data.name_en, 
-          name_pt: data.name_pt 
-        };
-        const { error } = await supabase.from("specialities").insert([insertData]);
-        if (error) throw error;
+      setIsTranslating(true);
+      
+      try {
+        // Translate the name to both languages
+        const sourceLang = language;
+        const targetLang = language === 'en' ? 'pt' : 'en';
+        
+        const translatedName = await translateText(data.name, sourceLang, targetLang);
+        
+        const name_en = language === 'en' ? data.name : translatedName;
+        const name_pt = language === 'pt' ? data.name : translatedName;
+
+        if (speciality) {
+          const { error } = await supabase
+            .from("specialities")
+            .update({ 
+              name_en, 
+              name_pt, 
+              name: name_en 
+            })
+            .eq("id", speciality.id);
+          if (error) throw error;
+        } else {
+          const insertData = { 
+            name: name_en, 
+            name_en, 
+            name_pt 
+          };
+          const { error } = await supabase.from("specialities").insert([insertData]);
+          if (error) throw error;
+        }
+      } finally {
+        setIsTranslating(false);
       }
     },
     onSuccess: () => {
@@ -93,8 +108,8 @@ export const SpecialityDialog = ({ open, onOpenChange, speciality }: SpecialityD
       onOpenChange(false);
       form.reset();
     },
-    onError: (error: any) => {
-      if (error?.code === '23505') {
+    onError: (error: Error) => {
+      if ((error as any)?.code === '23505') {
         toast.error("This speciality already exists");
       } else {
         toast.error(error.message || "Failed to save speciality");
@@ -113,36 +128,17 @@ export const SpecialityDialog = ({ open, onOpenChange, speciality }: SpecialityD
           <form onSubmit={form.handleSubmit((data) => mutation.mutate(data))} className="space-y-4">
             <FormField
               control={form.control}
-              name="name_en"
+              name="name"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>
-                    {language === 'en' ? 'English Name' : 'Nome em Inglês'}
+                    {language === 'en' ? 'Name' : 'Nome'}
                   </FormLabel>
                   <FormControl>
                     <Input 
-                      placeholder={language === 'en' ? "e.g., Electrical, Plumbing, HVAC" : "ex: Electrical, Plumbing, HVAC"}
+                      placeholder={language === 'en' ? "e.g., Electrical, Plumbing, HVAC" : "ex: Elétrica, Encanamento, HVAC"}
                       {...field}
-                      disabled={mutation.isPending}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="name_pt"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>
-                    {language === 'en' ? 'Portuguese Name' : 'Nome em Português'}
-                  </FormLabel>
-                  <FormControl>
-                    <Input 
-                      placeholder={language === 'en' ? "e.g., Elétrica, Encanamento, HVAC" : "ex: Elétrica, Encanamento, HVAC"}
-                      {...field}
-                      disabled={mutation.isPending}
+                      disabled={mutation.isPending || isTranslating}
                     />
                   </FormControl>
                   <FormMessage />
@@ -150,11 +146,11 @@ export const SpecialityDialog = ({ open, onOpenChange, speciality }: SpecialityD
               )}
             />
             <div className="flex justify-end gap-2">
-              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+              <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={mutation.isPending || isTranslating}>
                 {t('dialog.cancel')}
               </Button>
-              <Button type="submit" disabled={mutation.isPending}>
-                {mutation.isPending ? "..." : (speciality ? t('dialog.save') : t('dialog.create'))}
+              <Button type="submit" disabled={mutation.isPending || isTranslating}>
+                {(mutation.isPending || isTranslating) ? "..." : (speciality ? t('dialog.save') : t('dialog.create'))}
               </Button>
             </div>
           </form>
