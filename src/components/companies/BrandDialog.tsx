@@ -107,7 +107,8 @@ export const BrandDialog = ({ open, onOpenChange, brand, readOnly = false }: Bra
         speciality_ids: [],
       });
     }
-  }, [brand, brandSpecialities, form]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [brand, brandSpecialities]);
 
   const mutation = useMutation({
     mutationFn: async (data: BrandFormData) => {
