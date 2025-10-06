@@ -9,8 +9,9 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Pencil, Trash2, Download } from "lucide-react";
-import { useState } from "react";
+import { Input } from "@/components/ui/input";
+import { Pencil, Trash2, Download, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
+import { useState, useMemo } from "react";
 import { CompanyDialog } from "./CompanyDialog";
 import { toast } from "sonner";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -23,8 +24,14 @@ type Company = {
   company_specialities?: Array<{ specialities: { name: string; name_en: string; name_pt: string } }>;
 };
 
+type SortField = "name" | "email" | "speciality";
+type SortDirection = "asc" | "desc" | null;
+
 export const CompaniesTable = () => {
   const [editingCompany, setEditingCompany] = useState<Company | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [sortField, setSortField] = useState<SortField | null>(null);
+  const [sortDirection, setSortDirection] = useState<SortDirection>(null);
   const queryClient = useQueryClient();
   const { t, language } = useLanguage();
 
@@ -33,12 +40,84 @@ export const CompaniesTable = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("companies")
-        .select("*, company_specialities(specialities(name, name_en, name_pt))")
-        .order("name");
+        .select("*, company_specialities(specialities(name, name_en, name_pt))");
       if (error) throw error;
       return data;
     },
   });
+
+  // Filter and sort companies
+  const filteredAndSortedCompanies = useMemo(() => {
+    if (!companies) return [];
+
+    // Filter by search term
+    let filtered = companies.filter((company) => {
+      const searchLower = searchTerm.toLowerCase();
+      const nameMatch = company.name.toLowerCase().includes(searchLower);
+      const emailMatch = company.email.toLowerCase().includes(searchLower);
+      const specialityMatch = company.company_specialities?.some(cs =>
+        (language === 'pt' ? cs.specialities.name_pt : cs.specialities.name_en).toLowerCase().includes(searchLower)
+      ) || false;
+      
+      return nameMatch || emailMatch || specialityMatch;
+    });
+
+    // Sort by selected field
+    if (sortField && sortDirection) {
+      filtered = [...filtered].sort((a, b) => {
+        let aValue: string = "";
+        let bValue: string = "";
+
+        if (sortField === "name") {
+          aValue = a.name;
+          bValue = b.name;
+        } else if (sortField === "email") {
+          aValue = a.email;
+          bValue = b.email;
+        } else if (sortField === "speciality") {
+          aValue = a.company_specialities?.[0]
+            ? (language === 'pt' ? a.company_specialities[0].specialities.name_pt : a.company_specialities[0].specialities.name_en)
+            : "";
+          bValue = b.company_specialities?.[0]
+            ? (language === 'pt' ? b.company_specialities[0].specialities.name_pt : b.company_specialities[0].specialities.name_en)
+            : "";
+        }
+
+        const comparison = aValue.localeCompare(bValue);
+        return sortDirection === "asc" ? comparison : -comparison;
+      });
+    }
+
+    return filtered;
+  }, [companies, searchTerm, sortField, sortDirection, language]);
+
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      // Toggle sort direction
+      if (sortDirection === "asc") {
+        setSortDirection("desc");
+      } else if (sortDirection === "desc") {
+        setSortField(null);
+        setSortDirection(null);
+      } else {
+        setSortDirection("asc");
+      }
+    } else {
+      // New field, start with ascending
+      setSortField(field);
+      setSortDirection("asc");
+    }
+  };
+
+  const getSortIcon = (field: SortField) => {
+    if (sortField !== field) {
+      return <ArrowUpDown className="ml-2 h-4 w-4" />;
+    }
+    if (sortDirection === "asc") {
+      return <ArrowUp className="ml-2 h-4 w-4" />;
+    }
+    return <ArrowDown className="ml-2 h-4 w-4" />;
+  };
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
@@ -55,13 +134,13 @@ export const CompaniesTable = () => {
   });
 
   const exportToCSV = () => {
-    if (!companies || companies.length === 0) {
+    if (!filteredAndSortedCompanies || filteredAndSortedCompanies.length === 0) {
       toast.error(t('company.exportError'));
       return;
     }
 
     const headers = ["Name", "Email", "Specialities"];
-    const rows = companies.map((company) => {
+    const rows = filteredAndSortedCompanies.map((company) => {
       const specialitiesNames = company.company_specialities
         ?.map(cs => language === 'pt' ? cs.specialities.name_pt : cs.specialities.name_en)
         .join("; ") || "";
@@ -96,7 +175,13 @@ export const CompaniesTable = () => {
 
   return (
     <>
-      <div className="mb-4 flex justify-end">
+      <div className="mb-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <Input
+          placeholder={t('company.searchPlaceholder')}
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="max-w-sm"
+        />
         <Button variant="outline" onClick={exportToCSV}>
           <Download className="mr-2 h-4 w-4" />
           {t('company.exportCSV')}
@@ -106,21 +191,45 @@ export const CompaniesTable = () => {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>{t('company.name')}</TableHead>
-              <TableHead>{t('company.email')}</TableHead>
-              <TableHead>{t('company.speciality')}</TableHead>
+              <TableHead 
+                className="cursor-pointer select-none hover:bg-muted/50"
+                onClick={() => handleSort("name")}
+              >
+                <div className="flex items-center">
+                  {t('company.name')}
+                  {getSortIcon("name")}
+                </div>
+              </TableHead>
+              <TableHead 
+                className="cursor-pointer select-none hover:bg-muted/50"
+                onClick={() => handleSort("email")}
+              >
+                <div className="flex items-center">
+                  {t('company.email')}
+                  {getSortIcon("email")}
+                </div>
+              </TableHead>
+              <TableHead 
+                className="cursor-pointer select-none hover:bg-muted/50"
+                onClick={() => handleSort("speciality")}
+              >
+                <div className="flex items-center">
+                  {t('company.speciality')}
+                  {getSortIcon("speciality")}
+                </div>
+              </TableHead>
               <TableHead className="text-right">{t('company.actions')}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {companies?.length === 0 ? (
+            {filteredAndSortedCompanies?.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={4} className="text-center text-muted-foreground">
-                  {t('company.noCompanies')}
+                  {searchTerm ? t('company.noResults') : t('company.noCompanies')}
                 </TableCell>
               </TableRow>
             ) : (
-              companies?.map((company) => (
+              filteredAndSortedCompanies?.map((company) => (
                 <TableRow key={company.id}>
                   <TableCell className="font-medium">{company.name}</TableCell>
                   <TableCell>{company.email}</TableCell>
