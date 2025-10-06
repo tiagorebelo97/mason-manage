@@ -16,6 +16,7 @@ import { CompanyDialog } from "./CompanyDialog";
 import { toast } from "sonner";
 import { useLanguage } from "@/contexts/LanguageContext";
 import * as XLSX from "xlsx-js-style";
+import { ColumnFilter } from "@/components/ui/column-filter";
 type Company = {
   id: string;
   name: string;
@@ -32,9 +33,9 @@ export const CompaniesTable = () => {
   const [editingCompany, setEditingCompany] = useState<Company | null>(null);
   const [viewingCompany, setViewingCompany] = useState<Company | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
-  const [nameFilter, setNameFilter] = useState("");
-  const [emailFilter, setEmailFilter] = useState("");
-  const [specialityFilter, setSpecialityFilter] = useState("");
+  const [nameFilter, setNameFilter] = useState<string[]>([]);
+  const [emailFilter, setEmailFilter] = useState<string[]>([]);
+  const [specialityFilter, setSpecialityFilter] = useState<string[]>([]);
   const [sortField, setSortField] = useState<SortField | null>(null);
   const [sortDirection, setSortDirection] = useState<SortDirection>(null);
   const queryClient = useQueryClient();
@@ -68,26 +69,24 @@ export const CompaniesTable = () => {
     });
 
     // Apply column-specific filters
-    if (nameFilter) {
-      const nameLower = nameFilter.toLowerCase();
+    if (nameFilter.length > 0) {
       filtered = filtered.filter((company) => 
-        company.name.toLowerCase().includes(nameLower)
+        nameFilter.includes(company.name)
       );
     }
 
-    if (emailFilter) {
-      const emailLower = emailFilter.toLowerCase();
+    if (emailFilter.length > 0) {
       filtered = filtered.filter((company) => 
-        company.email.toLowerCase().includes(emailLower)
+        emailFilter.includes(company.email)
       );
     }
 
-    if (specialityFilter) {
-      const specialityLower = specialityFilter.toLowerCase();
+    if (specialityFilter.length > 0) {
       filtered = filtered.filter((company) => 
-        company.company_specialities?.some(cs =>
-          (language === 'pt' ? cs.specialities.name_pt : cs.specialities.name_en).toLowerCase().includes(specialityLower)
-        ) || false
+        company.company_specialities?.some(cs => {
+          const specialityName = language === 'pt' ? cs.specialities.name_pt : cs.specialities.name_en;
+          return specialityFilter.includes(specialityName);
+        }) || false
       );
     }
 
@@ -119,6 +118,32 @@ export const CompaniesTable = () => {
 
     return filtered;
   }, [companies, searchTerm, nameFilter, emailFilter, specialityFilter, sortField, sortDirection, language]);
+
+  // Get unique values for each column for filter options
+  const uniqueNames = useMemo(() => {
+    if (!companies) return [];
+    const names = Array.from(new Set(companies.map(c => c.name))).sort();
+    return names.map(name => ({ label: name, value: name }));
+  }, [companies]);
+
+  const uniqueEmails = useMemo(() => {
+    if (!companies) return [];
+    const emails = Array.from(new Set(companies.map(c => c.email))).sort();
+    return emails.map(email => ({ label: email, value: email }));
+  }, [companies]);
+
+  const uniqueSpecialities = useMemo(() => {
+    if (!companies) return [];
+    const specialities = new Set<string>();
+    companies.forEach(company => {
+      company.company_specialities?.forEach(cs => {
+        const name = language === 'pt' ? cs.specialities.name_pt : cs.specialities.name_en;
+        specialities.add(name);
+      });
+    });
+    const sortedSpecialities = Array.from(specialities).sort();
+    return sortedSpecialities.map(name => ({ label: name, value: name }));
+  }, [companies, language]);
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -319,60 +344,60 @@ export const CompaniesTable = () => {
                 className="cursor-pointer select-none hover:bg-muted/50"
                 onClick={() => handleSort("name")}
               >
-                <div className="flex items-center">
-                  {t('company.name')}
-                  {getSortIcon("name")}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center">
+                    {t('company.name')}
+                    {getSortIcon("name")}
+                  </div>
+                  <ColumnFilter
+                    options={uniqueNames}
+                    selected={nameFilter}
+                    onChange={setNameFilter}
+                    placeholder={t('company.filterName')}
+                    emptyText={t('company.noResults')}
+                    columnName="name"
+                  />
                 </div>
               </TableHead>
               <TableHead 
                 className="cursor-pointer select-none hover:bg-muted/50"
                 onClick={() => handleSort("email")}
               >
-                <div className="flex items-center">
-                  {t('company.email')}
-                  {getSortIcon("email")}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center">
+                    {t('company.email')}
+                    {getSortIcon("email")}
+                  </div>
+                  <ColumnFilter
+                    options={uniqueEmails}
+                    selected={emailFilter}
+                    onChange={setEmailFilter}
+                    placeholder={t('company.filterEmail')}
+                    emptyText={t('company.noResults')}
+                    columnName="email"
+                  />
                 </div>
               </TableHead>
               <TableHead 
                 className="cursor-pointer select-none hover:bg-muted/50"
                 onClick={() => handleSort("speciality")}
               >
-                <div className="flex items-center">
-                  {t('company.speciality')}
-                  {getSortIcon("speciality")}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center">
+                    {t('company.speciality')}
+                    {getSortIcon("speciality")}
+                  </div>
+                  <ColumnFilter
+                    options={uniqueSpecialities}
+                    selected={specialityFilter}
+                    onChange={setSpecialityFilter}
+                    placeholder={t('company.filterSpeciality')}
+                    emptyText={t('company.noResults')}
+                    columnName="speciality"
+                  />
                 </div>
               </TableHead>
               <TableHead className="text-right">{t('company.actions')}</TableHead>
-            </TableRow>
-            <TableRow>
-              <TableHead className="py-2">
-                <Input
-                  placeholder={t('company.filterName')}
-                  value={nameFilter}
-                  onChange={(e) => setNameFilter(e.target.value)}
-                  className="h-8"
-                  onClick={(e) => e.stopPropagation()}
-                />
-              </TableHead>
-              <TableHead className="py-2">
-                <Input
-                  placeholder={t('company.filterEmail')}
-                  value={emailFilter}
-                  onChange={(e) => setEmailFilter(e.target.value)}
-                  className="h-8"
-                  onClick={(e) => e.stopPropagation()}
-                />
-              </TableHead>
-              <TableHead className="py-2">
-                <Input
-                  placeholder={t('company.filterSpeciality')}
-                  value={specialityFilter}
-                  onChange={(e) => setSpecialityFilter(e.target.value)}
-                  className="h-8"
-                  onClick={(e) => e.stopPropagation()}
-                />
-              </TableHead>
-              <TableHead className="py-2"></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
