@@ -67,21 +67,24 @@ export const MainSpecialityDialog = ({ open, onOpenChange, mainSpeciality }: Mai
   });
 
   useEffect(() => {
-    if (mainSpeciality) {
-      const mainSpecialtyName = language === 'en' ? mainSpeciality.main_specialty_en : mainSpeciality.main_specialty_pt;
-      form.reset({ 
-        type: mainSpeciality.type,
-        mainSpecialty: mainSpecialtyName,
-        inputLanguage: language,
-      });
-    } else {
-      form.reset({ 
-        type: "",
-        mainSpecialty: "",
-        inputLanguage: language,
-      });
+    if (open) {
+      if (mainSpeciality) {
+        const mainSpecialtyName = language === 'en' ? mainSpeciality.main_specialty_en : mainSpeciality.main_specialty_pt;
+        form.reset({ 
+          type: mainSpeciality.type,
+          mainSpecialty: mainSpecialtyName,
+          inputLanguage: language,
+        });
+      } else {
+        form.reset({ 
+          type: "",
+          mainSpecialty: "",
+          inputLanguage: language,
+        });
+      }
     }
-  }, [mainSpeciality, form, language]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, mainSpeciality, language]);
 
   const mutation = useMutation({
     mutationFn: async (data: MainSpecialityFormData) => {
