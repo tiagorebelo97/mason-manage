@@ -79,22 +79,24 @@ export const SpecialityDialog = ({ open, onOpenChange, speciality }: SpecialityD
   });
 
   useEffect(() => {
-    if (speciality) {
-      // When editing, show the name in the current language
-      const nameToShow = language === 'en' ? speciality.name_en : speciality.name_pt;
-      form.reset({ 
-        name: nameToShow,
-        inputLanguage: language,
-        main_specialty_id: speciality.main_specialty_id || "",
-      });
-    } else {
-      form.reset({ 
-        name: "",
-        inputLanguage: language,
-        main_specialty_id: "",
-      });
+    if (open) {
+      if (speciality) {
+        // When editing, show the name in the current language
+        const nameToShow = language === 'en' ? speciality.name_en : speciality.name_pt;
+        form.reset({ 
+          name: nameToShow,
+          inputLanguage: language,
+          main_specialty_id: speciality.main_specialty_id || "",
+        });
+      } else {
+        form.reset({ 
+          name: "",
+          inputLanguage: language,
+          main_specialty_id: "",
+        });
+      }
     }
-  }, [speciality, form, language]);
+  }, [open, speciality, form, language]);
 
   const mutation = useMutation({
     mutationFn: async (data: SpecialityFormData) => {
