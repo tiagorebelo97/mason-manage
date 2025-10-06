@@ -134,7 +134,8 @@ export const CompanyDialog = ({ open, onOpenChange, company, readOnly = false }:
         brand_ids: [],
       });
     }
-  }, [company, companySpecialities, companyBrands, form]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [company, companySpecialities, companyBrands]);
 
   const mutation = useMutation({
     mutationFn: async (data: CompanyFormData) => {
