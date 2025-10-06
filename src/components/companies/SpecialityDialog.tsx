@@ -96,7 +96,8 @@ export const SpecialityDialog = ({ open, onOpenChange, speciality }: SpecialityD
         });
       }
     }
-  }, [open, speciality, form, language]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, speciality, language]);
 
   const mutation = useMutation({
     mutationFn: async (data: SpecialityFormData) => {
