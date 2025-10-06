@@ -109,7 +109,9 @@ export const SpecialityDialog = ({ open, onOpenChange, speciality }: SpecialityD
       form.reset();
     },
     onError: (error: Error) => {
-      if ((error as any)?.code === '23505') {
+      // Check if error has a code property (Supabase errors)
+      const hasCode = 'code' in error && typeof (error as { code?: string }).code === 'string';
+      if (hasCode && (error as { code: string }).code === '23505') {
         toast.error("This speciality already exists");
       } else {
         toast.error(error.message || "Failed to save speciality");
