@@ -31,6 +31,9 @@ type SortDirection = "asc" | "desc" | null;
 export const CompaniesTable = () => {
   const [editingCompany, setEditingCompany] = useState<Company | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [nameFilter, setNameFilter] = useState("");
+  const [emailFilter, setEmailFilter] = useState("");
+  const [specialityFilter, setSpecialityFilter] = useState("");
   const [sortField, setSortField] = useState<SortField | null>(null);
   const [sortDirection, setSortDirection] = useState<SortDirection>(null);
   const queryClient = useQueryClient();
@@ -51,7 +54,7 @@ export const CompaniesTable = () => {
   const filteredAndSortedCompanies = useMemo(() => {
     if (!companies) return [];
 
-    // Filter by search term
+    // Filter by search term (global search)
     let filtered = companies.filter((company) => {
       const searchLower = searchTerm.toLowerCase();
       const nameMatch = company.name.toLowerCase().includes(searchLower);
@@ -62,6 +65,30 @@ export const CompaniesTable = () => {
       
       return nameMatch || emailMatch || specialityMatch;
     });
+
+    // Apply column-specific filters
+    if (nameFilter) {
+      const nameLower = nameFilter.toLowerCase();
+      filtered = filtered.filter((company) => 
+        company.name.toLowerCase().includes(nameLower)
+      );
+    }
+
+    if (emailFilter) {
+      const emailLower = emailFilter.toLowerCase();
+      filtered = filtered.filter((company) => 
+        company.email.toLowerCase().includes(emailLower)
+      );
+    }
+
+    if (specialityFilter) {
+      const specialityLower = specialityFilter.toLowerCase();
+      filtered = filtered.filter((company) => 
+        company.company_specialities?.some(cs =>
+          (language === 'pt' ? cs.specialities.name_pt : cs.specialities.name_en).toLowerCase().includes(specialityLower)
+        ) || false
+      );
+    }
 
     // Sort by selected field
     if (sortField && sortDirection) {
@@ -90,7 +117,7 @@ export const CompaniesTable = () => {
     }
 
     return filtered;
-  }, [companies, searchTerm, sortField, sortDirection, language]);
+  }, [companies, searchTerm, nameFilter, emailFilter, specialityFilter, sortField, sortDirection, language]);
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -251,6 +278,36 @@ export const CompaniesTable = () => {
                 </div>
               </TableHead>
               <TableHead className="text-right">{t('company.actions')}</TableHead>
+            </TableRow>
+            <TableRow>
+              <TableHead className="py-2">
+                <Input
+                  placeholder={t('company.filterName')}
+                  value={nameFilter}
+                  onChange={(e) => setNameFilter(e.target.value)}
+                  className="h-8"
+                  onClick={(e) => e.stopPropagation()}
+                />
+              </TableHead>
+              <TableHead className="py-2">
+                <Input
+                  placeholder={t('company.filterEmail')}
+                  value={emailFilter}
+                  onChange={(e) => setEmailFilter(e.target.value)}
+                  className="h-8"
+                  onClick={(e) => e.stopPropagation()}
+                />
+              </TableHead>
+              <TableHead className="py-2">
+                <Input
+                  placeholder={t('company.filterSpeciality')}
+                  value={specialityFilter}
+                  onChange={(e) => setSpecialityFilter(e.target.value)}
+                  className="h-8"
+                  onClick={(e) => e.stopPropagation()}
+                />
+              </TableHead>
+              <TableHead className="py-2"></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
