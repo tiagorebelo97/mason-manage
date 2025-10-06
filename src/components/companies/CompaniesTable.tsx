@@ -60,16 +60,28 @@ export const CompaniesTable = () => {
       return;
     }
 
-    const headers = ["Name", "Email", "Specialities"];
-    const rows = companies.map((company) => {
-      const specialitiesNames = company.company_specialities
-        ?.map(cs => language === 'pt' ? cs.specialities.name_pt : cs.specialities.name_en)
-        .join("; ") || "";
-      return [
-        company.name,
-        company.email,
-        specialitiesNames,
-      ];
+    const headers = ["Name", "Email", "Speciality"];
+    const rows: string[][] = [];
+    
+    companies.forEach((company) => {
+      if (company.company_specialities && company.company_specialities.length > 0) {
+        // Create one row per speciality
+        company.company_specialities.forEach((cs) => {
+          const specialityName = language === 'pt' ? cs.specialities.name_pt : cs.specialities.name_en;
+          rows.push([
+            company.name,
+            company.email,
+            specialityName,
+          ]);
+        });
+      } else {
+        // If no specialities, still add one row for the company
+        rows.push([
+          company.name,
+          company.email,
+          "",
+        ]);
+      }
     });
 
     const csvContent = [
