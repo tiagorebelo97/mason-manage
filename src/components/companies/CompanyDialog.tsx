@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
+import { MultiSelect } from "@/components/ui/multi-select";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -205,46 +205,23 @@ export const CompanyDialog = ({ open, onOpenChange, company }: CompanyDialogProp
             <FormField
               control={form.control}
               name="speciality_ids"
-              render={() => (
+              render={({ field }) => (
                 <FormItem>
-                  <div className="mb-4">
-                    <FormLabel>{t('company.speciality')}</FormLabel>
-                  </div>
-                  <div className="space-y-2">
-                    {specialities?.map((speciality) => (
-                      <FormField
-                        key={speciality.id}
-                        control={form.control}
-                        name="speciality_ids"
-                        render={({ field }) => {
-                          return (
-                            <FormItem
-                              key={speciality.id}
-                              className="flex flex-row items-start space-x-3 space-y-0"
-                            >
-                              <FormControl>
-                                <Checkbox
-                                  checked={field.value?.includes(speciality.id)}
-                                  onCheckedChange={(checked) => {
-                                    return checked
-                                      ? field.onChange([...(field.value || []), speciality.id])
-                                      : field.onChange(
-                                          field.value?.filter(
-                                            (value) => value !== speciality.id
-                                          )
-                                        )
-                                  }}
-                                />
-                              </FormControl>
-                              <FormLabel className="font-normal cursor-pointer">
-                                {language === 'pt' ? speciality.name_pt : speciality.name_en}
-                              </FormLabel>
-                            </FormItem>
-                          )
-                        }}
-                      />
-                    ))}
-                  </div>
+                  <FormLabel>{t('company.speciality')}</FormLabel>
+                  <FormControl>
+                    <MultiSelect
+                      options={
+                        specialities?.map((speciality) => ({
+                          label: language === 'pt' ? speciality.name_pt : speciality.name_en,
+                          value: speciality.id,
+                        })) || []
+                      }
+                      selected={field.value || []}
+                      onChange={field.onChange}
+                      placeholder={t('company.selectSpeciality') || "Select specialities..."}
+                      emptyText={t('company.noSpeciality') || "No specialities found."}
+                    />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
