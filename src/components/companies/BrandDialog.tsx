@@ -40,7 +40,6 @@ const brandSchema = z.object({
   website: z.string().url("Invalid URL").optional().or(z.literal("")),
   official_email: z.string().email("Invalid email").optional().or(z.literal("")),
   speciality_ids: z.array(z.string()).optional(),
-  company_ids: z.array(z.string()).optional(),
 });
 
 type BrandFormData = z.infer<typeof brandSchema>;
@@ -63,7 +62,6 @@ export const BrandDialog = ({ open, onOpenChange, brand, readOnly = false }: Bra
       website: "",
       official_email: "",
       speciality_ids: [],
-      company_ids: [],
     },
   });
 
@@ -74,18 +72,6 @@ export const BrandDialog = ({ open, onOpenChange, brand, readOnly = false }: Bra
         .from("specialities")
         .select("*")
         .order("name_en");
-      if (error) throw error;
-      return data;
-    },
-  });
-
-  const { data: companies } = useQuery({
-    queryKey: ["companies", import.meta.env.VITE_SUPABASE_URL],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("companies")
-        .select("*")
-        .order("name");
       if (error) throw error;
       return data;
     },
@@ -105,20 +91,6 @@ export const BrandDialog = ({ open, onOpenChange, brand, readOnly = false }: Bra
     enabled: !!brand?.id,
   });
 
-  const { data: brandCompanies } = useQuery({
-    queryKey: ["brand-companies", brand?.id, import.meta.env.VITE_SUPABASE_URL],
-    queryFn: async () => {
-      if (!brand?.id) return [];
-      const { data, error } = await supabase
-        .from("brand_companies")
-        .select("company_id")
-        .eq("brand_id", brand.id);
-      if (error) throw error;
-      return data.map(item => item.company_id);
-    },
-    enabled: !!brand?.id,
-  });
-
   useEffect(() => {
     if (brand) {
       form.reset({
@@ -126,7 +98,6 @@ export const BrandDialog = ({ open, onOpenChange, brand, readOnly = false }: Bra
         website: brand.website || "",
         official_email: brand.official_email || "",
         speciality_ids: brandSpecialities || [],
-        company_ids: brandCompanies || [],
       });
     } else {
       form.reset({
@@ -134,10 +105,9 @@ export const BrandDialog = ({ open, onOpenChange, brand, readOnly = false }: Bra
         website: "",
         official_email: "",
         speciality_ids: [],
-        company_ids: [],
       });
     }
-  }, [brand, brandSpecialities, brandCompanies, form]);
+  }, [brand, brandSpecialities, form]);
 
   const mutation = useMutation({
     mutationFn: async (data: BrandFormData) => {
@@ -171,25 +141,6 @@ export const BrandDialog = ({ open, onOpenChange, brand, readOnly = false }: Bra
             .insert(specialityInserts);
           if (insertSpecialitiesError) throw insertSpecialitiesError;
         }
-
-        // Delete existing companies
-        const { error: deleteCompaniesError } = await supabase
-          .from("brand_companies")
-          .delete()
-          .eq("brand_id", brand.id);
-        if (deleteCompaniesError) throw deleteCompaniesError;
-
-        // Insert new companies
-        if (data.company_ids && data.company_ids.length > 0) {
-          const companyInserts = data.company_ids.map(company_id => ({
-            brand_id: brand.id,
-            company_id,
-          }));
-          const { error: insertCompaniesError } = await supabase
-            .from("brand_companies")
-            .insert(companyInserts);
-          if (insertCompaniesError) throw insertCompaniesError;
-        }
       } else {
         // Create new brand
         const { data: newBrand, error: insertError } = await supabase
@@ -213,18 +164,6 @@ export const BrandDialog = ({ open, onOpenChange, brand, readOnly = false }: Bra
             .from("brand_specialities")
             .insert(specialityInserts);
           if (insertSpecialitiesError) throw insertSpecialitiesError;
-        }
-
-        // Insert companies
-        if (data.company_ids && data.company_ids.length > 0) {
-          const companyInserts = data.company_ids.map(company_id => ({
-            brand_id: newBrand.id,
-            company_id,
-          }));
-          const { error: insertCompaniesError } = await supabase
-            .from("brand_companies")
-            .insert(companyInserts);
-          if (insertCompaniesError) throw insertCompaniesError;
         }
       }
     },
@@ -309,31 +248,6 @@ export const BrandDialog = ({ open, onOpenChange, brand, readOnly = false }: Bra
                       onChange={field.onChange}
                       placeholder={t('brand.selectSpecialities') || "Select specialities..."}
                       emptyText={t('brand.noSpecialities') || "No specialities found."}
-                      disabled={readOnly}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="company_ids"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>{t('brand.companies')}</FormLabel>
-                  <FormControl>
-                    <MultiSelect
-                      options={
-                        companies?.map((company) => ({
-                          label: company.name,
-                          value: company.id,
-                        })) || []
-                      }
-                      selected={field.value || []}
-                      onChange={field.onChange}
-                      placeholder={t('brand.selectCompanies') || "Select companies..."}
-                      emptyText={t('brand.noCompanies') || "No companies found."}
                       disabled={readOnly}
                     />
                   </FormControl>
