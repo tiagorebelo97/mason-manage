@@ -46,6 +46,12 @@ const translations = {
     'company.exportSuccess': 'Companies exported successfully',
     'company.exportError': 'No data to export',
     
+    // Speciality Management
+    'speciality.name': 'Name',
+    'speciality.noSpecialities': 'No specialities added yet.',
+    'speciality.noResults': 'No specialities match your search.',
+    'speciality.searchPlaceholder': 'Search specialities...',
+    
     // Navigation
     'nav.companies': 'Companies',
     'nav.specialities': 'Specialities',
@@ -97,6 +103,12 @@ const translations = {
     'company.deleteError': 'Falha ao excluir empresa',
     'company.exportSuccess': 'Empresas exportadas com sucesso',
     'company.exportError': 'Sem dados para exportar',
+    
+    // Speciality Management
+    'speciality.name': 'Nome',
+    'speciality.noSpecialities': 'Nenhuma especialidade adicionada ainda.',
+    'speciality.noResults': 'Nenhuma especialidade corresponde à sua pesquisa.',
+    'speciality.searchPlaceholder': 'Pesquisar especialidades...',
     
     // Navigation
     'nav.companies': 'Empresas',
