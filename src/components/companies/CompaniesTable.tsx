@@ -442,14 +442,14 @@ export const CompaniesTable = () => {
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center">
-                    {t('company.brands') || 'Brands'}
+                    {t('company.brands')}
                     {getSortIcon("brands")}
                   </div>
                   <ColumnFilter
                     options={uniqueBrands}
                     selected={brandFilter}
                     onChange={setBrandFilter}
-                    placeholder={t('company.filterBrands') || 'Filter by brand'}
+                    placeholder={t('company.filterBrands')}
                     emptyText={t('company.noResults')}
                     columnName="brands"
                   />
@@ -491,8 +491,8 @@ export const CompaniesTable = () => {
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
                       <Button
-                        variant="outline"
-                        size="sm"
+                        variant="ghost"
+                        size="icon"
                         onClick={(e) => {
                           e.stopPropagation();
                           setEditingCompany(company);
@@ -501,8 +501,8 @@ export const CompaniesTable = () => {
                         <Pencil className="h-4 w-4" />
                       </Button>
                       <Button
-                        variant="destructive"
-                        size="sm"
+                        variant="ghost"
+                        size="icon"
                         onClick={(e) => {
                           e.stopPropagation();
                           deleteMutation.mutate(company.id);

@@ -48,19 +48,23 @@ const translations = {
     'company.filterName': 'Filter by name...',
     'company.filterEmail': 'Filter by email...',
     'company.filterSpeciality': 'Filter by speciality...',
+    'company.brands': 'Brands',
+    'company.filterBrands': 'Filter by brand...',
     'company.viewCompany': 'View Company',
     'company.viewCompanyDesc': 'Company details',
     'company.selectSpeciality': 'Select specialities...',
     'company.noSpeciality': 'No specialities found.',
     
     // Speciality Management
-    'speciality.name': 'Name',
+    'speciality.name': 'Speciality',
     'speciality.noSpecialities': 'No specialities added yet.',
     'speciality.noResults': 'No specialities match your search.',
     'speciality.searchPlaceholder': 'Search specialities...',
     'speciality.mainSpecialty': 'Main Specialty',
     'speciality.selectMainSpecialty': 'Select main specialty...',
     'speciality.noMainSpecialty': 'No main specialty found.',
+    'speciality.filterName': 'Filter by speciality...',
+    'speciality.filterMainSpecialty': 'Filter by main specialty...',
     
     // Main Specialty Management
     'mainSpecialty.title': 'Main Specialties',
@@ -155,19 +159,23 @@ const translations = {
     'company.filterName': 'Filtrar por nome...',
     'company.filterEmail': 'Filtrar por e-mail...',
     'company.filterSpeciality': 'Filtrar por especialidade...',
+    'company.brands': 'Marcas',
+    'company.filterBrands': 'Filtrar por marca...',
     'company.viewCompany': 'Ver Empresa',
     'company.viewCompanyDesc': 'Detalhes da empresa',
     'company.selectSpeciality': 'Selecionar especialidades...',
     'company.noSpeciality': 'Nenhuma especialidade encontrada.',
     
     // Speciality Management
-    'speciality.name': 'Nome',
+    'speciality.name': 'Especialidade',
     'speciality.noSpecialities': 'Nenhuma especialidade adicionada ainda.',
     'speciality.noResults': 'Nenhuma especialidade corresponde à sua pesquisa.',
     'speciality.searchPlaceholder': 'Pesquisar especialidades...',
     'speciality.mainSpecialty': 'Especialidade Principal',
     'speciality.selectMainSpecialty': 'Selecionar especialidade principal...',
     'speciality.noMainSpecialty': 'Nenhuma especialidade principal encontrada.',
+    'speciality.filterName': 'Filtrar por especialidade...',
+    'speciality.filterMainSpecialty': 'Filtrar por especialidade principal...',
     
     // Main Specialty Management
     'mainSpecialty.title': 'Especialidades Principais',

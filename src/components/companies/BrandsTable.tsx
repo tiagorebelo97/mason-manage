@@ -470,8 +470,8 @@ export const BrandsTable = () => {
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
                       <Button
-                        variant="outline"
-                        size="sm"
+                        variant="ghost"
+                        size="icon"
                         onClick={(e) => {
                           e.stopPropagation();
                           setEditingBrand(brand);
@@ -480,8 +480,8 @@ export const BrandsTable = () => {
                         <Pencil className="h-4 w-4" />
                       </Button>
                       <Button
-                        variant="destructive"
-                        size="sm"
+                        variant="ghost"
+                        size="icon"
                         onClick={(e) => {
                           e.stopPropagation();
                           deleteMutation.mutate(brand.id);
