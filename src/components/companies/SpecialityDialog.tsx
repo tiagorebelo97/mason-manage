@@ -19,6 +19,13 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -28,11 +35,13 @@ import { translateText } from "@/services/translationService";
 const createSpecialitySchema = (language: 'en' | 'pt') => {
   return z.object({
     name: z.string().min(1, language === 'en' ? "Name is required" : "Nome é obrigatório").max(100),
+    inputLanguage: z.enum(['en', 'pt']),
   });
 };
 
 type SpecialityFormData = {
   name: string;
+  inputLanguage: 'en' | 'pt';
 };
 
 interface SpecialityDialogProps {
@@ -50,6 +59,7 @@ export const SpecialityDialog = ({ open, onOpenChange, speciality }: SpecialityD
     resolver: zodResolver(createSpecialitySchema(language)),
     defaultValues: {
       name: "",
+      inputLanguage: language,
     },
   });
 
@@ -58,10 +68,14 @@ export const SpecialityDialog = ({ open, onOpenChange, speciality }: SpecialityD
       // When editing, show the name in the current language
       const nameToShow = language === 'en' ? speciality.name_en : speciality.name_pt;
       form.reset({ 
-        name: nameToShow
+        name: nameToShow,
+        inputLanguage: language,
       });
     } else {
-      form.reset({ name: "" });
+      form.reset({ 
+        name: "",
+        inputLanguage: language,
+      });
     }
   }, [speciality, form, language]);
 
@@ -71,13 +85,13 @@ export const SpecialityDialog = ({ open, onOpenChange, speciality }: SpecialityD
       
       try {
         // Translate the name to both languages
-        const sourceLang = language;
-        const targetLang = language === 'en' ? 'pt' : 'en';
+        const sourceLang = data.inputLanguage;
+        const targetLang = data.inputLanguage === 'en' ? 'pt' : 'en';
         
         const translatedName = await translateText(data.name, sourceLang, targetLang);
         
-        const name_en = language === 'en' ? data.name : translatedName;
-        const name_pt = language === 'pt' ? data.name : translatedName;
+        const name_en = data.inputLanguage === 'en' ? data.name : translatedName;
+        const name_pt = data.inputLanguage === 'pt' ? data.name : translatedName;
 
         if (speciality) {
           const { error } = await supabase
@@ -128,6 +142,33 @@ export const SpecialityDialog = ({ open, onOpenChange, speciality }: SpecialityD
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit((data) => mutation.mutate(data))} className="space-y-4">
+            <FormField
+              control={form.control}
+              name="inputLanguage"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>
+                    {language === 'en' ? 'Input Language' : 'Idioma de Entrada'}
+                  </FormLabel>
+                  <Select
+                    onValueChange={field.onChange}
+                    value={field.value}
+                    disabled={mutation.isPending || isTranslating}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder={language === 'en' ? "Select language" : "Selecione o idioma"} />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="en">English</SelectItem>
+                      <SelectItem value="pt">Português</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
             <FormField
               control={form.control}
               name="name"
