@@ -54,6 +54,8 @@ const translations = {
     'company.viewCompanyDesc': 'Company details',
     'company.selectSpeciality': 'Select specialities...',
     'company.noSpeciality': 'No specialities found.',
+    'company.selectBrands': 'Select brands...',
+    'company.noBrands': 'No brands found.',
     
     // Speciality Management
     'speciality.name': 'Speciality',
@@ -168,6 +170,8 @@ const translations = {
     'company.viewCompanyDesc': 'Detalhes da empresa',
     'company.selectSpeciality': 'Selecionar especialidades...',
     'company.noSpeciality': 'Nenhuma especialidade encontrada.',
+    'company.selectBrands': 'Selecionar marcas...',
+    'company.noBrands': 'Nenhuma marca encontrada.',
     
     // Speciality Management
     'speciality.name': 'Especialidade',
