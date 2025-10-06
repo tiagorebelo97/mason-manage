@@ -38,6 +38,7 @@ const companySchema = z.object({
   name: z.string().min(1, "Name is required").max(100),
   email: z.string().email("Invalid email").max(255),
   speciality_ids: z.array(z.string()).optional(),
+  brand_ids: z.array(z.string()).optional(),
 });
 
 type CompanyFormData = z.infer<typeof companySchema>;
@@ -59,6 +60,7 @@ export const CompanyDialog = ({ open, onOpenChange, company, readOnly = false }:
       name: "",
       email: "",
       speciality_ids: [],
+      brand_ids: [],
     },
   });
 
@@ -69,6 +71,18 @@ export const CompanyDialog = ({ open, onOpenChange, company, readOnly = false }:
         .from("specialities")
         .select("*")
         .order("name_en");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const { data: brands } = useQuery({
+    queryKey: ["brands", import.meta.env.VITE_SUPABASE_URL],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("brands")
+        .select("*")
+        .order("name");
       if (error) throw error;
       return data;
     },
@@ -89,21 +103,38 @@ export const CompanyDialog = ({ open, onOpenChange, company, readOnly = false }:
     enabled: !!company?.id,
   });
 
+  // Fetch existing company brands when editing
+  const { data: companyBrands } = useQuery({
+    queryKey: ["company-brands", company?.id, import.meta.env.VITE_SUPABASE_URL],
+    queryFn: async () => {
+      if (!company?.id) return [];
+      const { data, error } = await supabase
+        .from("brand_companies")
+        .select("brand_id")
+        .eq("company_id", company.id);
+      if (error) throw error;
+      return data.map(item => item.brand_id);
+    },
+    enabled: !!company?.id,
+  });
+
   useEffect(() => {
     if (company) {
       form.reset({
         name: company.name,
         email: company.email,
         speciality_ids: companySpecialities || [],
+        brand_ids: companyBrands || [],
       });
     } else {
       form.reset({
         name: "",
         email: "",
         speciality_ids: [],
+        brand_ids: [],
       });
     }
-  }, [company, companySpecialities, form]);
+  }, [company, companySpecialities, companyBrands, form]);
 
   const mutation = useMutation({
     mutationFn: async (data: CompanyFormData) => {
@@ -133,6 +164,25 @@ export const CompanyDialog = ({ open, onOpenChange, company, readOnly = false }:
             .insert(specialityInserts);
           if (insertError) throw insertError;
         }
+
+        // Delete existing brands
+        const { error: deleteBrandsError } = await supabase
+          .from("brand_companies")
+          .delete()
+          .eq("company_id", company.id);
+        if (deleteBrandsError) throw deleteBrandsError;
+
+        // Insert new brands
+        if (data.brand_ids && data.brand_ids.length > 0) {
+          const brandInserts = data.brand_ids.map(brand_id => ({
+            company_id: company.id,
+            brand_id,
+          }));
+          const { error: insertBrandsError } = await supabase
+            .from("brand_companies")
+            .insert(brandInserts);
+          if (insertBrandsError) throw insertBrandsError;
+        }
       } else {
         // Create new company
         const { data: newCompany, error: insertError } = await supabase
@@ -152,6 +202,18 @@ export const CompanyDialog = ({ open, onOpenChange, company, readOnly = false }:
             .from("company_specialities")
             .insert(specialityInserts);
           if (specialityError) throw specialityError;
+        }
+
+        // Insert brands
+        if (data.brand_ids && data.brand_ids.length > 0) {
+          const brandInserts = data.brand_ids.map(brand_id => ({
+            company_id: newCompany.id,
+            brand_id,
+          }));
+          const { error: brandsError } = await supabase
+            .from("brand_companies")
+            .insert(brandInserts);
+          if (brandsError) throw brandsError;
         }
       }
     },
@@ -223,6 +285,31 @@ export const CompanyDialog = ({ open, onOpenChange, company, readOnly = false }:
                       onChange={field.onChange}
                       placeholder={t('company.selectSpeciality') || "Select specialities..."}
                       emptyText={t('company.noSpeciality') || "No specialities found."}
+                      disabled={readOnly}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="brand_ids"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{t('company.brands') || 'Brands'}</FormLabel>
+                  <FormControl>
+                    <MultiSelect
+                      options={
+                        brands?.map((brand) => ({
+                          label: brand.name,
+                          value: brand.id,
+                        })) || []
+                      }
+                      selected={field.value || []}
+                      onChange={field.onChange}
+                      placeholder={t('company.selectBrands') || "Select brands..."}
+                      emptyText={t('company.noBrands') || "No brands found."}
                       disabled={readOnly}
                     />
                   </FormControl>

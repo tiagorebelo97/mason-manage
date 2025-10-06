@@ -24,9 +24,10 @@ type Company = {
   speciality_id: string | null;
   created_at: string;
   company_specialities?: Array<{ specialities: { name: string; name_en: string; name_pt: string } }>;
+  brand_companies?: Array<{ brands: { name: string } }>;
 };
 
-type SortField = "name" | "email" | "speciality";
+type SortField = "name" | "email" | "speciality" | "brands";
 type SortDirection = "asc" | "desc" | null;
 
 export const CompaniesTable = () => {
@@ -36,6 +37,7 @@ export const CompaniesTable = () => {
   const [nameFilter, setNameFilter] = useState<string[]>([]);
   const [emailFilter, setEmailFilter] = useState<string[]>([]);
   const [specialityFilter, setSpecialityFilter] = useState<string[]>([]);
+  const [brandFilter, setBrandFilter] = useState<string[]>([]);
   const [sortField, setSortField] = useState<SortField | null>(null);
   const [sortDirection, setSortDirection] = useState<SortDirection>(null);
   const queryClient = useQueryClient();
@@ -46,7 +48,11 @@ export const CompaniesTable = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("companies")
-        .select("*, company_specialities(specialities(name, name_en, name_pt))");
+        .select(`
+          *, 
+          company_specialities(specialities(name, name_en, name_pt)),
+          brand_companies(brands(name))
+        `);
       if (error) throw error;
       return data;
     },
@@ -64,8 +70,11 @@ export const CompaniesTable = () => {
       const specialityMatch = company.company_specialities?.some(cs =>
         (language === 'pt' ? cs.specialities.name_pt : cs.specialities.name_en).toLowerCase().includes(searchLower)
       ) || false;
+      const brandMatch = company.brand_companies?.some(bc =>
+        bc.brands.name.toLowerCase().includes(searchLower)
+      ) || false;
       
-      return nameMatch || emailMatch || specialityMatch;
+      return nameMatch || emailMatch || specialityMatch || brandMatch;
     });
 
     // Apply column-specific filters
@@ -90,6 +99,14 @@ export const CompaniesTable = () => {
       );
     }
 
+    if (brandFilter.length > 0) {
+      filtered = filtered.filter((company) => 
+        company.brand_companies?.some(bc => {
+          return brandFilter.includes(bc.brands.name);
+        }) || false
+      );
+    }
+
     // Sort by selected field
     if (sortField && sortDirection) {
       filtered = [...filtered].sort((a, b) => {
@@ -109,6 +126,9 @@ export const CompaniesTable = () => {
           bValue = b.company_specialities?.[0]
             ? (language === 'pt' ? b.company_specialities[0].specialities.name_pt : b.company_specialities[0].specialities.name_en)
             : "";
+        } else if (sortField === "brands") {
+          aValue = a.brand_companies?.[0]?.brands.name || "";
+          bValue = b.brand_companies?.[0]?.brands.name || "";
         }
 
         const comparison = aValue.localeCompare(bValue);
@@ -117,7 +137,7 @@ export const CompaniesTable = () => {
     }
 
     return filtered;
-  }, [companies, searchTerm, nameFilter, emailFilter, specialityFilter, sortField, sortDirection, language]);
+  }, [companies, searchTerm, nameFilter, emailFilter, specialityFilter, brandFilter, sortField, sortDirection, language]);
 
   // Get unique values for each column for filter options
   const uniqueNames = useMemo(() => {
@@ -144,6 +164,18 @@ export const CompaniesTable = () => {
     const sortedSpecialities = Array.from(specialities).sort();
     return sortedSpecialities.map(name => ({ label: name, value: name }));
   }, [companies, language]);
+
+  const uniqueBrands = useMemo(() => {
+    if (!companies) return [];
+    const brands = new Set<string>();
+    companies.forEach(company => {
+      company.brand_companies?.forEach(bc => {
+        brands.add(bc.brands.name);
+      });
+    });
+    const sortedBrands = Array.from(brands).sort();
+    return sortedBrands.map(name => ({ label: name, value: name }));
+  }, [companies]);
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -193,28 +225,34 @@ export const CompaniesTable = () => {
       return;
     }
 
-    const headers = ["Name", "Email", "Speciality"];
+    const headers = ["Name", "Email", "Speciality", "Brands"];
     const rows: string[][] = [];
     
     filteredAndSortedCompanies.forEach((company) => {
-      if (company.company_specialities && company.company_specialities.length > 0) {
-        // Create one row per speciality
-        company.company_specialities.forEach((cs) => {
-          const specialityName = language === 'pt' ? cs.specialities.name_pt : cs.specialities.name_en;
+      const specialities = company.company_specialities && company.company_specialities.length > 0
+        ? company.company_specialities
+        : [null];
+      
+      const brands = company.brand_companies && company.brand_companies.length > 0
+        ? company.brand_companies
+        : [null];
+
+      // Create a row for each combination of speciality and brand
+      specialities.forEach((cs) => {
+        brands.forEach((bc) => {
+          const specialityName = cs 
+            ? (language === 'pt' ? cs.specialities.name_pt : cs.specialities.name_en)
+            : "";
+          const brandName = bc ? bc.brands.name : "";
+          
           rows.push([
             company.name,
             company.email,
             specialityName,
+            brandName,
           ]);
         });
-      } else {
-        // Company with no specialities
-        rows.push([
-          company.name,
-          company.email,
-          "",
-        ]);
-      }
+      });
     });
 
     // Create worksheet data with headers
@@ -226,6 +264,7 @@ export const CompaniesTable = () => {
       { wch: 30 }, // Name column
       { wch: 30 }, // Email column
       { wch: 30 }, // Speciality column
+      { wch: 30 }, // Brands column
     ];
 
     // Define styles for proper Excel table appearance
@@ -397,13 +436,32 @@ export const CompaniesTable = () => {
                   />
                 </div>
               </TableHead>
+              <TableHead 
+                className="cursor-pointer select-none hover:bg-muted/50"
+                onClick={() => handleSort("brands")}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center">
+                    {t('company.brands') || 'Brands'}
+                    {getSortIcon("brands")}
+                  </div>
+                  <ColumnFilter
+                    options={uniqueBrands}
+                    selected={brandFilter}
+                    onChange={setBrandFilter}
+                    placeholder={t('company.filterBrands') || 'Filter by brand'}
+                    emptyText={t('company.noResults')}
+                    columnName="brands"
+                  />
+                </div>
+              </TableHead>
               <TableHead className="text-right">{t('company.actions')}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {filteredAndSortedCompanies?.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={4} className="text-center text-muted-foreground">
+                <TableCell colSpan={5} className="text-center text-muted-foreground">
                   {searchTerm ? t('company.noResults') : t('company.noCompanies')}
                 </TableCell>
               </TableRow>
@@ -420,6 +478,13 @@ export const CompaniesTable = () => {
                     {company.company_specialities && company.company_specialities.length > 0
                       ? company.company_specialities
                           .map(cs => language === 'pt' ? cs.specialities.name_pt : cs.specialities.name_en)
+                          .join(", ")
+                      : "—"}
+                  </TableCell>
+                  <TableCell>
+                    {company.brand_companies && company.brand_companies.length > 0
+                      ? company.brand_companies
+                          .map(bc => bc.brands.name)
                           .join(", ")
                       : "—"}
                   </TableCell>
