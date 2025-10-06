@@ -101,6 +101,9 @@ const translations = {
     'brand.noCompanies': 'No companies found.',
     'brand.viewBrand': 'View Brand',
     'brand.viewBrandDesc': 'Brand details',
+    'brand.exportCSV': 'Export Excel',
+    'brand.exportError': 'No data to export',
+    'brand.exportSuccess': 'Brands exported successfully',
     
     // Navigation
     'nav.companies': 'Companies',
@@ -212,6 +215,9 @@ const translations = {
     'brand.noCompanies': 'Nenhuma empresa encontrada.',
     'brand.viewBrand': 'Ver Marca',
     'brand.viewBrandDesc': 'Detalhes da marca',
+    'brand.exportCSV': 'Exportar Excel',
+    'brand.exportError': 'Sem dados para exportar',
+    'brand.exportSuccess': 'Marcas exportadas com sucesso',
     
     // Navigation
     'nav.companies': 'Empresas',
