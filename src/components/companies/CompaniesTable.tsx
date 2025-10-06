@@ -29,7 +29,7 @@ export const CompaniesTable = () => {
   const { t, language } = useLanguage();
 
   const { data: companies, isLoading } = useQuery({
-    queryKey: ["companies"],
+    queryKey: ["companies", import.meta.env.VITE_SUPABASE_URL],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("companies")
@@ -46,7 +46,7 @@ export const CompaniesTable = () => {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["companies"] });
+      queryClient.invalidateQueries({ queryKey: ["companies", import.meta.env.VITE_SUPABASE_URL] });
       toast.success(t('company.deleteSuccess'));
     },
     onError: () => {

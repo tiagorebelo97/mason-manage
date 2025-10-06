@@ -62,7 +62,7 @@ export const CompanyDialog = ({ open, onOpenChange, company }: CompanyDialogProp
   });
 
   const { data: specialities } = useQuery({
-    queryKey: ["specialities"],
+    queryKey: ["specialities", import.meta.env.VITE_SUPABASE_URL],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("specialities")
@@ -75,7 +75,7 @@ export const CompanyDialog = ({ open, onOpenChange, company }: CompanyDialogProp
 
   // Fetch existing company specialities when editing
   const { data: companySpecialities } = useQuery({
-    queryKey: ["company-specialities", company?.id],
+    queryKey: ["company-specialities", company?.id, import.meta.env.VITE_SUPABASE_URL],
     queryFn: async () => {
       if (!company?.id) return [];
       const { data, error } = await supabase
@@ -155,7 +155,7 @@ export const CompanyDialog = ({ open, onOpenChange, company }: CompanyDialogProp
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["companies"] });
+      queryClient.invalidateQueries({ queryKey: ["companies", import.meta.env.VITE_SUPABASE_URL] });
       toast.success(company ? "Company updated" : "Company added");
       onOpenChange(false);
       form.reset();

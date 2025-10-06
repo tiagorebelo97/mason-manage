@@ -11,7 +11,19 @@ import Auth from "./pages/Auth";
 import Specialities from "./pages/Specialities";
 import NotFound from "./pages/NotFound";
 
-const queryClient = new QueryClient();
+// Configure QueryClient with cache settings
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      // Reduce stale time to ensure fresh data
+      staleTime: 0,
+      // Disable automatic refetch on window focus to avoid unnecessary requests
+      refetchOnWindowFocus: false,
+      // Add retry logic
+      retry: 1,
+    },
+  },
+});
 
 const App = () => (
   <QueryClientProvider client={queryClient}>

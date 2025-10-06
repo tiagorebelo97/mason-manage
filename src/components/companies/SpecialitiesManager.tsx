@@ -21,7 +21,7 @@ export const SpecialitiesManager = () => {
   const { language } = useLanguage();
 
   const { data: specialities, isLoading } = useQuery({
-    queryKey: ["specialities"],
+    queryKey: ["specialities", import.meta.env.VITE_SUPABASE_URL],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("specialities")
@@ -38,7 +38,7 @@ export const SpecialitiesManager = () => {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["specialities"] });
+      queryClient.invalidateQueries({ queryKey: ["specialities", import.meta.env.VITE_SUPABASE_URL] });
       toast.success("Speciality deleted successfully");
     },
     onError: () => {
