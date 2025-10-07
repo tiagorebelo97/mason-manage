@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
+import Dashboard from "./pages/Dashboard";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Specialities from "./pages/Specialities";
@@ -48,7 +49,8 @@ const App = () => (
                       </header>
                       <main className="flex-1">
                         <Routes>
-                          <Route path="/" element={<Index />} />
+                          <Route path="/" element={<Dashboard />} />
+                          <Route path="/companies" element={<Index />} />
                           <Route path="/specialities" element={<Specialities />} />
                           <Route path="/main-specialties" element={<MainSpecialties />} />
                           <Route path="/brands" element={<Brands />} />
