@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { SpecialityDialog } from "./SpecialityDialog";
 import { ColumnFilter } from "@/components/ui/column-filter";
+import { HierarchicalColumnFilter, HierarchicalOption } from "@/components/ui/hierarchical-column-filter";
 import {
   Table,
   TableBody,
@@ -70,11 +71,8 @@ export const SpecialitiesManager = () => {
 
     if (mainSpecialtyFilter.length > 0) {
       filtered = filtered.filter((speciality) => {
-        if (!speciality.main_specialties) return mainSpecialtyFilter.includes("-");
-        const mainSpecialtyName = language === 'pt' 
-          ? speciality.main_specialties.main_specialty_pt 
-          : speciality.main_specialties.main_specialty_en;
-        return mainSpecialtyFilter.includes(mainSpecialtyName);
+        const specialityName = language === 'pt' ? speciality.name_pt : speciality.name_en;
+        return mainSpecialtyFilter.includes(specialityName);
       });
     }
 
@@ -111,21 +109,43 @@ export const SpecialitiesManager = () => {
     return names.map(name => ({ label: name, value: name }));
   }, [specialities, language]);
 
-  const uniqueMainSpecialties = useMemo(() => {
+  // Build hierarchical structure for main specialty filter
+  const hierarchicalMainSpecialties = useMemo(() => {
     if (!specialities) return [];
-    const mainSpecialtySet = new Set<string>();
+    
+    // Group specialities by main specialty
+    const groupedByMainSpecialty = new Map<string, Set<string>>();
+    
     specialities.forEach(speciality => {
-      if (speciality.main_specialties) {
-        const name = language === 'pt' 
-          ? speciality.main_specialties.main_specialty_pt 
-          : speciality.main_specialties.main_specialty_en;
-        mainSpecialtySet.add(name);
-      } else {
-        mainSpecialtySet.add("-");
+      const mainSpecialtyName = speciality.main_specialties
+        ? (language === 'pt' ? speciality.main_specialties.main_specialty_pt : speciality.main_specialties.main_specialty_en)
+        : "-";
+      const specialityName = language === 'pt' ? speciality.name_pt : speciality.name_en;
+      
+      if (!groupedByMainSpecialty.has(mainSpecialtyName)) {
+        groupedByMainSpecialty.set(mainSpecialtyName, new Set());
       }
+      groupedByMainSpecialty.get(mainSpecialtyName)?.add(specialityName);
     });
-    const sortedMainSpecialties = Array.from(mainSpecialtySet).sort();
-    return sortedMainSpecialties.map(name => ({ label: name, value: name }));
+    
+    // Convert to hierarchical options
+    const options: HierarchicalOption[] = [];
+    const sortedMainSpecialties = Array.from(groupedByMainSpecialty.keys()).sort();
+    
+    sortedMainSpecialties.forEach(mainSpecialtyName => {
+      const children = Array.from(groupedByMainSpecialty.get(mainSpecialtyName) || []).sort().map(specialityName => ({
+        label: specialityName,
+        value: specialityName,
+      }));
+      
+      options.push({
+        label: mainSpecialtyName,
+        value: mainSpecialtyName,
+        children,
+      });
+    });
+    
+    return options;
   }, [specialities, language]);
 
   const handleSort = (field: SortField) => {
@@ -197,8 +217,8 @@ export const SpecialitiesManager = () => {
                     {t('speciality.mainSpecialty')}
                     {getSortIcon("main_specialty")}
                   </div>
-                  <ColumnFilter
-                    options={uniqueMainSpecialties}
+                  <HierarchicalColumnFilter
+                    options={hierarchicalMainSpecialties}
                     selected={mainSpecialtyFilter}
                     onChange={setMainSpecialtyFilter}
                     placeholder={t('speciality.filterMainSpecialty') || 'Filter by main specialty'}

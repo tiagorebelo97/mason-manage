@@ -166,6 +166,39 @@ export const SpecialityDialog = ({ open, onOpenChange, speciality }: SpecialityD
           <form onSubmit={form.handleSubmit((data) => mutation.mutate(data))} className="space-y-4">
             <FormField
               control={form.control}
+              name="main_specialty_id"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>
+                    {t('speciality.mainSpecialty')}
+                  </FormLabel>
+                  <Select
+                    onValueChange={field.onChange}
+                    value={field.value}
+                    disabled={mutation.isPending || isTranslating}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder={t('speciality.selectMainSpecialty')} />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="none">
+                        {language === 'en' ? 'None' : 'Nenhum'}
+                      </SelectItem>
+                      {mainSpecialties?.map((ms) => (
+                        <SelectItem key={ms.id} value={ms.id}>
+                          {language === 'pt' ? ms.main_specialty_pt : ms.main_specialty_en}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
               name="inputLanguage"
               render={({ field }) => (
                 <FormItem>
@@ -206,39 +239,6 @@ export const SpecialityDialog = ({ open, onOpenChange, speciality }: SpecialityD
                       disabled={mutation.isPending || isTranslating}
                     />
                   </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="main_specialty_id"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>
-                    {t('speciality.mainSpecialty')}
-                  </FormLabel>
-                  <Select
-                    onValueChange={field.onChange}
-                    value={field.value}
-                    disabled={mutation.isPending || isTranslating}
-                  >
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder={t('speciality.selectMainSpecialty')} />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="none">
-                        {language === 'en' ? 'None' : 'Nenhum'}
-                      </SelectItem>
-                      {mainSpecialties?.map((ms) => (
-                        <SelectItem key={ms.id} value={ms.id}>
-                          {language === 'pt' ? ms.main_specialty_pt : ms.main_specialty_en}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
                   <FormMessage />
                 </FormItem>
               )}
