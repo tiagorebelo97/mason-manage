@@ -51,8 +51,10 @@ export function ColumnFilter({
   };
 
   const handleClear = (e: React.MouseEvent) => {
+    e.preventDefault();
     e.stopPropagation();
     onChange([]);
+    setOpen(false);
   };
 
   const hasActiveFilters = selected.length > 0;
