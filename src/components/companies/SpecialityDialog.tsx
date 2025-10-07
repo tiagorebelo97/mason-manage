@@ -166,6 +166,33 @@ export const SpecialityDialog = ({ open, onOpenChange, speciality }: SpecialityD
           <form onSubmit={form.handleSubmit((data) => mutation.mutate(data))} className="space-y-4">
             <FormField
               control={form.control}
+              name="inputLanguage"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>
+                    {language === 'en' ? 'Input Language' : 'Idioma de Entrada'}
+                  </FormLabel>
+                  <Select
+                    onValueChange={field.onChange}
+                    value={field.value}
+                    disabled={mutation.isPending || isTranslating}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder={language === 'en' ? "Select language" : "Selecione o idioma"} />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="en">English</SelectItem>
+                      <SelectItem value="pt">Português</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
               name="main_specialty_id"
               render={({ field }) => (
                 <FormItem>
@@ -199,38 +226,11 @@ export const SpecialityDialog = ({ open, onOpenChange, speciality }: SpecialityD
             />
             <FormField
               control={form.control}
-              name="inputLanguage"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>
-                    {language === 'en' ? 'Input Language' : 'Idioma de Entrada'}
-                  </FormLabel>
-                  <Select
-                    onValueChange={field.onChange}
-                    value={field.value}
-                    disabled={mutation.isPending || isTranslating}
-                  >
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder={language === 'en' ? "Select language" : "Selecione o idioma"} />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="en">English</SelectItem>
-                      <SelectItem value="pt">Português</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
               name="name"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>
-                    {language === 'en' ? 'Name' : 'Nome'}
+                    {language === 'en' ? 'Speciality' : 'Especialidade'}
                   </FormLabel>
                   <FormControl>
                     <Input 
