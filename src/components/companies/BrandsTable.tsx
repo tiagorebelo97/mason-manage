@@ -404,14 +404,16 @@ export const BrandsTable = () => {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead 
-                className="cursor-pointer select-none hover:bg-muted/50"
-                onClick={() => handleSort("name")}
-              >
+              <TableHead>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center">
                     {t('brand.name')}
-                    {getSortIcon("name")}
+                    <button
+                      onClick={() => handleSort("name")}
+                      className="ml-2 hover:bg-muted/50 rounded p-1"
+                    >
+                      {getSortIcon("name")}
+                    </button>
                   </div>
                   <ColumnFilter
                     options={uniqueNames}
@@ -423,14 +425,16 @@ export const BrandsTable = () => {
                   />
                 </div>
               </TableHead>
-              <TableHead 
-                className="cursor-pointer select-none hover:bg-muted/50"
-                onClick={() => handleSort("website")}
-              >
+              <TableHead>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center">
                     {t('brand.website')}
-                    {getSortIcon("website")}
+                    <button
+                      onClick={() => handleSort("website")}
+                      className="ml-2 hover:bg-muted/50 rounded p-1"
+                    >
+                      {getSortIcon("website")}
+                    </button>
                   </div>
                   <ColumnFilter
                     options={uniqueWebsites}
@@ -442,14 +446,16 @@ export const BrandsTable = () => {
                   />
                 </div>
               </TableHead>
-              <TableHead 
-                className="cursor-pointer select-none hover:bg-muted/50"
-                onClick={() => handleSort("official_email")}
-              >
+              <TableHead>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center">
                     {t('brand.officialEmail')}
-                    {getSortIcon("official_email")}
+                    <button
+                      onClick={() => handleSort("official_email")}
+                      className="ml-2 hover:bg-muted/50 rounded p-1"
+                    >
+                      {getSortIcon("official_email")}
+                    </button>
                   </div>
                   <ColumnFilter
                     options={uniqueEmails}
@@ -461,14 +467,16 @@ export const BrandsTable = () => {
                   />
                 </div>
               </TableHead>
-              <TableHead 
-                className="cursor-pointer select-none hover:bg-muted/50"
-                onClick={() => handleSort("specialities")}
-              >
+              <TableHead>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center">
                     {t('brand.specialities')}
-                    {getSortIcon("specialities")}
+                    <button
+                      onClick={() => handleSort("specialities")}
+                      className="ml-2 hover:bg-muted/50 rounded p-1"
+                    >
+                      {getSortIcon("specialities")}
+                    </button>
                   </div>
                   <HierarchicalColumnFilter
                     options={hierarchicalSpecialities}

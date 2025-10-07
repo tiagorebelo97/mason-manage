@@ -208,14 +208,16 @@ export const SpecialitiesManager = () => {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead 
-                className="cursor-pointer select-none hover:bg-muted/50"
-                onClick={() => handleSort("main_specialty")}
-              >
+              <TableHead>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center">
                     {t('speciality.mainSpecialty')}
-                    {getSortIcon("main_specialty")}
+                    <button
+                      onClick={() => handleSort("main_specialty")}
+                      className="ml-2 hover:bg-muted/50 rounded p-1"
+                    >
+                      {getSortIcon("main_specialty")}
+                    </button>
                   </div>
                   <HierarchicalColumnFilter
                     options={hierarchicalMainSpecialties}
@@ -227,14 +229,16 @@ export const SpecialitiesManager = () => {
                   />
                 </div>
               </TableHead>
-              <TableHead 
-                className="cursor-pointer select-none hover:bg-muted/50"
-                onClick={() => handleSort("name")}
-              >
+              <TableHead>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center">
                     {t('speciality.name')}
-                    {getSortIcon("name")}
+                    <button
+                      onClick={() => handleSort("name")}
+                      className="ml-2 hover:bg-muted/50 rounded p-1"
+                    >
+                      {getSortIcon("name")}
+                    </button>
                   </div>
                   <ColumnFilter
                     options={uniqueNames}

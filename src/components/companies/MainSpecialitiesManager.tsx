@@ -118,13 +118,15 @@ export const MainSpecialitiesManager = () => {
           <TableHeader>
             <TableRow>
               <TableHead>{t('mainSpecialty.type')}</TableHead>
-              <TableHead 
-                className="cursor-pointer select-none hover:bg-muted/50"
-                onClick={handleSort}
-              >
+              <TableHead>
                 <div className="flex items-center">
                   {t('mainSpecialty.mainSpecialty')}
-                  {getSortIcon()}
+                  <button
+                    onClick={handleSort}
+                    className="ml-2 hover:bg-muted/50 rounded p-1"
+                  >
+                    {getSortIcon()}
+                  </button>
                 </div>
               </TableHead>
               <TableHead className="text-right">{t('company.actions')}</TableHead>
