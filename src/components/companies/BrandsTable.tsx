@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { BrandDialog } from "./BrandDialog";
 import { ColumnFilter } from "@/components/ui/column-filter";
+import { HierarchicalColumnFilter, HierarchicalOption } from "@/components/ui/hierarchical-column-filter";
 import * as XLSX from "xlsx-js-style";
 import {
   Table,
@@ -24,7 +25,18 @@ type Brand = {
   website: string | null;
   official_email: string | null;
   created_at: string | null;
-  brand_specialities?: Array<{ specialities: { name: string; name_en: string; name_pt: string } }>;
+  brand_specialities?: Array<{ 
+    specialities: { 
+      name: string; 
+      name_en: string; 
+      name_pt: string;
+      main_specialties?: { 
+        id: string; 
+        main_specialty_en: string; 
+        main_specialty_pt: string;
+      } | null;
+    } 
+  }>;
   speciality_ids?: string[];
 };
 
@@ -51,7 +63,7 @@ export const BrandsTable = () => {
         .from("brands")
         .select(`
           *,
-          brand_specialities(specialities(id, name, name_en, name_pt))
+          brand_specialities(specialities(id, name, name_en, name_pt, main_specialties(id, main_specialty_en, main_specialty_pt)))
         `);
       if (error) throw error;
       
@@ -157,17 +169,45 @@ export const BrandsTable = () => {
     return emails.map(email => ({ label: email, value: email }));
   }, [brands]);
 
-  const uniqueSpecialities = useMemo(() => {
+  // Build hierarchical structure for speciality filter
+  const hierarchicalSpecialities = useMemo(() => {
     if (!brands) return [];
-    const specialities = new Set<string>();
+    
+    // Group specialities by main specialty
+    const groupedByMainSpecialty = new Map<string, Set<string>>();
+    
     brands.forEach(brand => {
       brand.brand_specialities?.forEach(bs => {
-        const name = language === 'pt' ? bs.specialities.name_pt : bs.specialities.name_en;
-        specialities.add(name);
+        const mainSpecialtyName = bs.specialities.main_specialties
+          ? (language === 'pt' ? bs.specialities.main_specialties.main_specialty_pt : bs.specialities.main_specialties.main_specialty_en)
+          : "-";
+        const specialityName = language === 'pt' ? bs.specialities.name_pt : bs.specialities.name_en;
+        
+        if (!groupedByMainSpecialty.has(mainSpecialtyName)) {
+          groupedByMainSpecialty.set(mainSpecialtyName, new Set());
+        }
+        groupedByMainSpecialty.get(mainSpecialtyName)?.add(specialityName);
       });
     });
-    const sortedSpecialities = Array.from(specialities).sort();
-    return sortedSpecialities.map(name => ({ label: name, value: name }));
+    
+    // Convert to hierarchical options
+    const options: HierarchicalOption[] = [];
+    const sortedMainSpecialties = Array.from(groupedByMainSpecialty.keys()).sort();
+    
+    sortedMainSpecialties.forEach(mainSpecialtyName => {
+      const children = Array.from(groupedByMainSpecialty.get(mainSpecialtyName) || []).sort().map(specialityName => ({
+        label: specialityName,
+        value: specialityName,
+      }));
+      
+      options.push({
+        label: mainSpecialtyName,
+        value: mainSpecialtyName,
+        children,
+      });
+    });
+    
+    return options;
   }, [brands, language]);
 
   const handleSort = (field: SortField) => {
@@ -210,7 +250,7 @@ export const BrandsTable = () => {
 
   const exportToCSV = () => {
     if (!filteredAndSortedBrands || filteredAndSortedBrands.length === 0) {
-      toast.error(t('brand.exportError') || 'No data to export');
+      toast.error(t('brand.exportError'));
       return;
     }
 
@@ -339,7 +379,7 @@ export const BrandsTable = () => {
     // Generate Excel file and trigger download
     XLSX.writeFile(workbook, `brands_${new Date().toISOString().split("T")[0]}.xlsx`);
     
-    toast.success(t('brand.exportSuccess') || 'Export successful');
+    toast.success(t('brand.exportSuccess'));
   };
 
   if (isLoading) {
@@ -357,7 +397,7 @@ export const BrandsTable = () => {
         />
         <Button variant="outline" onClick={exportToCSV}>
           <Download className="mr-2 h-4 w-4" />
-          {t('brand.exportCSV') || 'Export to Excel'}
+          {t('brand.exportCSV')}
         </Button>
       </div>
       <div className="rounded-md border">
@@ -377,7 +417,7 @@ export const BrandsTable = () => {
                     options={uniqueNames}
                     selected={nameFilter}
                     onChange={setNameFilter}
-                    placeholder={t('brand.filterName') || 'Filter by name'}
+                    placeholder={t('brand.filterName')}
                     emptyText={t('company.noResults')}
                     columnName="name"
                   />
@@ -396,7 +436,7 @@ export const BrandsTable = () => {
                     options={uniqueWebsites}
                     selected={websiteFilter}
                     onChange={setWebsiteFilter}
-                    placeholder={t('brand.filterWebsite') || 'Filter by website'}
+                    placeholder={t('brand.filterWebsite')}
                     emptyText={t('company.noResults')}
                     columnName="website"
                   />
@@ -415,7 +455,7 @@ export const BrandsTable = () => {
                     options={uniqueEmails}
                     selected={emailFilter}
                     onChange={setEmailFilter}
-                    placeholder={t('brand.filterEmail') || 'Filter by email'}
+                    placeholder={t('brand.filterEmail')}
                     emptyText={t('company.noResults')}
                     columnName="email"
                   />
@@ -430,11 +470,11 @@ export const BrandsTable = () => {
                     {t('brand.specialities')}
                     {getSortIcon("specialities")}
                   </div>
-                  <ColumnFilter
-                    options={uniqueSpecialities}
+                  <HierarchicalColumnFilter
+                    options={hierarchicalSpecialities}
                     selected={specialityFilter}
                     onChange={setSpecialityFilter}
-                    placeholder={t('brand.filterSpecialities') || 'Filter by specialities'}
+                    placeholder={t('brand.filterSpecialities')}
                     emptyText={t('company.noResults')}
                     columnName="specialities"
                   />

@@ -106,6 +106,10 @@ const translations = {
     'brand.exportCSV': 'Export Excel',
     'brand.exportError': 'No data to export',
     'brand.exportSuccess': 'Brands exported successfully',
+    'brand.filterName': 'Filter by name...',
+    'brand.filterWebsite': 'Filter by website...',
+    'brand.filterEmail': 'Filter by email...',
+    'brand.filterSpecialities': 'Filter by specialities...',
     
     // Navigation
     'nav.companies': 'Companies',
@@ -222,6 +226,10 @@ const translations = {
     'brand.exportCSV': 'Exportar Excel',
     'brand.exportError': 'Sem dados para exportar',
     'brand.exportSuccess': 'Marcas exportadas com sucesso',
+    'brand.filterName': 'Filtrar por nome...',
+    'brand.filterWebsite': 'Filtrar por website...',
+    'brand.filterEmail': 'Filtrar por e-mail...',
+    'brand.filterSpecialities': 'Filtrar por especialidades...',
     
     // Navigation
     'nav.companies': 'Empresas',

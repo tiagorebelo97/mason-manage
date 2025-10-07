@@ -54,7 +54,15 @@ export function ColumnFilter({
     e.preventDefault();
     e.stopPropagation();
     onChange([]);
-    setOpen(false);
+  };
+
+  const handleButtonClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    // Don't toggle open state if clearing
+    const target = e.target as HTMLElement;
+    if (target.closest('.clear-filter-icon')) {
+      return;
+    }
   };
 
   const hasActiveFilters = selected.length > 0;
@@ -69,7 +77,7 @@ export function ColumnFilter({
             "h-7 px-2 gap-1",
             hasActiveFilters && "text-primary"
           )}
-          onClick={(e) => e.stopPropagation()}
+          onClick={handleButtonClick}
         >
           <Filter className="h-3.5 w-3.5" />
           {hasActiveFilters && (
@@ -78,7 +86,7 @@ export function ColumnFilter({
                 {selected.length}
               </Badge>
               <X
-                className="h-3 w-3 hover:text-destructive"
+                className="h-3 w-3 hover:text-destructive clear-filter-icon"
                 onClick={handleClear}
               />
             </>

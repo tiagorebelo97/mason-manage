@@ -17,13 +17,25 @@ import { toast } from "sonner";
 import { useLanguage } from "@/contexts/LanguageContext";
 import * as XLSX from "xlsx-js-style";
 import { ColumnFilter } from "@/components/ui/column-filter";
+import { HierarchicalColumnFilter, HierarchicalOption } from "@/components/ui/hierarchical-column-filter";
 type Company = {
   id: string;
   name: string;
   email: string;
   speciality_id: string | null;
   created_at: string;
-  company_specialities?: Array<{ specialities: { name: string; name_en: string; name_pt: string } }>;
+  company_specialities?: Array<{ 
+    specialities: { 
+      name: string; 
+      name_en: string; 
+      name_pt: string;
+      main_specialties?: { 
+        id: string; 
+        main_specialty_en: string; 
+        main_specialty_pt: string;
+      } | null;
+    } 
+  }>;
   brand_companies?: Array<{ brands: { name: string } }>;
 };
 
@@ -50,7 +62,7 @@ export const CompaniesTable = () => {
         .from("companies")
         .select(`
           *, 
-          company_specialities(specialities(name, name_en, name_pt)),
+          company_specialities(specialities(name, name_en, name_pt, main_specialties(id, main_specialty_en, main_specialty_pt))),
           brand_companies(brands(name))
         `);
       if (error) throw error;
@@ -152,17 +164,45 @@ export const CompaniesTable = () => {
     return emails.map(email => ({ label: email, value: email }));
   }, [companies]);
 
-  const uniqueSpecialities = useMemo(() => {
+  // Build hierarchical structure for speciality filter  
+  const hierarchicalSpecialities = useMemo(() => {
     if (!companies) return [];
-    const specialities = new Set<string>();
+    
+    // Group specialities by main specialty
+    const groupedByMainSpecialty = new Map<string, Set<string>>();
+    
     companies.forEach(company => {
       company.company_specialities?.forEach(cs => {
-        const name = language === 'pt' ? cs.specialities.name_pt : cs.specialities.name_en;
-        specialities.add(name);
+        const mainSpecialtyName = cs.specialities.main_specialties
+          ? (language === 'pt' ? cs.specialities.main_specialties.main_specialty_pt : cs.specialities.main_specialties.main_specialty_en)
+          : "-";
+        const specialityName = language === 'pt' ? cs.specialities.name_pt : cs.specialities.name_en;
+        
+        if (!groupedByMainSpecialty.has(mainSpecialtyName)) {
+          groupedByMainSpecialty.set(mainSpecialtyName, new Set());
+        }
+        groupedByMainSpecialty.get(mainSpecialtyName)?.add(specialityName);
       });
     });
-    const sortedSpecialities = Array.from(specialities).sort();
-    return sortedSpecialities.map(name => ({ label: name, value: name }));
+    
+    // Convert to hierarchical options
+    const options: HierarchicalOption[] = [];
+    const sortedMainSpecialties = Array.from(groupedByMainSpecialty.keys()).sort();
+    
+    sortedMainSpecialties.forEach(mainSpecialtyName => {
+      const children = Array.from(groupedByMainSpecialty.get(mainSpecialtyName) || []).sort().map(specialityName => ({
+        label: specialityName,
+        value: specialityName,
+      }));
+      
+      options.push({
+        label: mainSpecialtyName,
+        value: mainSpecialtyName,
+        children,
+      });
+    });
+    
+    return options;
   }, [companies, language]);
 
   const uniqueBrands = useMemo(() => {
@@ -426,8 +466,8 @@ export const CompaniesTable = () => {
                     {t('company.speciality')}
                     {getSortIcon("speciality")}
                   </div>
-                  <ColumnFilter
-                    options={uniqueSpecialities}
+                  <HierarchicalColumnFilter
+                    options={hierarchicalSpecialities}
                     selected={specialityFilter}
                     onChange={setSpecialityFilter}
                     placeholder={t('company.filterSpeciality')}
