@@ -87,15 +87,7 @@ export function HierarchicalColumnFilter({
     e.preventDefault();
     e.stopPropagation();
     onChange([]);
-  };
-
-  const handleButtonClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    // Don't toggle open state if clearing
-    const target = e.target as HTMLElement;
-    if (target.closest('.clear-filter-icon')) {
-      return;
-    }
+    setOpen(false);
   };
 
   const hasActiveFilters = selected.length > 0;
@@ -121,7 +113,6 @@ export function HierarchicalColumnFilter({
             "h-7 px-2 gap-1",
             hasActiveFilters && "text-primary"
           )}
-          onClick={handleButtonClick}
         >
           <Filter className="h-3.5 w-3.5" />
           {hasActiveFilters && (
@@ -129,10 +120,12 @@ export function HierarchicalColumnFilter({
               <Badge variant="secondary" className="h-5 px-1 text-xs">
                 {selected.length}
               </Badge>
-              <X
-                className="h-3 w-3 hover:text-destructive clear-filter-icon"
+              <button
+                className="ml-0.5 hover:text-destructive"
                 onClick={handleClear}
-              />
+              >
+                <X className="h-3 w-3" />
+              </button>
             </>
           )}
         </Button>
