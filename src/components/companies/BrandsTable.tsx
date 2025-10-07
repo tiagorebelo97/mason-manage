@@ -250,7 +250,7 @@ export const BrandsTable = () => {
 
   const exportToCSV = () => {
     if (!filteredAndSortedBrands || filteredAndSortedBrands.length === 0) {
-      toast.error(t('brand.exportError') || 'No data to export');
+      toast.error(t('brand.exportError'));
       return;
     }
 
@@ -379,7 +379,7 @@ export const BrandsTable = () => {
     // Generate Excel file and trigger download
     XLSX.writeFile(workbook, `brands_${new Date().toISOString().split("T")[0]}.xlsx`);
     
-    toast.success(t('brand.exportSuccess') || 'Export successful');
+    toast.success(t('brand.exportSuccess'));
   };
 
   if (isLoading) {
@@ -397,7 +397,7 @@ export const BrandsTable = () => {
         />
         <Button variant="outline" onClick={exportToCSV}>
           <Download className="mr-2 h-4 w-4" />
-          {t('brand.exportCSV') || 'Export to Excel'}
+          {t('brand.exportCSV')}
         </Button>
       </div>
       <div className="rounded-md border">
@@ -417,7 +417,7 @@ export const BrandsTable = () => {
                     options={uniqueNames}
                     selected={nameFilter}
                     onChange={setNameFilter}
-                    placeholder={t('brand.filterName') || 'Filter by name'}
+                    placeholder={t('brand.filterName')}
                     emptyText={t('company.noResults')}
                     columnName="name"
                   />
@@ -436,7 +436,7 @@ export const BrandsTable = () => {
                     options={uniqueWebsites}
                     selected={websiteFilter}
                     onChange={setWebsiteFilter}
-                    placeholder={t('brand.filterWebsite') || 'Filter by website'}
+                    placeholder={t('brand.filterWebsite')}
                     emptyText={t('company.noResults')}
                     columnName="website"
                   />
@@ -455,7 +455,7 @@ export const BrandsTable = () => {
                     options={uniqueEmails}
                     selected={emailFilter}
                     onChange={setEmailFilter}
-                    placeholder={t('brand.filterEmail') || 'Filter by email'}
+                    placeholder={t('brand.filterEmail')}
                     emptyText={t('company.noResults')}
                     columnName="email"
                   />
@@ -474,7 +474,7 @@ export const BrandsTable = () => {
                     options={hierarchicalSpecialities}
                     selected={specialityFilter}
                     onChange={setSpecialityFilter}
-                    placeholder={t('brand.filterSpecialities') || 'Filter by specialities'}
+                    placeholder={t('brand.filterSpecialities')}
                     emptyText={t('company.noResults')}
                     columnName="specialities"
                   />
