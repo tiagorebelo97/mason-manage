@@ -62,7 +62,7 @@ export const SpecialityDialog = ({ open, onOpenChange, speciality }: SpecialityD
     defaultValues: {
       name: "",
       inputLanguage: language,
-      main_specialty_id: "",
+      main_specialty_id: "none",
     },
   });
 
@@ -86,13 +86,13 @@ export const SpecialityDialog = ({ open, onOpenChange, speciality }: SpecialityD
         form.reset({ 
           name: nameToShow,
           inputLanguage: language,
-          main_specialty_id: speciality.main_specialty_id || "",
+          main_specialty_id: speciality.main_specialty_id || "none",
         });
       } else {
         form.reset({ 
           name: "",
           inputLanguage: language,
-          main_specialty_id: "",
+          main_specialty_id: "none",
         });
       }
     }
@@ -120,7 +120,7 @@ export const SpecialityDialog = ({ open, onOpenChange, speciality }: SpecialityD
               name_en, 
               name_pt, 
               name: name_en,
-              main_specialty_id: data.main_specialty_id || null,
+              main_specialty_id: data.main_specialty_id === "none" ? null : data.main_specialty_id,
             })
             .eq("id", speciality.id);
           if (error) throw error;
@@ -129,7 +129,7 @@ export const SpecialityDialog = ({ open, onOpenChange, speciality }: SpecialityD
             name: name_en, 
             name_en, 
             name_pt,
-            main_specialty_id: data.main_specialty_id || null,
+            main_specialty_id: data.main_specialty_id === "none" ? null : data.main_specialty_id,
           };
           const { error } = await supabase.from("specialities").insert([insertData]);
           if (error) throw error;
@@ -229,7 +229,7 @@ export const SpecialityDialog = ({ open, onOpenChange, speciality }: SpecialityD
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="">
+                      <SelectItem value="none">
                         {language === 'en' ? 'None' : 'Nenhum'}
                       </SelectItem>
                       {mainSpecialties?.map((ms) => (
