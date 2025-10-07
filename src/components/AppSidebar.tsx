@@ -1,4 +1,4 @@
-import { Building2, List, Layers, Package, Globe, LogOut } from "lucide-react";
+import { Building2, List, Layers, Package, Globe, LogOut, LayoutDashboard } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { NavLink } from "react-router-dom";
 import {
@@ -17,7 +17,8 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { Button } from "@/components/ui/button";
 
 const menuItems = [
-  { title: 'nav.companies', url: "/", icon: Building2 },
+  { title: 'nav.dashboard', url: "/", icon: LayoutDashboard },
+  { title: 'nav.companies', url: "/companies", icon: Building2 },
   { title: 'nav.specialities', url: "/specialities", icon: List },
   { title: 'nav.mainSpecialties', url: "/main-specialties", icon: Layers },
   { title: 'nav.brands', url: "/brands", icon: Package },

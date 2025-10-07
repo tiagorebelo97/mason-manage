@@ -112,6 +112,7 @@ const translations = {
     'brand.filterSpecialities': 'Filter by specialities...',
     
     // Navigation
+    'nav.dashboard': 'Dashboard',
     'nav.companies': 'Companies',
     'nav.specialities': 'Specialities',
     'nav.mainSpecialties': 'Main Specialties',
@@ -130,6 +131,22 @@ const translations = {
     
     // Common
     'common.loading': 'Loading companies...',
+    
+    // Dashboard
+    'dashboard.title': 'Dashboard',
+    'dashboard.subtitle': 'Overview of your construction management system',
+    'dashboard.totalCompanies': 'Total Companies',
+    'dashboard.totalBrands': 'Total Brands',
+    'dashboard.totalSpecialities': 'Total Specialities',
+    'dashboard.totalMainSpecialties': 'Main Specialties',
+    'dashboard.companiesBySpecialty': 'Companies by Specialty',
+    'dashboard.companiesByMainSpecialty': 'Companies by Main Specialty',
+    'dashboard.brandsDistribution': 'Brands Distribution',
+    'dashboard.topSpecialties': 'Top Specialties',
+    'dashboard.recentActivity': 'Recent Activity',
+    'dashboard.viewAll': 'View All',
+    'dashboard.companies': 'companies',
+    'dashboard.noData': 'No data available',
   },
   pt: {
     // Auth
@@ -232,6 +249,7 @@ const translations = {
     'brand.filterSpecialities': 'Filtrar por especialidades...',
     
     // Navigation
+    'nav.dashboard': 'Painel',
     'nav.companies': 'Empresas',
     'nav.specialities': 'Especialidades',
     'nav.mainSpecialties': 'Especialidades Principais',
@@ -250,6 +268,22 @@ const translations = {
     
     // Common
     'common.loading': 'A carregar empresas...',
+    
+    // Dashboard
+    'dashboard.title': 'Painel',
+    'dashboard.subtitle': 'Visão geral do seu sistema de gestão de construção',
+    'dashboard.totalCompanies': 'Total de Empresas',
+    'dashboard.totalBrands': 'Total de Marcas',
+    'dashboard.totalSpecialities': 'Total de Especialidades',
+    'dashboard.totalMainSpecialties': 'Especialidades Principais',
+    'dashboard.companiesBySpecialty': 'Empresas por Especialidade',
+    'dashboard.companiesByMainSpecialty': 'Empresas por Especialidade Principal',
+    'dashboard.brandsDistribution': 'Distribuição de Marcas',
+    'dashboard.topSpecialties': 'Principais Especialidades',
+    'dashboard.recentActivity': 'Atividade Recente',
+    'dashboard.viewAll': 'Ver Tudo',
+    'dashboard.companies': 'empresas',
+    'dashboard.noData': 'Sem dados disponíveis',
   },
 };
 
