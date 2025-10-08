@@ -580,7 +580,7 @@ export const ContactDialog = ({ open, onOpenChange, contact, readOnly = false }:
                   <div className="space-y-2">
                     {mobiles.map((mobile, index) => (
                       <div key={index} className="flex gap-2">
-                        <div className="grid grid-cols-[1fr_150px] gap-2 flex-1">
+                        <div className={index === 0 ? "grid grid-cols-[1fr_150px] gap-2 flex-1" : "flex-1"}>
                           <Input
                             value={mobile}
                             onChange={(e) => {

@@ -293,7 +293,9 @@ export const ContactsTable = () => {
                   <TableCell>
                     {contact.person_id && contact.people?.companies?.name 
                       ? contact.people.companies.name 
-                      : "—"}
+                      : contact.company_id && contact.companies?.name
+                        ? contact.companies.name
+                        : "—"}
                   </TableCell>
                   <TableCell>{contact.email || "—"}</TableCell>
                   <TableCell>{contact.mobile ? `${contact.country_code || ''} ${contact.mobile}` : "—"}</TableCell>

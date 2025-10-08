@@ -29,6 +29,7 @@ import { useEffect, useState } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Plus, Mail, Phone, User, Pencil, Trash2 } from "lucide-react";
 import { PersonDialog } from "./PersonDialog";
+import { PersonContactDialog } from "./PersonContactDialog";
 
 type Company = {
   id: string;
@@ -610,10 +611,19 @@ export const CompanyDialog = ({ open, onOpenChange, company, readOnly = false }:
         </Tabs>
 
         <PersonDialog 
-          open={isPersonDialogOpen || !!editingPerson} 
+          open={isPersonDialogOpen} 
           onOpenChange={(open) => {
             if (!open) {
               setIsPersonDialogOpen(false);
+            }
+          }}
+          preselectedCompanyId={company?.id}
+        />
+
+        <PersonContactDialog 
+          open={!!editingPerson} 
+          onOpenChange={(open) => {
+            if (!open) {
               setEditingPerson(null);
             }
           }}
