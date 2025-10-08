@@ -19,7 +19,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 type Person = {
   id: string;
   first_name: string;
-  middle_name: string | null;
+  last_name: string | null;
   company_id: string | null;
   created_at: string | null;
   companies?: {
@@ -62,7 +62,7 @@ export const PeopleTable = () => {
 
   const filteredPeople = people?.filter((person) => {
     const searchLower = searchTerm.toLowerCase();
-    const fullName = `${person.first_name} ${person.middle_name || ''}`.toLowerCase();
+    const fullName = `${person.first_name} ${person.last_name || ''}`.toLowerCase();
     const companyName = person.companies?.name?.toLowerCase() || '';
     return fullName.includes(searchLower) || companyName.includes(searchLower);
   });
@@ -86,7 +86,7 @@ export const PeopleTable = () => {
           <TableHeader>
             <TableRow>
               <TableHead>{t('person.firstName') || 'First Name'}</TableHead>
-              <TableHead>{t('person.middleName') || 'Middle Name'}</TableHead>
+              <TableHead>{t('person.lastName') || 'Last Name'}</TableHead>
               <TableHead>{t('person.company') || 'Company'}</TableHead>
               <TableHead className="text-right">{t('company.actions') || 'Actions'}</TableHead>
             </TableRow>
@@ -106,7 +106,7 @@ export const PeopleTable = () => {
                   onClick={() => setViewingPerson(person)}
                 >
                   <TableCell className="font-medium">{person.first_name}</TableCell>
-                  <TableCell>{person.middle_name || "—"}</TableCell>
+                  <TableCell>{person.last_name || "—"}</TableCell>
                   <TableCell>{person.companies?.name || "—"}</TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">

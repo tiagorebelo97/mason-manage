@@ -23,7 +23,6 @@ const menuItems = [
   { title: 'nav.mainSpecialties', url: "/main-specialties", icon: Layers },
   { title: 'nav.brands', url: "/brands", icon: Package },
   { title: 'nav.locations', url: "/locations", icon: MapPin },
-  { title: 'nav.people', url: "/people", icon: Users },
   { title: 'nav.contacts', url: "/contacts", icon: Phone },
 ];
 

@@ -331,21 +331,21 @@ export type Database = {
         Row: {
           id: string
           first_name: string
-          middle_name: string | null
+          last_name: string | null
           company_id: string | null
           created_at: string | null
         }
         Insert: {
           id?: string
           first_name: string
-          middle_name?: string | null
+          last_name?: string | null
           company_id?: string | null
           created_at?: string | null
         }
         Update: {
           id?: string
           first_name?: string
-          middle_name?: string | null
+          last_name?: string | null
           company_id?: string | null
           created_at?: string | null
         }

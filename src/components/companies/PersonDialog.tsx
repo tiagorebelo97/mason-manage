@@ -34,14 +34,14 @@ import { useLanguage } from "@/contexts/LanguageContext";
 type Person = {
   id: string;
   first_name: string;
-  middle_name: string | null;
+  last_name: string | null;
   company_id: string | null;
   created_at: string | null;
 };
 
 const personSchema = z.object({
   first_name: z.string().min(1, "First name is required").max(100),
-  middle_name: z.string().max(100).optional(),
+  last_name: z.string().max(100).optional(),
   company_id: z.string().optional(),
 });
 
@@ -62,7 +62,7 @@ export const PersonDialog = ({ open, onOpenChange, person, readOnly = false }: P
     resolver: zodResolver(personSchema),
     defaultValues: {
       first_name: "",
-      middle_name: "",
+      last_name: "",
       company_id: "none",
     },
   });
@@ -83,13 +83,13 @@ export const PersonDialog = ({ open, onOpenChange, person, readOnly = false }: P
     if (person) {
       form.reset({
         first_name: person.first_name,
-        middle_name: person.middle_name || "",
+        last_name: person.last_name || "",
         company_id: person.company_id || "none",
       });
     } else {
       form.reset({
         first_name: "",
-        middle_name: "",
+        last_name: "",
         company_id: "none",
       });
     }
@@ -104,7 +104,7 @@ export const PersonDialog = ({ open, onOpenChange, person, readOnly = false }: P
           .from("people")
           .update({
             first_name: data.first_name,
-            middle_name: data.middle_name || null,
+            last_name: data.last_name || null,
             company_id: companyId,
           })
           .eq("id", person.id);
@@ -114,7 +114,7 @@ export const PersonDialog = ({ open, onOpenChange, person, readOnly = false }: P
           .from("people")
           .insert([{
             first_name: data.first_name,
-            middle_name: data.middle_name || null,
+            last_name: data.last_name || null,
             company_id: companyId,
           }]);
         if (error) throw error;
@@ -159,10 +159,10 @@ export const PersonDialog = ({ open, onOpenChange, person, readOnly = false }: P
             />
             <FormField
               control={form.control}
-              name="middle_name"
+              name="last_name"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>{t('person.middleName') || 'Middle Name'}</FormLabel>
+                  <FormLabel>{t('person.lastName') || 'Last Name'}</FormLabel>
                   <FormControl>
                     <Input {...field} disabled={readOnly} />
                   </FormControl>

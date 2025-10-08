@@ -85,7 +85,7 @@ export const ContactDialog = ({ open, onOpenChange, contact, readOnly = false }:
       person_id: "",
       company_id: "",
       email: "",
-      country_code: "",
+      country_code: "+351",
       website: "",
       mobile: "",
       fax: "",
@@ -98,7 +98,7 @@ export const ContactDialog = ({ open, onOpenChange, contact, readOnly = false }:
     queryFn: async () => {
       const { data, error } = await supabase
         .from("people")
-        .select("id, first_name, middle_name")
+        .select("id, first_name, last_name")
         .order("first_name");
       if (error) throw error;
       return data;
@@ -126,7 +126,7 @@ export const ContactDialog = ({ open, onOpenChange, contact, readOnly = false }:
         person_id: contact.person_id || "",
         company_id: contact.company_id || "",
         email: contact.email || "",
-        country_code: contact.country_code || "",
+        country_code: contact.country_code || "+351",
         website: contact.website || "",
         mobile: contact.mobile || "",
         fax: contact.fax || "",
@@ -138,7 +138,7 @@ export const ContactDialog = ({ open, onOpenChange, contact, readOnly = false }:
         person_id: "",
         company_id: "",
         email: "",
-        country_code: "",
+        country_code: "+351",
         website: "",
         mobile: "",
         fax: "",
@@ -248,7 +248,7 @@ export const ContactDialog = ({ open, onOpenChange, contact, readOnly = false }:
                       <SelectContent>
                         {people?.map((person) => (
                           <SelectItem key={person.id} value={person.id}>
-                            {person.first_name} {person.middle_name || ''}
+                            {person.first_name} {person.last_name || ''}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -311,7 +311,7 @@ export const ContactDialog = ({ open, onOpenChange, contact, readOnly = false }:
                   <FormItem>
                     <FormLabel>{t('contact.countryCode') || 'Country Code'}</FormLabel>
                     <FormControl>
-                      <Input {...field} placeholder="+1" disabled={readOnly} />
+                      <Input {...field} placeholder="+351" disabled={readOnly} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
