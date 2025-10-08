@@ -254,6 +254,10 @@ const translations = {
     'contact.exportError': 'No data to export',
     'contact.selectExistingPerson': 'Select Existing',
     'contact.createNewPerson': 'Create New',
+    'contact.addEmail': 'Add Email',
+    'contact.addMobile': 'Add Mobile',
+    'contact.addFax': 'Add Fax',
+    'contact.noContact': 'No contact info',
   },
   pt: {
     // Auth
@@ -498,6 +502,10 @@ const translations = {
     'contact.exportError': 'Sem dados para exportar',
     'contact.selectExistingPerson': 'Selecionar Existente',
     'contact.createNewPerson': 'Criar Novo',
+    'contact.addEmail': 'Adicionar Email',
+    'contact.addMobile': 'Adicionar Telemóvel',
+    'contact.addFax': 'Adicionar Fax',
+    'contact.noContact': 'Sem informação de contacto',
   },
 };
 
