@@ -12,6 +12,7 @@ import Auth from "./pages/Auth";
 import Specialities from "./pages/Specialities";
 import MainSpecialties from "./pages/MainSpecialties";
 import Brands from "./pages/Brands";
+import Locations from "./pages/Locations";
 import NotFound from "./pages/NotFound";
 
 // Configure QueryClient with cache settings
@@ -54,6 +55,7 @@ const App = () => (
                           <Route path="/specialities" element={<Specialities />} />
                           <Route path="/main-specialties" element={<MainSpecialties />} />
                           <Route path="/brands" element={<Brands />} />
+                          <Route path="/locations" element={<Locations />} />
                           <Route path="*" element={<NotFound />} />
                         </Routes>
                       </main>
