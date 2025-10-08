@@ -43,6 +43,8 @@ type PersonWithContact = {
   id: string;
   first_name: string;
   last_name: string | null;
+  company_id: string | null;
+  created_at: string;
   contacts?: {
     email: string | null;
     mobile: string | null;
@@ -172,11 +174,11 @@ export const CompanyDialog = ({ open, onOpenChange, company, readOnly = false }:
       if (!company?.id) return [];
       const { data, error } = await supabase
         .from("people")
-        .select("id, first_name, last_name, contacts(email, mobile, country_code)")
+        .select("id, first_name, last_name, company_id, created_at, contacts(email, mobile, country_code)")
         .eq("company_id", company.id)
         .order("first_name");
       if (error) throw error;
-      return data;
+      return data as PersonWithContact[];
     },
     enabled: !!company?.id,
   });

@@ -3,9 +3,11 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useQuery } from "@tanstack/react-query";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Building2, Package, List, Layers, Users, Phone, MapPin } from "lucide-react";
-import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts";
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts";
+import { DashboardCard } from "@/components/dashboard/DashboardCard";
+import { ChartCard } from "@/components/dashboard/ChartCard";
+import { RecentList } from "@/components/dashboard/RecentList";
 
 type CompanySpeciality = {
   specialities: {
@@ -190,42 +192,6 @@ const Dashboard = () => {
       .sort((a, b) => b.value - a.value);
   }, [companies, language]);
 
-  // Prepare data for contacts by type chart
-  const contactsByTypeData = useMemo(() => {
-    if (!contacts) return [];
-    
-    return [
-      { 
-        name: t('contact.person') || 'Person', 
-        value: stats.personContacts,
-        color: '#0088FE'
-      },
-      { 
-        name: t('contact.company') || 'Company', 
-        value: stats.companyContacts,
-        color: '#00C49F'
-      },
-    ].filter(item => item.value > 0);
-  }, [contacts, stats.personContacts, stats.companyContacts, t]);
-
-  // Prepare data for people by company chart
-  const peopleByCompanyData = useMemo(() => {
-    if (!people) return [];
-    
-    const companyCount = new Map<string, number>();
-    
-    people.forEach(person => {
-      const companyName = person.companies?.name || (t('company.noCompany') || 'No Company');
-      companyCount.set(companyName, (companyCount.get(companyName) || 0) + 1);
-    });
-
-    return Array.from(companyCount.entries())
-      .map(([name, value]) => ({ name, value }))
-      .sort((a, b) => b.value - a.value)
-      .slice(0, 10); // Top 10 companies
-  }, [people, t]);
-
-  // Colors for charts
   const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d', '#ffc658', '#ff7c7c'];
 
   if (loading) {
@@ -237,329 +203,177 @@ const Dashboard = () => {
   }
 
   return (
-    <div className="container mx-auto py-8">
-      <div className="mb-8">
+    <div className="container mx-auto py-8 space-y-8">
+      <div>
         <h1 className="text-4xl font-bold text-foreground mb-2">{t('dashboard.title')}</h1>
         <p className="text-muted-foreground">{t('dashboard.subtitle')}</p>
       </div>
 
-      {/* Statistics Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <Card className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => navigate('/companies')}>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              {t('dashboard.totalCompanies')}
-            </CardTitle>
-            <Building2 className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.totalCompanies}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              {t('company.title')}
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => navigate('/brands')}>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              {t('dashboard.totalBrands')}
-            </CardTitle>
-            <Package className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.totalBrands}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              {t('brand.title')}
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => navigate('/contacts')}>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              {t('dashboard.totalContacts') || 'Total Contacts'}
-            </CardTitle>
-            <Phone className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.totalContacts}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              {stats.personContacts} {t('contact.person') || 'Person'} • {stats.companyContacts} {t('contact.company') || 'Company'}
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => navigate('/people')}>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              {t('dashboard.totalPeople') || 'Total People'}
-            </CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.totalPeople}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              {t('person.title') || 'People'}
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => navigate('/specialities')}>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              {t('dashboard.totalSpecialities')}
-            </CardTitle>
-            <List className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.totalSpecialities}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              {t('speciality.name')}
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => navigate('/main-specialties')}>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              {t('dashboard.totalMainSpecialties')}
-            </CardTitle>
-            <Layers className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.totalMainSpecialties}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              {t('mainSpecialty.title')}
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => navigate('/locations')}>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              {t('dashboard.totalLocations') || 'Total Locations'}
-            </CardTitle>
-            <MapPin className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.totalLocations}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              {t('location.title') || 'Locations'}
-            </p>
-          </CardContent>
-        </Card>
+      {/* Statistics Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <DashboardCard
+          title={t('dashboard.totalCompanies')}
+          value={stats.totalCompanies}
+          subtitle={t('company.title')}
+          icon={Building2}
+          onClick={() => navigate('/companies')}
+        />
+        <DashboardCard
+          title={t('dashboard.totalBrands')}
+          value={stats.totalBrands}
+          subtitle={t('brand.title')}
+          icon={Package}
+          onClick={() => navigate('/brands')}
+        />
+        <DashboardCard
+          title={t('dashboard.totalContacts') || 'Total Contacts'}
+          value={stats.totalContacts}
+          subtitle={`${stats.personContacts} ${t('contact.person') || 'Person'} • ${stats.companyContacts} ${t('contact.company') || 'Company'}`}
+          icon={Phone}
+          onClick={() => navigate('/contacts')}
+        />
+        <DashboardCard
+          title={t('dashboard.totalPeople') || 'Total People'}
+          value={stats.totalPeople}
+          subtitle={t('person.title') || 'People'}
+          icon={Users}
+          onClick={() => navigate('/people')}
+        />
+        <DashboardCard
+          title={t('dashboard.totalSpecialities')}
+          value={stats.totalSpecialities}
+          subtitle={t('speciality.name')}
+          icon={List}
+          onClick={() => navigate('/specialities')}
+        />
+        <DashboardCard
+          title={t('dashboard.totalMainSpecialties')}
+          value={stats.totalMainSpecialties}
+          subtitle={t('mainSpecialty.title')}
+          icon={Layers}
+          onClick={() => navigate('/main-specialties')}
+        />
+        <DashboardCard
+          title={t('dashboard.totalLocations') || 'Total Locations'}
+          value={stats.totalLocations}
+          subtitle={t('location.title') || 'Locations'}
+          icon={MapPin}
+          onClick={() => navigate('/locations')}
+        />
       </div>
 
       {/* Charts Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-        {/* Companies by Specialty - Pie Chart */}
-        <Card>
-          <CardHeader>
-            <CardTitle>{t('dashboard.companiesBySpecialty')}</CardTitle>
-            <CardDescription>{t('dashboard.topSpecialties')}</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {companiesBySpecialtyData.length > 0 ? (
-              <ResponsiveContainer width="100%" height={300}>
-                <PieChart>
-                  <Pie
-                    data={companiesBySpecialtyData}
-                    cx="50%"
-                    cy="50%"
-                    labelLine={false}
-                    label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                    outerRadius={80}
-                    fill="#8884d8"
-                    dataKey="value"
-                  >
-                    {companiesBySpecialtyData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                </PieChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="flex items-center justify-center h-[300px] text-muted-foreground">
-                {t('dashboard.noData')}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <ChartCard 
+          title={t('dashboard.companiesBySpecialty')} 
+          description={t('dashboard.topSpecialties')}
+        >
+          {companiesBySpecialtyData.length > 0 ? (
+            <ResponsiveContainer width="100%" height={300}>
+              <PieChart>
+                <Pie
+                  data={companiesBySpecialtyData}
+                  cx="50%"
+                  cy="50%"
+                  labelLine={false}
+                  label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                  outerRadius={80}
+                  fill="#8884d8"
+                  dataKey="value"
+                >
+                  {companiesBySpecialtyData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip />
+              </PieChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="flex items-center justify-center h-[300px] text-muted-foreground">
+              {t('dashboard.noData')}
+            </div>
+          )}
+        </ChartCard>
 
-        {/* Companies by Main Specialty - Bar Chart */}
-        <Card>
-          <CardHeader>
-            <CardTitle>{t('dashboard.companiesByMainSpecialty')}</CardTitle>
-            <CardDescription>{t('mainSpecialty.title')}</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {companiesByMainSpecialtyData.length > 0 ? (
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={companiesByMainSpecialtyData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="name" angle={-45} textAnchor="end" height={100} />
-                  <YAxis />
-                  <Tooltip />
-                  <Bar dataKey="value" fill="#0088FE" />
-                </BarChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="flex items-center justify-center h-[300px] text-muted-foreground">
-                {t('dashboard.noData')}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        <ChartCard 
+          title={t('dashboard.companiesByMainSpecialty')} 
+          description={t('mainSpecialty.title')}
+        >
+          {companiesByMainSpecialtyData.length > 0 ? (
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={companiesByMainSpecialtyData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="name" angle={-45} textAnchor="end" height={100} />
+                <YAxis />
+                <Tooltip />
+                <Bar dataKey="value" fill="#0088FE" />
+              </BarChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="flex items-center justify-center h-[300px] text-muted-foreground">
+              {t('dashboard.noData')}
+            </div>
+          )}
+        </ChartCard>
 
-        {/* Contacts by Type - Pie Chart */}
-        <Card>
-          <CardHeader>
-            <CardTitle>{t('dashboard.contactsByType') || 'Contacts by Type'}</CardTitle>
-            <CardDescription>{t('dashboard.contactsDistribution') || 'Distribution of person and company contacts'}</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {contactsByTypeData.length > 0 ? (
-              <ResponsiveContainer width="100%" height={300}>
-                <PieChart>
-                  <Pie
-                    data={contactsByTypeData}
-                    cx="50%"
-                    cy="50%"
-                    labelLine={false}
-                    label={({ name, value }) => `${name}: ${value}`}
-                    outerRadius={80}
-                    fill="#8884d8"
-                    dataKey="value"
-                  >
-                    {contactsByTypeData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                  <Legend />
-                </PieChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="flex items-center justify-center h-[300px] text-muted-foreground">
-                {t('dashboard.noData')}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* People by Company - Bar Chart */}
-        <Card>
-          <CardHeader>
-            <CardTitle>{t('dashboard.peopleByCompany') || 'People by Company'}</CardTitle>
-            <CardDescription>{t('dashboard.topCompaniesWithPeople') || 'Top companies with most people'}</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {peopleByCompanyData.length > 0 ? (
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={peopleByCompanyData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="name" angle={-45} textAnchor="end" height={100} />
-                  <YAxis />
-                  <Tooltip />
-                  <Bar dataKey="value" fill="#00C49F" />
-                </BarChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="flex items-center justify-center h-[300px] text-muted-foreground">
-                {t('dashboard.noData')}
-              </div>
-            )}
-          </CardContent>
-        </Card>
       </div>
 
       {/* Additional Info Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Top Brands */}
-        <Card>
-          <CardHeader>
-            <CardTitle>{t('brand.title')}</CardTitle>
-            <CardDescription>{t('dashboard.brandsDistribution')}</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {brands && brands.length > 0 ? (
-              <div className="space-y-2">
-                {brands.slice(0, 5).map((brand) => (
-                  <div key={brand.id} className="flex items-center justify-between p-2 hover:bg-muted/50 rounded">
-                    <div className="flex items-center gap-2">
-                      <Package className="h-4 w-4 text-muted-foreground" />
-                      <span className="font-medium">{brand.name}</span>
-                    </div>
-                    {brand.website && (
-                      <a 
-                        href={brand.website} 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="text-xs text-blue-500 hover:underline"
-                      >
-                        {brand.website.replace(/^https?:\/\//, '').slice(0, 20)}...
-                      </a>
-                    )}
-                  </div>
-                ))}
-                {brands.length > 5 && (
-                  <div 
-                    className="text-sm text-blue-500 hover:underline cursor-pointer text-center pt-2"
-                    onClick={() => navigate('/brands')}
-                  >
-                    {t('dashboard.viewAll')} ({brands.length})
-                  </div>
-                )}
+        <RecentList
+          title={t('brand.title')}
+          description={t('dashboard.brandsDistribution')}
+          items={brands?.slice(0, 5) || []}
+          totalCount={brands?.length}
+          onViewAll={() => navigate('/brands')}
+          viewAllLabel={t('dashboard.viewAll')}
+          emptyMessage={t('dashboard.noData')}
+          emptyIcon={Package}
+          renderItem={(brand) => (
+            <div className="flex items-center justify-between p-2 hover:bg-muted/50 rounded transition-colors">
+              <div className="flex items-center gap-2">
+                <Package className="h-4 w-4 text-muted-foreground" />
+                <span className="font-medium">{brand.name}</span>
               </div>
-            ) : (
-              <div className="flex items-center justify-center h-[200px] text-muted-foreground">
-                {t('dashboard.noData')}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+              {brand.website && (
+                <a 
+                  href={brand.website} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="text-xs text-primary hover:underline"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {brand.website.replace(/^https?:\/\//, '').slice(0, 20)}...
+                </a>
+              )}
+            </div>
+          )}
+        />
 
-        {/* Recent Companies */}
-        <Card>
-          <CardHeader>
-            <CardTitle>{t('company.title')}</CardTitle>
-            <CardDescription>{t('dashboard.recentActivity')}</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {companies && companies.length > 0 ? (
-              <div className="space-y-2">
-                {companies
-                  .sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime())
-                  .slice(0, 5)
-                  .map((company) => (
-                    <div key={company.id} className="flex items-center justify-between p-2 hover:bg-muted/50 rounded">
-                      <div className="flex items-center gap-2">
-                        <Building2 className="h-4 w-4 text-muted-foreground" />
-                        <div>
-                          <div className="font-medium">{company.name}</div>
-                          <div className="text-xs text-muted-foreground">{company.email}</div>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                {companies.length > 5 && (
-                  <div 
-                    className="text-sm text-blue-500 hover:underline cursor-pointer text-center pt-2"
-                    onClick={() => navigate('/companies')}
-                  >
-                    {t('dashboard.viewAll')} ({companies.length})
-                  </div>
-                )}
+        <RecentList
+          title={t('company.title')}
+          description={t('dashboard.recentActivity')}
+          items={companies?.sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()).slice(0, 5) || []}
+          totalCount={companies?.length}
+          onViewAll={() => navigate('/companies')}
+          viewAllLabel={t('dashboard.viewAll')}
+          emptyMessage={t('dashboard.noData')}
+          emptyIcon={Building2}
+          renderItem={(company) => (
+            <div 
+              className="flex items-center justify-between p-2 hover:bg-muted/50 rounded transition-colors cursor-pointer"
+              onClick={() => navigate('/companies')}
+            >
+              <div className="flex items-center gap-2">
+                <Building2 className="h-4 w-4 text-muted-foreground" />
+                <div>
+                  <div className="font-medium">{company.name}</div>
+                  {company.email && <div className="text-xs text-muted-foreground">{company.email}</div>}
+                </div>
               </div>
-            ) : (
-              <div className="flex items-center justify-center h-[200px] text-muted-foreground">
-                {t('dashboard.noData')}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+            </div>
+          )}
+        />
       </div>
     </div>
   );
