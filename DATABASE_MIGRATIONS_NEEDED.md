@@ -2,6 +2,15 @@
 
 This document outlines the database schema changes needed to support the new features added in this PR.
 
+## Table Alterations (MUST BE DONE FIRST)
+
+### Update companies Table
+```sql
+-- Remove email column and add comments column
+ALTER TABLE companies DROP COLUMN IF EXISTS email;
+ALTER TABLE companies ADD COLUMN IF NOT EXISTS comments TEXT;
+```
+
 ## Tables to Create
 
 ### 1. main_specialties Table
@@ -62,7 +71,77 @@ CREATE INDEX idx_brand_companies_brand_id ON brand_companies(brand_id);
 CREATE INDEX idx_brand_companies_company_id ON brand_companies(company_id);
 ```
 
-## Table Alterations
+### 5. locations Table
+```sql
+CREATE TABLE locations (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  name VARCHAR(255) NOT NULL,
+  address TEXT,
+  city VARCHAR(100),
+  country VARCHAR(100),
+  postal_code VARCHAR(20),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Add index for name lookups
+CREATE INDEX idx_locations_name ON locations(name);
+```
+
+### 6. company_locations Junction Table
+```sql
+CREATE TABLE company_locations (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+  location_id UUID NOT NULL REFERENCES locations(id) ON DELETE CASCADE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  UNIQUE(company_id, location_id)
+);
+
+-- Add indexes for foreign keys
+CREATE INDEX idx_company_locations_company_id ON company_locations(company_id);
+CREATE INDEX idx_company_locations_location_id ON company_locations(location_id);
+```
+
+### 7. people Table
+```sql
+CREATE TABLE people (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  first_name VARCHAR(100) NOT NULL,
+  middle_name VARCHAR(100),
+  company_id UUID REFERENCES companies(id) ON DELETE SET NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Add index for company_id lookups
+CREATE INDEX idx_people_company_id ON people(company_id);
+```
+
+### 8. contacts Table
+```sql
+CREATE TABLE contacts (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  person_id UUID REFERENCES people(id) ON DELETE CASCADE,
+  company_id UUID REFERENCES companies(id) ON DELETE CASCADE,
+  email VARCHAR(255),
+  country_code VARCHAR(10),
+  website VARCHAR(500),
+  mobile VARCHAR(50),
+  fax VARCHAR(50),
+  address TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  -- Ensure a contact belongs to either a person or a company, not both or neither
+  CHECK (
+    (person_id IS NOT NULL AND company_id IS NULL) OR
+    (person_id IS NULL AND company_id IS NOT NULL)
+  )
+);
+
+-- Add indexes for foreign keys
+CREATE INDEX idx_contacts_person_id ON contacts(person_id);
+CREATE INDEX idx_contacts_company_id ON contacts(company_id);
+```
+
+## Table Alterations (Additional)
 
 ### Update specialities Table
 ```sql
@@ -84,6 +163,10 @@ ALTER TABLE main_specialties ENABLE ROW LEVEL SECURITY;
 ALTER TABLE brands ENABLE ROW LEVEL SECURITY;
 ALTER TABLE brand_specialities ENABLE ROW LEVEL SECURITY;
 ALTER TABLE brand_companies ENABLE ROW LEVEL SECURITY;
+ALTER TABLE locations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE company_locations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE people ENABLE ROW LEVEL SECURITY;
+ALTER TABLE contacts ENABLE ROW LEVEL SECURITY;
 
 -- Example policies (adjust based on your security needs)
 -- main_specialties
@@ -167,6 +250,90 @@ CREATE POLICY "Allow authenticated users to update brand_companies"
 
 CREATE POLICY "Allow authenticated users to delete brand_companies"
   ON brand_companies FOR DELETE
+  TO authenticated
+  USING (true);
+
+-- locations
+CREATE POLICY "Allow authenticated users to read locations"
+  ON locations FOR SELECT
+  TO authenticated
+  USING (true);
+
+CREATE POLICY "Allow authenticated users to insert locations"
+  ON locations FOR INSERT
+  TO authenticated
+  WITH CHECK (true);
+
+CREATE POLICY "Allow authenticated users to update locations"
+  ON locations FOR UPDATE
+  TO authenticated
+  USING (true);
+
+CREATE POLICY "Allow authenticated users to delete locations"
+  ON locations FOR DELETE
+  TO authenticated
+  USING (true);
+
+-- company_locations
+CREATE POLICY "Allow authenticated users to read company_locations"
+  ON company_locations FOR SELECT
+  TO authenticated
+  USING (true);
+
+CREATE POLICY "Allow authenticated users to insert company_locations"
+  ON company_locations FOR INSERT
+  TO authenticated
+  WITH CHECK (true);
+
+CREATE POLICY "Allow authenticated users to update company_locations"
+  ON company_locations FOR UPDATE
+  TO authenticated
+  USING (true);
+
+CREATE POLICY "Allow authenticated users to delete company_locations"
+  ON company_locations FOR DELETE
+  TO authenticated
+  USING (true);
+
+-- people
+CREATE POLICY "Allow authenticated users to read people"
+  ON people FOR SELECT
+  TO authenticated
+  USING (true);
+
+CREATE POLICY "Allow authenticated users to insert people"
+  ON people FOR INSERT
+  TO authenticated
+  WITH CHECK (true);
+
+CREATE POLICY "Allow authenticated users to update people"
+  ON people FOR UPDATE
+  TO authenticated
+  USING (true);
+
+CREATE POLICY "Allow authenticated users to delete people"
+  ON people FOR DELETE
+  TO authenticated
+  USING (true);
+
+-- contacts
+CREATE POLICY "Allow authenticated users to read contacts"
+  ON contacts FOR SELECT
+  TO authenticated
+  USING (true);
+
+CREATE POLICY "Allow authenticated users to insert contacts"
+  ON contacts FOR INSERT
+  TO authenticated
+  WITH CHECK (true);
+
+CREATE POLICY "Allow authenticated users to update contacts"
+  ON contacts FOR UPDATE
+  TO authenticated
+  USING (true);
+
+CREATE POLICY "Allow authenticated users to delete contacts"
+  ON contacts FOR DELETE
   TO authenticated
   USING (true);
 ```

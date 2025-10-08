@@ -1,4 +1,4 @@
-import { Building2, List, Layers, Package, Globe, LogOut, LayoutDashboard } from "lucide-react";
+import { Building2, List, Layers, Package, Globe, LogOut, LayoutDashboard, MapPin, Users, Phone } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { NavLink } from "react-router-dom";
 import {
@@ -22,6 +22,9 @@ const menuItems = [
   { title: 'nav.specialities', url: "/specialities", icon: List },
   { title: 'nav.mainSpecialties', url: "/main-specialties", icon: Layers },
   { title: 'nav.brands', url: "/brands", icon: Package },
+  { title: 'nav.locations', url: "/locations", icon: MapPin },
+  { title: 'nav.people', url: "/people", icon: Users },
+  { title: 'nav.contacts', url: "/contacts", icon: Phone },
 ];
 
 export function AppSidebar() {

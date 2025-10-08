@@ -21,7 +21,7 @@ import { HierarchicalColumnFilter, HierarchicalOption } from "@/components/ui/hi
 type Company = {
   id: string;
   name: string;
-  email: string;
+  comments: string | null;
   speciality_id: string | null;
   created_at: string;
   company_specialities?: Array<{ 
@@ -37,9 +37,10 @@ type Company = {
     } 
   }>;
   brand_companies?: Array<{ brands: { name: string } }>;
+  company_locations?: Array<{ locations: { name: string } }>;
 };
 
-type SortField = "name" | "email" | "speciality" | "brands";
+type SortField = "name" | "comments" | "speciality" | "brands" | "locations";
 type SortDirection = "asc" | "desc" | null;
 
 export const CompaniesTable = () => {
@@ -47,9 +48,10 @@ export const CompaniesTable = () => {
   const [viewingCompany, setViewingCompany] = useState<Company | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [nameFilter, setNameFilter] = useState<string[]>([]);
-  const [emailFilter, setEmailFilter] = useState<string[]>([]);
+  const [commentsFilter, setCommentsFilter] = useState<string[]>([]);
   const [specialityFilter, setSpecialityFilter] = useState<string[]>([]);
   const [brandFilter, setBrandFilter] = useState<string[]>([]);
+  const [locationFilter, setLocationFilter] = useState<string[]>([]);
   const [sortField, setSortField] = useState<SortField | null>(null);
   const [sortDirection, setSortDirection] = useState<SortDirection>(null);
   const queryClient = useQueryClient();
@@ -63,7 +65,8 @@ export const CompaniesTable = () => {
         .select(`
           *, 
           company_specialities(specialities(name, name_en, name_pt, main_specialties(id, main_specialty_en, main_specialty_pt))),
-          brand_companies(brands(name))
+          brand_companies(brands(name)),
+          company_locations(locations(name))
         `);
       if (error) throw error;
       return data;
@@ -78,15 +81,18 @@ export const CompaniesTable = () => {
     let filtered = companies.filter((company) => {
       const searchLower = searchTerm.toLowerCase();
       const nameMatch = company.name.toLowerCase().includes(searchLower);
-      const emailMatch = company.email.toLowerCase().includes(searchLower);
+      const commentsMatch = company.comments?.toLowerCase().includes(searchLower) || false;
       const specialityMatch = company.company_specialities?.some(cs =>
         (language === 'pt' ? cs.specialities.name_pt : cs.specialities.name_en).toLowerCase().includes(searchLower)
       ) || false;
       const brandMatch = company.brand_companies?.some(bc =>
         bc.brands.name.toLowerCase().includes(searchLower)
       ) || false;
+      const locationMatch = company.company_locations?.some(cl =>
+        cl.locations.name.toLowerCase().includes(searchLower)
+      ) || false;
       
-      return nameMatch || emailMatch || specialityMatch || brandMatch;
+      return nameMatch || commentsMatch || specialityMatch || brandMatch || locationMatch;
     });
 
     // Apply column-specific filters
@@ -96,9 +102,9 @@ export const CompaniesTable = () => {
       );
     }
 
-    if (emailFilter.length > 0) {
+    if (commentsFilter.length > 0) {
       filtered = filtered.filter((company) => 
-        emailFilter.includes(company.email)
+        company.comments && commentsFilter.includes(company.comments)
       );
     }
 
@@ -158,10 +164,21 @@ export const CompaniesTable = () => {
     return names.map(name => ({ label: name, value: name }));
   }, [companies]);
 
-  const uniqueEmails = useMemo(() => {
+  const uniqueComments = useMemo(() => {
     if (!companies) return [];
-    const emails = Array.from(new Set(companies.map(c => c.email))).sort();
-    return emails.map(email => ({ label: email, value: email }));
+    const comments = Array.from(new Set(companies.map(c => c.comments).filter(Boolean))).sort();
+    return comments.map(comment => ({ label: comment, value: comment }));
+  }, [companies]);
+
+  const uniqueLocations = useMemo(() => {
+    if (!companies) return [];
+    const locations = new Set<string>();
+    companies.forEach(company => {
+      company.company_locations?.forEach(cl => {
+        locations.add(cl.locations.name);
+      });
+    });
+    return Array.from(locations).sort().map(location => ({ label: location, value: location }));
   }, [companies]);
 
   // Build hierarchical structure for speciality filter  
@@ -265,7 +282,7 @@ export const CompaniesTable = () => {
       return;
     }
 
-    const headers = ["Name", "Email", "Speciality", "Brands"];
+    const headers = ["Name", "Comments", "Speciality", "Brands", "Locations"];
     const rows: string[][] = [];
     
     filteredAndSortedCompanies.forEach((company) => {
@@ -277,20 +294,28 @@ export const CompaniesTable = () => {
         ? company.brand_companies
         : [null];
 
-      // Create a row for each combination of speciality and brand
+      const locations = company.company_locations && company.company_locations.length > 0
+        ? company.company_locations
+        : [null];
+
+      // Create a row for each combination of speciality, brand, and location
       specialities.forEach((cs) => {
         brands.forEach((bc) => {
-          const specialityName = cs 
-            ? (language === 'pt' ? cs.specialities.name_pt : cs.specialities.name_en)
-            : "";
-          const brandName = bc ? bc.brands.name : "";
-          
-          rows.push([
-            company.name,
-            company.email,
-            specialityName,
-            brandName,
-          ]);
+          locations.forEach((cl) => {
+            const specialityName = cs 
+              ? (language === 'pt' ? cs.specialities.name_pt : cs.specialities.name_en)
+              : "";
+            const brandName = bc ? bc.brands.name : "";
+            const locationName = cl ? cl.locations.name : "";
+            
+            rows.push([
+              company.name,
+              company.comments || "",
+              specialityName,
+              brandName,
+              locationName,
+            ]);
+          });
         });
       });
     });
@@ -443,21 +468,21 @@ export const CompaniesTable = () => {
               <TableHead>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center">
-                    {t('company.email')}
+                    {t('company.comments') || 'Comments'}
                     <button
-                      onClick={() => handleSort("email")}
+                      onClick={() => handleSort("comments")}
                       className="ml-2 hover:bg-muted/50 rounded p-1"
                     >
-                      {getSortIcon("email")}
+                      {getSortIcon("comments")}
                     </button>
                   </div>
                   <ColumnFilter
-                    options={uniqueEmails}
-                    selected={emailFilter}
-                    onChange={setEmailFilter}
-                    placeholder={t('company.filterEmail')}
+                    options={uniqueComments}
+                    selected={commentsFilter}
+                    onChange={setCommentsFilter}
+                    placeholder={t('company.filterComments') || 'Filter by comments...'}
                     emptyText={t('company.noResults')}
-                    columnName="email"
+                    columnName="comments"
                   />
                 </div>
               </TableHead>
@@ -503,13 +528,34 @@ export const CompaniesTable = () => {
                   />
                 </div>
               </TableHead>
+              <TableHead>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center">
+                    {t('company.locations') || 'Locations'}
+                    <button
+                      onClick={() => handleSort("locations")}
+                      className="ml-2 hover:bg-muted/50 rounded p-1"
+                    >
+                      {getSortIcon("locations")}
+                    </button>
+                  </div>
+                  <ColumnFilter
+                    options={uniqueLocations}
+                    selected={locationFilter}
+                    onChange={setLocationFilter}
+                    placeholder={t('company.filterLocations') || 'Filter by location...'}
+                    emptyText={t('company.noResults')}
+                    columnName="locations"
+                  />
+                </div>
+              </TableHead>
               <TableHead className="text-right">{t('company.actions')}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {filteredAndSortedCompanies?.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} className="text-center text-muted-foreground">
+                <TableCell colSpan={6} className="text-center text-muted-foreground">
                   {searchTerm ? t('company.noResults') : t('company.noCompanies')}
                 </TableCell>
               </TableRow>
@@ -521,7 +567,7 @@ export const CompaniesTable = () => {
                   onClick={() => setViewingCompany(company)}
                 >
                   <TableCell className="font-medium">{company.name}</TableCell>
-                  <TableCell>{company.email}</TableCell>
+                  <TableCell>{company.comments || "—"}</TableCell>
                   <TableCell>
                     {company.company_specialities && company.company_specialities.length > 0
                       ? company.company_specialities
@@ -533,6 +579,13 @@ export const CompaniesTable = () => {
                     {company.brand_companies && company.brand_companies.length > 0
                       ? company.brand_companies
                           .map(bc => bc.brands.name)
+                          .join(", ")
+                      : "—"}
+                  </TableCell>
+                  <TableCell>
+                    {company.company_locations && company.company_locations.length > 0
+                      ? company.company_locations
+                          .map(cl => cl.locations.name)
                           .join(", ")
                       : "—"}
                   </TableCell>
