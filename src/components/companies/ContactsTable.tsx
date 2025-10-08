@@ -211,37 +211,37 @@ export const ContactsTable = () => {
             onChange={(e) => setSearchTerm(e.target.value)}
             className="max-w-sm"
           />
-          <Button variant="outline" onClick={exportToExcel} size="sm" className="gap-2 whitespace-nowrap">
-            <Download className="h-4 w-4" />
-            {t('contact.exportCSV') || 'Export Excel'}
-          </Button>
-        </div>
-        <div className="flex gap-2">
-          <Button
-            variant={contactFilter === "all" ? "default" : "outline"}
-            onClick={() => setContactFilter("all")}
-            size="sm"
-          >
-            {t('contact.filterAll') || 'All'}
-          </Button>
-          <Button
-            variant={contactFilter === "person" ? "default" : "outline"}
-            onClick={() => setContactFilter("person")}
-            size="sm"
-            className="gap-1.5"
-          >
-            <User className="h-3.5 w-3.5" />
-            {t('contact.filterPerson') || 'Person'}
-          </Button>
-          <Button
-            variant={contactFilter === "company" ? "default" : "outline"}
-            onClick={() => setContactFilter("company")}
-            size="sm"
-            className="gap-1.5"
-          >
-            <Building2 className="h-3.5 w-3.5" />
-            {t('contact.filterCompany') || 'Company'}
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              variant={contactFilter === "all" ? "default" : "outline"}
+              onClick={() => setContactFilter("all")}
+              size="sm"
+            >
+              {t('contact.filterAll') || 'All'}
+            </Button>
+            <Button
+              variant={contactFilter === "person" ? "default" : "outline"}
+              onClick={() => setContactFilter("person")}
+              size="sm"
+              className="gap-1.5"
+            >
+              <User className="h-3.5 w-3.5" />
+              {t('contact.filterPerson') || 'Person'}
+            </Button>
+            <Button
+              variant={contactFilter === "company" ? "default" : "outline"}
+              onClick={() => setContactFilter("company")}
+              size="sm"
+              className="gap-1.5"
+            >
+              <Building2 className="h-3.5 w-3.5" />
+              {t('contact.filterCompany') || 'Company'}
+            </Button>
+            <Button variant="outline" onClick={exportToExcel} size="sm" className="gap-2 whitespace-nowrap">
+              <Download className="h-4 w-4" />
+              {t('contact.exportCSV') || 'Export Excel'}
+            </Button>
+          </div>
         </div>
       </div>
       <div className="rounded-md border overflow-hidden">
@@ -297,8 +297,28 @@ export const ContactsTable = () => {
                         ? contact.companies.name
                         : "—"}
                   </TableCell>
-                  <TableCell>{contact.email || "—"}</TableCell>
-                  <TableCell>{contact.mobile ? `${contact.country_code || ''} ${contact.mobile}` : "—"}</TableCell>
+                  <TableCell>
+                    {contact.email ? (
+                      <div className="flex flex-wrap gap-1">
+                        {contact.email.split(',').map((email, idx) => (
+                          <Badge key={idx} variant="secondary" className="text-xs">
+                            {email.trim()}
+                          </Badge>
+                        ))}
+                      </div>
+                    ) : "—"}
+                  </TableCell>
+                  <TableCell>
+                    {contact.mobile ? (
+                      <div className="flex flex-wrap gap-1">
+                        {contact.mobile.split(',').map((mobile, idx) => (
+                          <Badge key={idx} variant="secondary" className="text-xs">
+                            {contact.country_code || ''} {mobile.trim()}
+                          </Badge>
+                        ))}
+                      </div>
+                    ) : "—"}
+                  </TableCell>
                   <TableCell>{contact.website || "—"}</TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
