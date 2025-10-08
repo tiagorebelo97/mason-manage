@@ -220,16 +220,16 @@ const Dashboard = () => {
           onClick={() => navigate('/companies')}
         />
         <DashboardCard
-          title={t('dashboard.totalContacts') || 'Total Contacts'}
+          title={t('dashboard.totalContacts')}
           value={stats.totalContacts}
-          subtitle={`${stats.personContacts} ${t('contact.person') || 'Person'} • ${stats.companyContacts} ${t('contact.company') || 'Company'}`}
+          subtitle={`${stats.personContacts} ${t('contact.person')} • ${stats.companyContacts} ${t('contact.company')}`}
           icon={Phone}
           onClick={() => navigate('/contacts')}
         />
         <DashboardCard
-          title={t('dashboard.totalPeople') || 'Total People'}
+          title={t('dashboard.totalPeople')}
           value={stats.totalPeople}
-          subtitle={t('person.title') || 'People'}
+          subtitle={t('person.title')}
           icon={Users}
           onClick={() => navigate('/people')}
         />
@@ -259,9 +259,9 @@ const Dashboard = () => {
           onClick={() => navigate('/main-specialties')}
         />
         <DashboardCard
-          title={t('dashboard.totalLocations') || 'Total Locations'}
+          title={t('dashboard.totalLocations')}
           value={stats.totalLocations}
-          subtitle={t('location.title') || 'Locations'}
+          subtitle={t('location.title')}
           icon={MapPin}
           onClick={() => navigate('/locations')}
         />

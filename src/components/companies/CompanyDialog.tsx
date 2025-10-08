@@ -29,7 +29,6 @@ import { useEffect, useState } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Plus, Mail, Phone, User, Pencil, Trash2 } from "lucide-react";
 import { PersonDialog } from "./PersonDialog";
-import { ContactDialog } from "./ContactDialog";
 
 type Company = {
   id: string;
@@ -79,9 +78,6 @@ export const CompanyDialog = ({ open, onOpenChange, company, readOnly = false }:
   const { t, language } = useLanguage();
   const [isPersonDialogOpen, setIsPersonDialogOpen] = useState(false);
   const [editingPerson, setEditingPerson] = useState<PersonWithContact | null>(null);
-  const [isContactDialogOpen, setIsContactDialogOpen] = useState(false);
-  const [editingContact, setEditingContact] = useState<{id: string; person_id: string | null; email: string | null; mobile: string | null; country_code: string | null; website: string | null; fax: string | null; address: string | null;} | null>(null);
-  const [selectedPersonForContact, setSelectedPersonForContact] = useState<string | null>(null);
 
   const form = useForm<CompanyFormData>({
     resolver: zodResolver(companySchema),
@@ -363,9 +359,9 @@ export const CompanyDialog = ({ open, onOpenChange, company, readOnly = false }:
         
         <Tabs defaultValue="details" className="w-full">
           <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="details">{t('company.details') || 'Details'}</TabsTrigger>
+            <TabsTrigger value="details">{t('company.companyDetails')}</TabsTrigger>
             <TabsTrigger value="people" disabled={!company}>
-              {t('company.people') || 'People'} {company && companyPeople ? `(${companyPeople.length})` : ''}
+              {t('company.associatedPeople')} {company && companyPeople ? `(${companyPeople.length})` : ''}
             </TabsTrigger>
           </TabsList>
           
@@ -505,8 +501,8 @@ export const CompanyDialog = ({ open, onOpenChange, company, readOnly = false }:
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <div>
-                    <CardTitle>{t('company.relatedPeople') || 'Related People'}</CardTitle>
-                    <CardDescription>{t('company.relatedPeopleDesc') || 'People associated with this company'}</CardDescription>
+                    <CardTitle>{t('company.peopleInCompany')}</CardTitle>
+                    <CardDescription>{t('company.peopleInCompanyDesc')}</CardDescription>
                   </div>
                   {!readOnly && (
                     <Button 
@@ -515,7 +511,7 @@ export const CompanyDialog = ({ open, onOpenChange, company, readOnly = false }:
                       className="gap-2"
                     >
                       <Plus className="h-4 w-4" />
-                      {t('person.addPerson') || 'Add Person'}
+                      {t('person.addPerson')}
                     </Button>
                   )}
                 </div>
@@ -553,7 +549,7 @@ export const CompanyDialog = ({ open, onOpenChange, company, readOnly = false }:
                                     </div>
                                   )}
                                   {!contact && (
-                                    <span className="text-xs text-muted-foreground italic">{t('contact.noContact') || 'No contact info'}</span>
+                                    <span className="text-xs text-muted-foreground italic">{t('person.noContact')}</span>
                                   )}
                                 </div>
                               </div>
@@ -564,7 +560,7 @@ export const CompanyDialog = ({ open, onOpenChange, company, readOnly = false }:
                                   variant="ghost"
                                   size="icon"
                                   onClick={() => setEditingPerson(person)}
-                                  title={t('person.editPerson') || 'Edit person'}
+                                  title={t('person.editPerson')}
                                 >
                                   <Pencil className="h-4 w-4" />
                                 </Button>
@@ -572,54 +568,13 @@ export const CompanyDialog = ({ open, onOpenChange, company, readOnly = false }:
                                   variant="ghost"
                                   size="icon"
                                   onClick={() => deletePerson.mutate(person.id)}
-                                  title={t('person.deletePerson') || 'Delete person'}
+                                  title={t('person.deletePerson')}
                                 >
                                   <Trash2 className="h-4 w-4" />
                                 </Button>
                               </div>
                             )}
                           </div>
-                          {!readOnly && (
-                            <div className="flex gap-2 pt-2 border-t">
-                              {contact ? (
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => {
-                                    setEditingContact({
-                                      id: contact.id || '',
-                                      person_id: person.id,
-                                      email: contact.email,
-                                      mobile: contact.mobile,
-                                      country_code: contact.country_code,
-                                      website: null,
-                                      fax: null,
-                                      address: null,
-                                    });
-                                    setIsContactDialogOpen(true);
-                                  }}
-                                  className="gap-2"
-                                >
-                                  <Pencil className="h-3 w-3" />
-                                  {t('contact.editContact') || 'Edit Contact'}
-                                </Button>
-                              ) : (
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => {
-                                    setSelectedPersonForContact(person.id);
-                                    setEditingContact(null);
-                                    setIsContactDialogOpen(true);
-                                  }}
-                                  className="gap-2"
-                                >
-                                  <Plus className="h-3 w-3" />
-                                  {t('contact.addContact') || 'Add Contact'}
-                                </Button>
-                              )}
-                            </div>
-                          )}
                         </div>
                       );
                     })}
@@ -627,7 +582,7 @@ export const CompanyDialog = ({ open, onOpenChange, company, readOnly = false }:
                 ) : (
                   <div className="text-center py-8 text-muted-foreground">
                     <User className="h-12 w-12 mx-auto mb-2 opacity-20" />
-                    <p>{t('company.noPeople') || 'No people associated with this company'}</p>
+                    <p>{t('company.noPeople')}</p>
                     {!readOnly && (
                       <Button 
                         variant="outline" 
@@ -636,7 +591,7 @@ export const CompanyDialog = ({ open, onOpenChange, company, readOnly = false }:
                         onClick={() => setIsPersonDialogOpen(true)}
                       >
                         <Plus className="h-4 w-4 mr-2" />
-                        {t('person.addFirstPerson') || 'Add first person'}
+                        {t('person.addFirstPerson')}
                       </Button>
                     )}
                   </div>
@@ -664,41 +619,6 @@ export const CompanyDialog = ({ open, onOpenChange, company, readOnly = false }:
           }}
           person={editingPerson}
           preselectedCompanyId={company?.id}
-        />
-        
-        <ContactDialog 
-          open={isContactDialogOpen} 
-          onOpenChange={(open) => {
-            if (!open) {
-              setIsContactDialogOpen(false);
-              setEditingContact(null);
-              setSelectedPersonForContact(null);
-              queryClient.invalidateQueries({ queryKey: ["company-people", company?.id, import.meta.env.VITE_SUPABASE_URL] });
-            }
-          }}
-          contact={editingContact ? {
-            id: editingContact.id,
-            person_id: editingContact.person_id,
-            company_id: null,
-            email: editingContact.email,
-            mobile: editingContact.mobile,
-            country_code: editingContact.country_code,
-            website: editingContact.website,
-            fax: editingContact.fax,
-            address: editingContact.address,
-            created_at: null,
-          } : (selectedPersonForContact ? {
-            id: '',
-            person_id: selectedPersonForContact,
-            company_id: null,
-            email: null,
-            mobile: null,
-            country_code: '+351',
-            website: null,
-            fax: null,
-            address: null,
-            created_at: null,
-          } : undefined)}
         />
       </DialogContent>
     </Dialog>

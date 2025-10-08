@@ -63,6 +63,12 @@ const translations = {
     'company.selectLocations': 'Select locations...',
     'company.noLocations': 'No locations found.',
     'company.filterLocations': 'Filter by location...',
+    'company.companyDetails': 'Company Details',
+    'company.associatedPeople': 'Associated People',
+    'company.peopleInCompany': 'People in this Company',
+    'company.peopleInCompanyDesc': 'Manage people associated with this company',
+    'company.noPeople': 'No people associated with this company',
+    'company.addFirstPerson': 'Add first person',
     
     // Speciality Management
     'speciality.name': 'Speciality',
@@ -124,6 +130,7 @@ const translations = {
     'nav.specialities': 'Specialities',
     'nav.mainSpecialties': 'Main Specialties',
     'nav.brands': 'Brands',
+    'nav.contacts': 'Contacts',
     
     // Dialogs
     'dialog.addCompany': 'Add Company',
@@ -146,6 +153,9 @@ const translations = {
     'dashboard.totalBrands': 'Total Brands',
     'dashboard.totalSpecialities': 'Total Specialities',
     'dashboard.totalMainSpecialties': 'Main Specialties',
+    'dashboard.totalContacts': 'Total Contacts',
+    'dashboard.totalPeople': 'Total People',
+    'dashboard.totalLocations': 'Total Locations',
     'dashboard.companiesBySpecialty': 'Companies by Specialty',
     'dashboard.companiesByMainSpecialty': 'Companies by Main Specialty',
     'dashboard.brandsDistribution': 'Brands Distribution',
@@ -200,6 +210,9 @@ const translations = {
     'person.addSuccess': 'Person added successfully',
     'person.updateSuccess': 'Person updated successfully',
     'person.saveError': 'Failed to save person',
+    'person.addFirstPerson': 'Add first person',
+    'person.deletePerson': 'Delete person',
+    'person.noContact': 'No contact info',
     
     // Contact Management
     'contact.title': 'Contact Management',
@@ -294,6 +307,12 @@ const translations = {
     'company.selectLocations': 'Selecionar localizações...',
     'company.noLocations': 'Nenhuma localização encontrada.',
     'company.filterLocations': 'Filtrar por localização...',
+    'company.companyDetails': 'Detalhes da Empresa',
+    'company.associatedPeople': 'Pessoas Associadas',
+    'company.peopleInCompany': 'Pessoas nesta Empresa',
+    'company.peopleInCompanyDesc': 'Gerir pessoas associadas a esta empresa',
+    'company.noPeople': 'Nenhuma pessoa associada a esta empresa',
+    'company.addFirstPerson': 'Adicionar primeira pessoa',
     
     // Speciality Management
     'speciality.name': 'Especialidade',
@@ -355,6 +374,7 @@ const translations = {
     'nav.specialities': 'Especialidades',
     'nav.mainSpecialties': 'Especialidades Principais',
     'nav.brands': 'Marcas',
+    'nav.contacts': 'Contactos',
     
     // Dialogs
     'dialog.addCompany': 'Adicionar Empresa',
@@ -377,6 +397,9 @@ const translations = {
     'dashboard.totalBrands': 'Total de Marcas',
     'dashboard.totalSpecialities': 'Total de Especialidades',
     'dashboard.totalMainSpecialties': 'Especialidades Principais',
+    'dashboard.totalContacts': 'Total de Contactos',
+    'dashboard.totalPeople': 'Total de Pessoas',
+    'dashboard.totalLocations': 'Total de Localizações',
     'dashboard.companiesBySpecialty': 'Empresas por Especialidade',
     'dashboard.companiesByMainSpecialty': 'Empresas por Especialidade Principal',
     'dashboard.brandsDistribution': 'Distribuição de Marcas',
@@ -431,6 +454,9 @@ const translations = {
     'person.addSuccess': 'Pessoa adicionada com sucesso',
     'person.updateSuccess': 'Pessoa atualizada com sucesso',
     'person.saveError': 'Falha ao guardar pessoa',
+    'person.addFirstPerson': 'Adicionar primeira pessoa',
+    'person.deletePerson': 'Eliminar pessoa',
+    'person.noContact': 'Sem informação de contacto',
     
     // Contact Management
     'contact.title': 'Gestão de Contactos',

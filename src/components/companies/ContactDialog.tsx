@@ -561,19 +561,21 @@ export const ContactDialog = ({ open, onOpenChange, contact, readOnly = false }:
               )}
             />
 
-            <FormField
-              control={form.control}
-              name="address"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>{t('contact.address') || 'Address'}</FormLabel>
-                  <FormControl>
-                    <Input {...field} disabled={readOnly} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            {ownerType === "company" && (
+              <FormField
+                control={form.control}
+                name="address"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t('contact.address') || 'Address'}</FormLabel>
+                    <FormControl>
+                      <Input {...field} disabled={readOnly} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
 
             {!readOnly && (
               <div className="flex justify-end gap-2">

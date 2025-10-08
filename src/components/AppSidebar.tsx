@@ -22,7 +22,7 @@ const menuItems = [
   { title: 'nav.specialities', url: "/specialities", icon: List },
   { title: 'nav.mainSpecialties', url: "/main-specialties", icon: Layers },
   { title: 'nav.brands', url: "/brands", icon: Package },
-  { title: 'Contacts', url: "/contacts", icon: Phone, noTranslation: true },
+  { title: 'nav.contacts', url: "/contacts", icon: Phone },
 ];
 
 export function AppSidebar() {
@@ -55,7 +55,7 @@ export function AppSidebar() {
                   <SidebarMenuButton asChild>
                     <NavLink to={item.url} end className={getNavCls}>
                       <item.icon />
-                      <span>{item.noTranslation ? item.title : t(item.title)}</span>
+                      <span>{t(item.title)}</span>
                     </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
