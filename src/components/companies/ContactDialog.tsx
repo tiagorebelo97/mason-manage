@@ -44,6 +44,11 @@ type Contact = {
   fax: string | null;
   address: string | null;
   created_at: string | null;
+  people?: {
+    first_name: string;
+    last_name: string | null;
+    company_id: string | null;
+  } | null;
 };
 
 const contactSchema = z.object({
@@ -142,7 +147,7 @@ export const ContactDialog = ({ open, onOpenChange, contact, readOnly = false }:
         company_id: contact.company_id || "",
         person_first_name: "",
         person_last_name: "",
-        person_company_id: "",
+        person_company_id: contact.people?.company_id || "",
         email: contact.email || "",
         country_code: contact.country_code || "+351",
         website: contact.website || "",
@@ -192,6 +197,21 @@ export const ContactDialog = ({ open, onOpenChange, contact, readOnly = false }:
         queryClient.invalidateQueries({ queryKey: ["people", import.meta.env.VITE_SUPABASE_URL] });
       }
 
+      // If editing a person contact, update the person's company
+      if (contact && data.owner_type === "person" && data.person_id && data.person_company_id !== undefined) {
+        const { error: personUpdateError } = await supabase
+          .from("people")
+          .update({
+            company_id: data.person_company_id === "none" ? null : (data.person_company_id || null),
+          })
+          .eq("id", data.person_id);
+        
+        if (personUpdateError) throw personUpdateError;
+        
+        // Invalidate people cache
+        queryClient.invalidateQueries({ queryKey: ["people", import.meta.env.VITE_SUPABASE_URL] });
+      }
+
       const contactData = {
         person_id: data.owner_type === "person" ? personId || null : null,
         company_id: data.owner_type === "company" ? data.company_id || null : null,
@@ -229,7 +249,7 @@ export const ContactDialog = ({ open, onOpenChange, contact, readOnly = false }:
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
             {readOnly ? t('contact.viewContact') || 'View Contact' : (contact ? t('contact.editContact') || 'Edit Contact' : t('contact.addContact') || 'Add Contact')}
@@ -239,7 +259,7 @@ export const ContactDialog = ({ open, onOpenChange, contact, readOnly = false }:
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit((data) => mutation.mutate(data))} className="space-y-4">
+          <form onSubmit={form.handleSubmit((data) => mutation.mutate(data))} className="space-y-3">
             <FormField
               control={form.control}
               name="owner_type"
@@ -390,34 +410,67 @@ export const ContactDialog = ({ open, onOpenChange, contact, readOnly = false }:
             )}
 
             {ownerType === "person" && (contact || readOnly) && (
-              <FormField
-                control={form.control}
-                name="person_id"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>{t('contact.selectPerson') || 'Select Person'}</FormLabel>
-                    <Select 
-                      onValueChange={field.onChange} 
-                      value={field.value}
-                      disabled={readOnly || !!contact}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder={t('contact.selectPersonPlaceholder') || 'Select a person...'} />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {people?.map((person) => (
-                          <SelectItem key={person.id} value={person.id}>
-                            {person.first_name} {person.last_name || ''}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
+              <>
+                <FormField
+                  control={form.control}
+                  name="person_id"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t('contact.selectPerson') || 'Select Person'}</FormLabel>
+                      <Select 
+                        onValueChange={field.onChange} 
+                        value={field.value}
+                        disabled={readOnly || !!contact}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder={t('contact.selectPersonPlaceholder') || 'Select a person...'} />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {people?.map((person) => (
+                            <SelectItem key={person.id} value={person.id}>
+                              {person.first_name} {person.last_name || ''}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                {contact && !readOnly && (
+                  <FormField
+                    control={form.control}
+                    name="person_company_id"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{t('person.company') || 'Company'}</FormLabel>
+                        <Select 
+                          onValueChange={field.onChange} 
+                          value={field.value}
+                          disabled={readOnly}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder={t('person.selectCompany') || 'Select a company...'} />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="none">{t('person.noCompany') || 'No company'}</SelectItem>
+                            {companies?.map((company) => (
+                              <SelectItem key={company.id} value={company.id}>
+                                {company.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
                 )}
-              />
+              </>
             )}
 
             {ownerType === "company" && (
@@ -451,50 +504,21 @@ export const ContactDialog = ({ open, onOpenChange, contact, readOnly = false }:
               />
             )}
 
-            <div className="grid grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="email"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>{t('contact.email') || 'Email'}</FormLabel>
-                    <FormControl>
-                      <Input type="email" {...field} disabled={readOnly} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="country_code"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>{t('contact.countryCode') || 'Country Code'}</FormLabel>
-                    <FormControl>
-                      <Input {...field} placeholder="+351" disabled={readOnly} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-
             <FormField
               control={form.control}
-              name="website"
+              name="email"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>{t('contact.website') || 'Website'}</FormLabel>
+                  <FormLabel>{t('contact.email') || 'Email'}</FormLabel>
                   <FormControl>
-                    <Input {...field} placeholder="https://" disabled={readOnly} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+                    <Input type="email" {...field} disabled={readOnly} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-[1fr_120px] gap-2">
               <FormField
                 control={form.control}
                 name="mobile"
@@ -510,18 +534,32 @@ export const ContactDialog = ({ open, onOpenChange, contact, readOnly = false }:
               />
               <FormField
                 control={form.control}
-                name="fax"
+                name="country_code"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>{t('contact.fax') || 'Fax'}</FormLabel>
+                    <FormLabel>{t('contact.countryCode') || 'Code'}</FormLabel>
                     <FormControl>
-                      <Input {...field} disabled={readOnly} />
+                      <Input {...field} placeholder="+351" disabled={readOnly} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
             </div>
+
+            <FormField
+              control={form.control}
+              name="fax"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{t('contact.fax') || 'Fax'}</FormLabel>
+                  <FormControl>
+                    <Input {...field} disabled={readOnly} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
             <FormField
               control={form.control}
