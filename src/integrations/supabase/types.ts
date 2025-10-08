@@ -17,21 +17,21 @@ export type Database = {
       companies: {
         Row: {
           created_at: string | null
-          email: string
+          comments: string | null
           id: string
           name: string
           speciality_id: string | null
         }
         Insert: {
           created_at?: string | null
-          email: string
+          comments?: string | null
           id?: string
           name: string
           speciality_id?: string | null
         }
         Update: {
           created_at?: string | null
-          email?: string
+          comments?: string | null
           id?: string
           name?: string
           speciality_id?: string | null
@@ -254,6 +254,158 @@ export type Database = {
           },
           {
             foreignKeyName: "brand_companies_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      locations: {
+        Row: {
+          id: string
+          name: string
+          address: string | null
+          city: string | null
+          country: string | null
+          postal_code: string | null
+          created_at: string | null
+        }
+        Insert: {
+          id?: string
+          name: string
+          address?: string | null
+          city?: string | null
+          country?: string | null
+          postal_code?: string | null
+          created_at?: string | null
+        }
+        Update: {
+          id?: string
+          name?: string
+          address?: string | null
+          city?: string | null
+          country?: string | null
+          postal_code?: string | null
+          created_at?: string | null
+        }
+        Relationships: []
+      }
+      company_locations: {
+        Row: {
+          id: string
+          company_id: string
+          location_id: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          company_id: string
+          location_id: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          company_id?: string
+          location_id?: string
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "company_locations_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "company_locations_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      people: {
+        Row: {
+          id: string
+          first_name: string
+          middle_name: string | null
+          company_id: string | null
+          created_at: string | null
+        }
+        Insert: {
+          id?: string
+          first_name: string
+          middle_name?: string | null
+          company_id?: string | null
+          created_at?: string | null
+        }
+        Update: {
+          id?: string
+          first_name?: string
+          middle_name?: string | null
+          company_id?: string | null
+          created_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "people_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      contacts: {
+        Row: {
+          id: string
+          person_id: string | null
+          company_id: string | null
+          email: string | null
+          country_code: string | null
+          website: string | null
+          mobile: string | null
+          fax: string | null
+          address: string | null
+          created_at: string | null
+        }
+        Insert: {
+          id?: string
+          person_id?: string | null
+          company_id?: string | null
+          email?: string | null
+          country_code?: string | null
+          website?: string | null
+          mobile?: string | null
+          fax?: string | null
+          address?: string | null
+          created_at?: string | null
+        }
+        Update: {
+          id?: string
+          person_id?: string | null
+          company_id?: string | null
+          email?: string | null
+          country_code?: string | null
+          website?: string | null
+          mobile?: string | null
+          fax?: string | null
+          address?: string | null
+          created_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contacts_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "people"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contacts_company_id_fkey"
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"

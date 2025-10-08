@@ -17,6 +17,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { MultiSelect } from "@/components/ui/multi-select";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -28,7 +29,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 type Company = {
   id: string;
   name: string;
-  email: string;
+  comments: string | null;
   speciality_id: string | null;
   speciality_ids?: string[];
   created_at: string;
@@ -36,9 +37,10 @@ type Company = {
 
 const companySchema = z.object({
   name: z.string().min(1, "Name is required").max(100),
-  email: z.string().email("Invalid email").max(255),
+  comments: z.string().max(1000).optional(),
   speciality_ids: z.array(z.string()).optional(),
   brand_ids: z.array(z.string()).optional(),
+  location_ids: z.array(z.string()).optional(),
 });
 
 type CompanyFormData = z.infer<typeof companySchema>;
@@ -58,9 +60,10 @@ export const CompanyDialog = ({ open, onOpenChange, company, readOnly = false }:
     resolver: zodResolver(companySchema),
     defaultValues: {
       name: "",
-      email: "",
+      comments: "",
       speciality_ids: [],
       brand_ids: [],
+      location_ids: [],
     },
   });
 
@@ -81,6 +84,18 @@ export const CompanyDialog = ({ open, onOpenChange, company, readOnly = false }:
     queryFn: async () => {
       const { data, error } = await supabase
         .from("brands")
+        .select("*")
+        .order("name");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const { data: locations } = useQuery({
+    queryKey: ["locations", import.meta.env.VITE_SUPABASE_URL],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("locations")
         .select("*")
         .order("name");
       if (error) throw error;
@@ -118,24 +133,41 @@ export const CompanyDialog = ({ open, onOpenChange, company, readOnly = false }:
     enabled: !!company?.id,
   });
 
+  // Fetch existing company locations when editing
+  const { data: companyLocations } = useQuery({
+    queryKey: ["company-locations", company?.id, import.meta.env.VITE_SUPABASE_URL],
+    queryFn: async () => {
+      if (!company?.id) return [];
+      const { data, error } = await supabase
+        .from("company_locations")
+        .select("location_id")
+        .eq("company_id", company.id);
+      if (error) throw error;
+      return data.map(item => item.location_id);
+    },
+    enabled: !!company?.id,
+  });
+
   useEffect(() => {
     if (company) {
       form.reset({
         name: company.name,
-        email: company.email,
+        comments: company.comments || "",
         speciality_ids: companySpecialities || [],
         brand_ids: companyBrands || [],
+        location_ids: companyLocations || [],
       });
     } else {
       form.reset({
         name: "",
-        email: "",
+        comments: "",
         speciality_ids: [],
         brand_ids: [],
+        location_ids: [],
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [company, companySpecialities, companyBrands]);
+  }, [company, companySpecialities, companyBrands, companyLocations]);
 
   const mutation = useMutation({
     mutationFn: async (data: CompanyFormData) => {
@@ -143,7 +175,7 @@ export const CompanyDialog = ({ open, onOpenChange, company, readOnly = false }:
         // Update company basic info
         const { error: updateError } = await supabase
           .from("companies")
-          .update({ name: data.name, email: data.email })
+          .update({ name: data.name, comments: data.comments || null })
           .eq("id", company.id);
         if (updateError) throw updateError;
 
@@ -184,11 +216,30 @@ export const CompanyDialog = ({ open, onOpenChange, company, readOnly = false }:
             .insert(brandInserts);
           if (insertBrandsError) throw insertBrandsError;
         }
+
+        // Delete existing locations
+        const { error: deleteLocationsError } = await supabase
+          .from("company_locations")
+          .delete()
+          .eq("company_id", company.id);
+        if (deleteLocationsError) throw deleteLocationsError;
+
+        // Insert new locations
+        if (data.location_ids && data.location_ids.length > 0) {
+          const locationInserts = data.location_ids.map(location_id => ({
+            company_id: company.id,
+            location_id,
+          }));
+          const { error: insertLocationsError } = await supabase
+            .from("company_locations")
+            .insert(locationInserts);
+          if (insertLocationsError) throw insertLocationsError;
+        }
       } else {
         // Create new company
         const { data: newCompany, error: insertError } = await supabase
           .from("companies")
-          .insert([{ name: data.name, email: data.email }])
+          .insert([{ name: data.name, comments: data.comments || null }])
           .select()
           .single();
         if (insertError) throw insertError;
@@ -215,6 +266,18 @@ export const CompanyDialog = ({ open, onOpenChange, company, readOnly = false }:
             .from("brand_companies")
             .insert(brandInserts);
           if (brandsError) throw brandsError;
+        }
+
+        // Insert locations
+        if (data.location_ids && data.location_ids.length > 0) {
+          const locationInserts = data.location_ids.map(location_id => ({
+            company_id: newCompany.id,
+            location_id,
+          }));
+          const { error: locationsError } = await supabase
+            .from("company_locations")
+            .insert(locationInserts);
+          if (locationsError) throw locationsError;
         }
       }
     },
@@ -257,12 +320,12 @@ export const CompanyDialog = ({ open, onOpenChange, company, readOnly = false }:
             />
             <FormField
               control={form.control}
-              name="email"
+              name="comments"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>{t('company.email')}</FormLabel>
+                  <FormLabel>{t('company.comments') || 'Comments'}</FormLabel>
                   <FormControl>
-                    <Input type="email" {...field} disabled={readOnly} />
+                    <Textarea {...field} disabled={readOnly} placeholder={t('company.commentsPlaceholder') || 'Add any comments about this company...'} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -311,6 +374,31 @@ export const CompanyDialog = ({ open, onOpenChange, company, readOnly = false }:
                       onChange={field.onChange}
                       placeholder={t('company.selectBrands') || "Select brands..."}
                       emptyText={t('company.noBrands') || "No brands found."}
+                      disabled={readOnly}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="location_ids"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{t('company.locations') || 'Locations'}</FormLabel>
+                  <FormControl>
+                    <MultiSelect
+                      options={
+                        locations?.map((location) => ({
+                          label: location.name,
+                          value: location.id,
+                        })) || []
+                      }
+                      selected={field.value || []}
+                      onChange={field.onChange}
+                      placeholder={t('company.selectLocations') || "Select locations..."}
+                      emptyText={t('company.noLocations') || "No locations found."}
                       disabled={readOnly}
                     />
                   </FormControl>
