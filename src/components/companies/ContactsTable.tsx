@@ -33,6 +33,9 @@ type Contact = {
     first_name: string;
     last_name: string | null;
     company_id: string | null;
+    companies?: {
+      name: string;
+    } | null;
   } | null;
   companies?: {
     name: string;
@@ -54,7 +57,7 @@ export const ContactsTable = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("contacts")
-        .select("*, people(first_name, last_name, company_id), companies(name)")
+        .select("*, people(first_name, last_name, company_id, companies(name)), companies(name)")
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data;
@@ -108,7 +111,9 @@ export const ContactsTable = () => {
         ? `${contact.people.first_name} ${contact.people.last_name || ''}`
         : contact.companies?.name || "—";
       const type = contact.person_id ? "Person" : "Company";
-      const company = contact.companies?.name || "—";
+      const company = contact.person_id && contact.people?.companies?.name 
+        ? contact.people.companies.name 
+        : "—";
       const email = contact.email || "";
       const mobile = contact.mobile ? `${contact.country_code || ''} ${contact.mobile}` : "";
       const website = contact.website || "";
@@ -199,39 +204,39 @@ export const ContactsTable = () => {
   return (
     <>
       <div className="mb-4 space-y-4">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <Input
-            placeholder={t('contact.searchPlaceholder') || 'Search contacts...'}
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="max-w-sm"
-          />
-          <Button variant="outline" onClick={exportToExcel}>
+        <Input
+          placeholder={t('contact.searchPlaceholder') || 'Search contacts...'}
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="max-w-sm"
+        />
+        <div className="flex gap-2 justify-between items-center">
+          <div className="flex gap-2">
+            <Button
+              variant={contactFilter === "all" ? "default" : "outline"}
+              onClick={() => setContactFilter("all")}
+              size="sm"
+            >
+              {t('contact.filterAll') || 'All'}
+            </Button>
+            <Button
+              variant={contactFilter === "person" ? "default" : "outline"}
+              onClick={() => setContactFilter("person")}
+              size="sm"
+            >
+              {t('contact.filterPerson') || 'Person'}
+            </Button>
+            <Button
+              variant={contactFilter === "company" ? "default" : "outline"}
+              onClick={() => setContactFilter("company")}
+              size="sm"
+            >
+              {t('contact.filterCompany') || 'Company'}
+            </Button>
+          </div>
+          <Button variant="outline" onClick={exportToExcel} size="sm">
             <Download className="mr-2 h-4 w-4" />
             {t('contact.exportCSV') || 'Export Excel'}
-          </Button>
-        </div>
-        <div className="flex gap-2">
-          <Button
-            variant={contactFilter === "all" ? "default" : "outline"}
-            onClick={() => setContactFilter("all")}
-            size="sm"
-          >
-            {t('contact.filterAll') || 'All'}
-          </Button>
-          <Button
-            variant={contactFilter === "person" ? "default" : "outline"}
-            onClick={() => setContactFilter("person")}
-            size="sm"
-          >
-            {t('contact.filterPerson') || 'Person'}
-          </Button>
-          <Button
-            variant={contactFilter === "company" ? "default" : "outline"}
-            onClick={() => setContactFilter("company")}
-            size="sm"
-          >
-            {t('contact.filterCompany') || 'Company'}
           </Button>
         </div>
       </div>
@@ -280,7 +285,11 @@ export const ContactsTable = () => {
                       </span>
                     </div>
                   </TableCell>
-                  <TableCell>{contact.companies?.name || "—"}</TableCell>
+                  <TableCell>
+                    {contact.person_id && contact.people?.companies?.name 
+                      ? contact.people.companies.name 
+                      : "—"}
+                  </TableCell>
                   <TableCell>{contact.email || "—"}</TableCell>
                   <TableCell>{contact.mobile ? `${contact.country_code || ''} ${contact.mobile}` : "—"}</TableCell>
                   <TableCell>{contact.website || "—"}</TableCell>

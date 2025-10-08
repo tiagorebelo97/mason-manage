@@ -4,8 +4,19 @@ import { supabase } from "@/integrations/supabase/client";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Building2, Package, List, Layers } from "lucide-react";
+import { Building2, Package, List, Layers, Users, Phone, MapPin } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts";
+
+type CompanySpeciality = {
+  specialities: {
+    name_pt: string;
+    name_en: string;
+    main_specialties?: {
+      main_specialty_pt: string;
+      main_specialty_en: string;
+    };
+  };
+};
 
 const Dashboard = () => {
   const [loading, setLoading] = useState(true);
@@ -81,6 +92,42 @@ const Dashboard = () => {
     },
   });
 
+  // Fetch contacts
+  const { data: contacts } = useQuery({
+    queryKey: ["contacts", import.meta.env.VITE_SUPABASE_URL],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("contacts")
+        .select("*, people(first_name, last_name), companies(name)");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  // Fetch people
+  const { data: people } = useQuery({
+    queryKey: ["people", import.meta.env.VITE_SUPABASE_URL],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("people")
+        .select("*, companies(name)");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  // Fetch locations
+  const { data: locations } = useQuery({
+    queryKey: ["locations", import.meta.env.VITE_SUPABASE_URL],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("locations")
+        .select("*");
+      if (error) throw error;
+      return data;
+    },
+  });
+
   // Calculate statistics
   const stats = useMemo(() => {
     return {
@@ -88,8 +135,13 @@ const Dashboard = () => {
       totalBrands: brands?.length || 0,
       totalSpecialities: specialities?.length || 0,
       totalMainSpecialties: mainSpecialties?.length || 0,
+      totalContacts: contacts?.length || 0,
+      totalPeople: people?.length || 0,
+      totalLocations: locations?.length || 0,
+      personContacts: contacts?.filter(c => c.person_id)?.length || 0,
+      companyContacts: contacts?.filter(c => c.company_id)?.length || 0,
     };
-  }, [companies, brands, specialities, mainSpecialties]);
+  }, [companies, brands, specialities, mainSpecialties, contacts, people, locations]);
 
   // Prepare data for companies by specialty chart
   const companiesBySpecialtyData = useMemo(() => {
@@ -99,7 +151,7 @@ const Dashboard = () => {
     
     companies.forEach(company => {
       if (company.company_specialities && Array.isArray(company.company_specialities)) {
-        company.company_specialities.forEach((cs: any) => {
+        company.company_specialities.forEach((cs: CompanySpeciality) => {
           if (cs.specialities) {
             const specialtyName = language === 'pt' ? cs.specialities.name_pt : cs.specialities.name_en;
             specialtyCount.set(specialtyName, (specialtyCount.get(specialtyName) || 0) + 1);
@@ -122,7 +174,7 @@ const Dashboard = () => {
     
     companies.forEach(company => {
       if (company.company_specialities && Array.isArray(company.company_specialities)) {
-        company.company_specialities.forEach((cs: any) => {
+        company.company_specialities.forEach((cs: CompanySpeciality) => {
           if (cs.specialities?.main_specialties) {
             const mainSpecialtyName = language === 'pt' 
               ? cs.specialities.main_specialties.main_specialty_pt 
@@ -137,6 +189,41 @@ const Dashboard = () => {
       .map(([name, value]) => ({ name, value }))
       .sort((a, b) => b.value - a.value);
   }, [companies, language]);
+
+  // Prepare data for contacts by type chart
+  const contactsByTypeData = useMemo(() => {
+    if (!contacts) return [];
+    
+    return [
+      { 
+        name: t('contact.person') || 'Person', 
+        value: stats.personContacts,
+        color: '#0088FE'
+      },
+      { 
+        name: t('contact.company') || 'Company', 
+        value: stats.companyContacts,
+        color: '#00C49F'
+      },
+    ].filter(item => item.value > 0);
+  }, [contacts, stats.personContacts, stats.companyContacts, t]);
+
+  // Prepare data for people by company chart
+  const peopleByCompanyData = useMemo(() => {
+    if (!people) return [];
+    
+    const companyCount = new Map<string, number>();
+    
+    people.forEach(person => {
+      const companyName = person.companies?.name || (t('company.noCompany') || 'No Company');
+      companyCount.set(companyName, (companyCount.get(companyName) || 0) + 1);
+    });
+
+    return Array.from(companyCount.entries())
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 10); // Top 10 companies
+  }, [people, t]);
 
   // Colors for charts
   const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d', '#ffc658', '#ff7c7c'];
@@ -188,6 +275,36 @@ const Dashboard = () => {
           </CardContent>
         </Card>
 
+        <Card className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => navigate('/contacts')}>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">
+              {t('dashboard.totalContacts') || 'Total Contacts'}
+            </CardTitle>
+            <Phone className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.totalContacts}</div>
+            <p className="text-xs text-muted-foreground mt-1">
+              {stats.personContacts} {t('contact.person') || 'Person'} • {stats.companyContacts} {t('contact.company') || 'Company'}
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => navigate('/people')}>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">
+              {t('dashboard.totalPeople') || 'Total People'}
+            </CardTitle>
+            <Users className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.totalPeople}</div>
+            <p className="text-xs text-muted-foreground mt-1">
+              {t('person.title') || 'People'}
+            </p>
+          </CardContent>
+        </Card>
+
         <Card className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => navigate('/specialities')}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
@@ -214,6 +331,21 @@ const Dashboard = () => {
             <div className="text-2xl font-bold">{stats.totalMainSpecialties}</div>
             <p className="text-xs text-muted-foreground mt-1">
               {t('mainSpecialty.title')}
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => navigate('/locations')}>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">
+              {t('dashboard.totalLocations') || 'Total Locations'}
+            </CardTitle>
+            <MapPin className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.totalLocations}</div>
+            <p className="text-xs text-muted-foreground mt-1">
+              {t('location.title') || 'Locations'}
             </p>
           </CardContent>
         </Card>
@@ -271,6 +403,67 @@ const Dashboard = () => {
                   <YAxis />
                   <Tooltip />
                   <Bar dataKey="value" fill="#0088FE" />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex items-center justify-center h-[300px] text-muted-foreground">
+                {t('dashboard.noData')}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Contacts by Type - Pie Chart */}
+        <Card>
+          <CardHeader>
+            <CardTitle>{t('dashboard.contactsByType') || 'Contacts by Type'}</CardTitle>
+            <CardDescription>{t('dashboard.contactsDistribution') || 'Distribution of person and company contacts'}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {contactsByTypeData.length > 0 ? (
+              <ResponsiveContainer width="100%" height={300}>
+                <PieChart>
+                  <Pie
+                    data={contactsByTypeData}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    label={({ name, value }) => `${name}: ${value}`}
+                    outerRadius={80}
+                    fill="#8884d8"
+                    dataKey="value"
+                  >
+                    {contactsByTypeData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                  <Legend />
+                </PieChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex items-center justify-center h-[300px] text-muted-foreground">
+                {t('dashboard.noData')}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* People by Company - Bar Chart */}
+        <Card>
+          <CardHeader>
+            <CardTitle>{t('dashboard.peopleByCompany') || 'People by Company'}</CardTitle>
+            <CardDescription>{t('dashboard.topCompaniesWithPeople') || 'Top companies with most people'}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {peopleByCompanyData.length > 0 ? (
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={peopleByCompanyData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="name" angle={-45} textAnchor="end" height={100} />
+                  <YAxis />
+                  <Tooltip />
+                  <Bar dataKey="value" fill="#00C49F" />
                 </BarChart>
               </ResponsiveContainer>
             ) : (
