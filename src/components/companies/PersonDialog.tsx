@@ -63,7 +63,7 @@ export const PersonDialog = ({ open, onOpenChange, person, readOnly = false }: P
     defaultValues: {
       first_name: "",
       middle_name: "",
-      company_id: "",
+      company_id: "none",
     },
   });
 
@@ -84,26 +84,28 @@ export const PersonDialog = ({ open, onOpenChange, person, readOnly = false }: P
       form.reset({
         first_name: person.first_name,
         middle_name: person.middle_name || "",
-        company_id: person.company_id || "",
+        company_id: person.company_id || "none",
       });
     } else {
       form.reset({
         first_name: "",
         middle_name: "",
-        company_id: "",
+        company_id: "none",
       });
     }
   }, [person, form]);
 
   const mutation = useMutation({
     mutationFn: async (data: PersonFormData) => {
+      const companyId = data.company_id === "none" ? null : (data.company_id || null);
+      
       if (person) {
         const { error } = await supabase
           .from("people")
           .update({
             first_name: data.first_name,
             middle_name: data.middle_name || null,
-            company_id: data.company_id || null,
+            company_id: companyId,
           })
           .eq("id", person.id);
         if (error) throw error;
@@ -113,7 +115,7 @@ export const PersonDialog = ({ open, onOpenChange, person, readOnly = false }: P
           .insert([{
             first_name: data.first_name,
             middle_name: data.middle_name || null,
-            company_id: data.company_id || null,
+            company_id: companyId,
           }]);
         if (error) throw error;
       }
@@ -185,7 +187,7 @@ export const PersonDialog = ({ open, onOpenChange, person, readOnly = false }: P
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="">{t('person.noCompany') || 'No company'}</SelectItem>
+                      <SelectItem value="none">{t('person.noCompany') || 'No company'}</SelectItem>
                       {companies?.map((company) => (
                         <SelectItem key={company.id} value={company.id}>
                           {company.name}
