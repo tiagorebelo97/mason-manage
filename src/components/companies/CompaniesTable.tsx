@@ -134,9 +134,9 @@ export const CompaniesTable = () => {
         if (sortField === "name") {
           aValue = a.name;
           bValue = b.name;
-        } else if (sortField === "email") {
-          aValue = a.email;
-          bValue = b.email;
+        } else if (sortField === "comments") {
+          aValue = a.comments || "";
+          bValue = b.comments || "";
         } else if (sortField === "speciality") {
           aValue = a.company_specialities?.[0]
             ? (language === 'pt' ? a.company_specialities[0].specialities.name_pt : a.company_specialities[0].specialities.name_en)
@@ -155,7 +155,7 @@ export const CompaniesTable = () => {
     }
 
     return filtered;
-  }, [companies, searchTerm, nameFilter, emailFilter, specialityFilter, brandFilter, sortField, sortDirection, language]);
+  }, [companies, searchTerm, nameFilter, commentsFilter, specialityFilter, brandFilter, sortField, sortDirection, language]);
 
   // Get unique values for each column for filter options
   const uniqueNames = useMemo(() => {

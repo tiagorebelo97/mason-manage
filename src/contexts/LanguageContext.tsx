@@ -232,16 +232,6 @@ const translations = {
     'contact.addSuccess': 'Contact added successfully',
     'contact.updateSuccess': 'Contact updated successfully',
     'contact.saveError': 'Failed to save contact',
-    
-    // Navigation
-    'nav.dashboard': 'Dashboard',
-    'nav.companies': 'Companies',
-    'nav.specialities': 'Specialities',
-    'nav.mainSpecialties': 'Main Specialties',
-    'nav.brands': 'Brands',
-    'nav.locations': 'Locations',
-    'nav.people': 'People',
-    'nav.contacts': 'Contacts',
   },
   pt: {
     // Auth
@@ -464,16 +454,6 @@ const translations = {
     'contact.addSuccess': 'Contacto adicionado com sucesso',
     'contact.updateSuccess': 'Contacto atualizado com sucesso',
     'contact.saveError': 'Falha ao guardar contacto',
-    
-    // Navigation
-    'nav.dashboard': 'Dashboard',
-    'nav.companies': 'Empresas',
-    'nav.specialities': 'Especialidades',
-    'nav.mainSpecialties': 'Especialidades Principais',
-    'nav.brands': 'Marcas',
-    'nav.locations': 'Localizações',
-    'nav.people': 'Pessoas',
-    'nav.contacts': 'Contactos',
   },
 };
 
