@@ -40,7 +40,7 @@ type Company = {
   company_locations?: Array<{ locations: { name: string } }>;
 };
 
-type SortField = "name" | "comments" | "speciality" | "brands" | "locations";
+type SortField = "name" | "speciality" | "brands" | "locations";
 type SortDirection = "asc" | "desc" | null;
 
 export const CompaniesTable = () => {
@@ -48,7 +48,6 @@ export const CompaniesTable = () => {
   const [viewingCompany, setViewingCompany] = useState<Company | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [nameFilter, setNameFilter] = useState<string[]>([]);
-  const [commentsFilter, setCommentsFilter] = useState<string[]>([]);
   const [specialityFilter, setSpecialityFilter] = useState<string[]>([]);
   const [brandFilter, setBrandFilter] = useState<string[]>([]);
   const [locationFilter, setLocationFilter] = useState<string[]>([]);
@@ -81,7 +80,6 @@ export const CompaniesTable = () => {
     let filtered = companies.filter((company) => {
       const searchLower = searchTerm.toLowerCase();
       const nameMatch = company.name.toLowerCase().includes(searchLower);
-      const commentsMatch = company.comments?.toLowerCase().includes(searchLower) || false;
       const specialityMatch = company.company_specialities?.some(cs =>
         (language === 'pt' ? cs.specialities.name_pt : cs.specialities.name_en).toLowerCase().includes(searchLower)
       ) || false;
@@ -92,19 +90,13 @@ export const CompaniesTable = () => {
         cl.locations.name.toLowerCase().includes(searchLower)
       ) || false;
       
-      return nameMatch || commentsMatch || specialityMatch || brandMatch || locationMatch;
+      return nameMatch || specialityMatch || brandMatch || locationMatch;
     });
 
     // Apply column-specific filters
     if (nameFilter.length > 0) {
       filtered = filtered.filter((company) => 
         nameFilter.includes(company.name)
-      );
-    }
-
-    if (commentsFilter.length > 0) {
-      filtered = filtered.filter((company) => 
-        company.comments && commentsFilter.includes(company.comments)
       );
     }
 
@@ -134,9 +126,6 @@ export const CompaniesTable = () => {
         if (sortField === "name") {
           aValue = a.name;
           bValue = b.name;
-        } else if (sortField === "comments") {
-          aValue = a.comments || "";
-          bValue = b.comments || "";
         } else if (sortField === "speciality") {
           aValue = a.company_specialities?.[0]
             ? (language === 'pt' ? a.company_specialities[0].specialities.name_pt : a.company_specialities[0].specialities.name_en)
@@ -147,6 +136,9 @@ export const CompaniesTable = () => {
         } else if (sortField === "brands") {
           aValue = a.brand_companies?.[0]?.brands.name || "";
           bValue = b.brand_companies?.[0]?.brands.name || "";
+        } else if (sortField === "locations") {
+          aValue = a.company_locations?.[0]?.locations.name || "";
+          bValue = b.company_locations?.[0]?.locations.name || "";
         }
 
         const comparison = aValue.localeCompare(bValue);
@@ -155,19 +147,13 @@ export const CompaniesTable = () => {
     }
 
     return filtered;
-  }, [companies, searchTerm, nameFilter, commentsFilter, specialityFilter, brandFilter, sortField, sortDirection, language]);
+  }, [companies, searchTerm, nameFilter, specialityFilter, brandFilter, sortField, sortDirection, language]);
 
   // Get unique values for each column for filter options
   const uniqueNames = useMemo(() => {
     if (!companies) return [];
     const names = Array.from(new Set(companies.map(c => c.name))).sort();
     return names.map(name => ({ label: name, value: name }));
-  }, [companies]);
-
-  const uniqueComments = useMemo(() => {
-    if (!companies) return [];
-    const comments = Array.from(new Set(companies.map(c => c.comments).filter(Boolean))).sort();
-    return comments.map(comment => ({ label: comment, value: comment }));
   }, [companies]);
 
   const uniqueLocations = useMemo(() => {
@@ -282,7 +268,7 @@ export const CompaniesTable = () => {
       return;
     }
 
-    const headers = ["Name", "Comments", "Speciality", "Brands", "Locations"];
+    const headers = ["Name", "Speciality", "Brands", "Locations"];
     const rows: string[][] = [];
     
     filteredAndSortedCompanies.forEach((company) => {
@@ -310,7 +296,6 @@ export const CompaniesTable = () => {
             
             rows.push([
               company.name,
-              company.comments || "",
               specialityName,
               brandName,
               locationName,
@@ -327,9 +312,9 @@ export const CompaniesTable = () => {
     // Set column widths
     worksheet['!cols'] = [
       { wch: 30 }, // Name column
-      { wch: 30 }, // Email column
       { wch: 30 }, // Speciality column
       { wch: 30 }, // Brands column
+      { wch: 30 }, // Locations column
     ];
 
     // Define styles for proper Excel table appearance
@@ -468,27 +453,6 @@ export const CompaniesTable = () => {
               <TableHead>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center">
-                    {t('company.comments') || 'Comments'}
-                    <button
-                      onClick={() => handleSort("comments")}
-                      className="ml-2 hover:bg-muted/50 rounded p-1"
-                    >
-                      {getSortIcon("comments")}
-                    </button>
-                  </div>
-                  <ColumnFilter
-                    options={uniqueComments}
-                    selected={commentsFilter}
-                    onChange={setCommentsFilter}
-                    placeholder={t('company.filterComments') || 'Filter by comments...'}
-                    emptyText={t('company.noResults')}
-                    columnName="comments"
-                  />
-                </div>
-              </TableHead>
-              <TableHead>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center">
                     {t('company.speciality')}
                     <button
                       onClick={() => handleSort("speciality")}
@@ -555,7 +519,7 @@ export const CompaniesTable = () => {
           <TableBody>
             {filteredAndSortedCompanies?.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center text-muted-foreground">
+                <TableCell colSpan={5} className="text-center text-muted-foreground">
                   {searchTerm ? t('company.noResults') : t('company.noCompanies')}
                 </TableCell>
               </TableRow>
@@ -567,7 +531,6 @@ export const CompaniesTable = () => {
                   onClick={() => setViewingCompany(company)}
                 >
                   <TableCell className="font-medium">{company.name}</TableCell>
-                  <TableCell>{company.comments || "—"}</TableCell>
                   <TableCell>
                     {company.company_specialities && company.company_specialities.length > 0
                       ? company.company_specialities

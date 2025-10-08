@@ -10,7 +10,8 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Pencil, Trash2, Eye, Download } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Pencil, Trash2, Eye, Download, User, Building2 } from "lucide-react";
 import { useState, useMemo } from "react";
 import { ContactDialog } from "./ContactDialog";
 import { toast } from "sonner";
@@ -31,6 +32,7 @@ type Contact = {
   people?: {
     first_name: string;
     last_name: string | null;
+    company_id: string | null;
   } | null;
   companies?: {
     name: string;
@@ -52,7 +54,7 @@ export const ContactsTable = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("contacts")
-        .select("*, people(first_name, last_name), companies(name)")
+        .select("*, people(first_name, last_name, company_id), companies(name)")
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data;
@@ -259,9 +261,24 @@ export const ContactsTable = () => {
                   className="hover:bg-muted/50"
                 >
                   <TableCell className="font-medium">
-                    {contact.people 
-                      ? `${contact.people.first_name} ${contact.people.last_name || ''}`
-                      : contact.companies?.name || "—"}
+                    <div className="flex items-center gap-2">
+                      {contact.person_id ? (
+                        <Badge variant="secondary" className="flex items-center gap-1">
+                          <User className="h-3 w-3" />
+                          {t('contact.person') || 'Person'}
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="flex items-center gap-1">
+                          <Building2 className="h-3 w-3" />
+                          {t('contact.company') || 'Company'}
+                        </Badge>
+                      )}
+                      <span>
+                        {contact.people 
+                          ? `${contact.people.first_name} ${contact.people.last_name || ''}`
+                          : contact.companies?.name || "—"}
+                      </span>
+                    </div>
                   </TableCell>
                   <TableCell>{contact.companies?.name || "—"}</TableCell>
                   <TableCell>{contact.email || "—"}</TableCell>
