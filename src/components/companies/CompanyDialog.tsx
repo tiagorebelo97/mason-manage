@@ -39,6 +39,17 @@ type Company = {
   created_at: string;
 };
 
+type PersonWithContact = {
+  id: string;
+  first_name: string;
+  last_name: string | null;
+  contacts?: {
+    email: string | null;
+    mobile: string | null;
+    country_code: string | null;
+  }[];
+};
+
 const companySchema = z.object({
   name: z.string().min(1, "Name is required").max(100),
   comments: z.string().max(1000).optional(),
@@ -60,7 +71,7 @@ export const CompanyDialog = ({ open, onOpenChange, company, readOnly = false }:
   const queryClient = useQueryClient();
   const { t, language } = useLanguage();
   const [isPersonDialogOpen, setIsPersonDialogOpen] = useState(false);
-  const [editingPerson, setEditingPerson] = useState<any>(null);
+  const [editingPerson, setEditingPerson] = useState<PersonWithContact | null>(null);
 
   const form = useForm<CompanyFormData>({
     resolver: zodResolver(companySchema),
@@ -502,7 +513,7 @@ export const CompanyDialog = ({ open, onOpenChange, company, readOnly = false }:
               <CardContent>
                 {companyPeople && companyPeople.length > 0 ? (
                   <div className="space-y-3">
-                    {companyPeople.map((person: any) => {
+                    {companyPeople.map((person: PersonWithContact) => {
                       const contact = person.contacts?.[0];
                       return (
                         <div 

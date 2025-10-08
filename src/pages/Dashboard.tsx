@@ -7,6 +7,17 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Building2, Package, List, Layers, Users, Phone, MapPin } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts";
 
+type CompanySpeciality = {
+  specialities: {
+    name_pt: string;
+    name_en: string;
+    main_specialties?: {
+      main_specialty_pt: string;
+      main_specialty_en: string;
+    };
+  };
+};
+
 const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
@@ -140,7 +151,7 @@ const Dashboard = () => {
     
     companies.forEach(company => {
       if (company.company_specialities && Array.isArray(company.company_specialities)) {
-        company.company_specialities.forEach((cs: any) => {
+        company.company_specialities.forEach((cs: CompanySpeciality) => {
           if (cs.specialities) {
             const specialtyName = language === 'pt' ? cs.specialities.name_pt : cs.specialities.name_en;
             specialtyCount.set(specialtyName, (specialtyCount.get(specialtyName) || 0) + 1);
@@ -163,7 +174,7 @@ const Dashboard = () => {
     
     companies.forEach(company => {
       if (company.company_specialities && Array.isArray(company.company_specialities)) {
-        company.company_specialities.forEach((cs: any) => {
+        company.company_specialities.forEach((cs: CompanySpeciality) => {
           if (cs.specialities?.main_specialties) {
             const mainSpecialtyName = language === 'pt' 
               ? cs.specialities.main_specialties.main_specialty_pt 
