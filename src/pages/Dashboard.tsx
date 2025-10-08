@@ -203,27 +203,21 @@ const Dashboard = () => {
   }
 
   return (
-    <div className="container mx-auto py-8 space-y-8">
-      <div>
-        <h1 className="text-4xl font-bold text-foreground mb-2">{t('dashboard.title')}</h1>
-        <p className="text-muted-foreground">{t('dashboard.subtitle')}</p>
+    <div className="container mx-auto py-6 px-4 space-y-6">
+      {/* Header */}
+      <div className="space-y-1">
+        <h1 className="text-3xl font-bold tracking-tight">{t('dashboard.title')}</h1>
+        <p className="text-sm text-muted-foreground">{t('dashboard.subtitle')}</p>
       </div>
 
-      {/* Statistics Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      {/* Primary Stats - Most Important */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <DashboardCard
           title={t('dashboard.totalCompanies')}
           value={stats.totalCompanies}
           subtitle={t('company.title')}
           icon={Building2}
           onClick={() => navigate('/companies')}
-        />
-        <DashboardCard
-          title={t('dashboard.totalBrands')}
-          value={stats.totalBrands}
-          subtitle={t('brand.title')}
-          icon={Package}
-          onClick={() => navigate('/brands')}
         />
         <DashboardCard
           title={t('dashboard.totalContacts') || 'Total Contacts'}
@@ -239,6 +233,17 @@ const Dashboard = () => {
           icon={Users}
           onClick={() => navigate('/people')}
         />
+        <DashboardCard
+          title={t('dashboard.totalBrands')}
+          value={stats.totalBrands}
+          subtitle={t('brand.title')}
+          icon={Package}
+          onClick={() => navigate('/brands')}
+        />
+      </div>
+
+      {/* Secondary Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <DashboardCard
           title={t('dashboard.totalSpecialities')}
           value={stats.totalSpecialities}
@@ -263,13 +268,13 @@ const Dashboard = () => {
       </div>
 
       {/* Charts Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <ChartCard 
           title={t('dashboard.companiesBySpecialty')} 
           description={t('dashboard.topSpecialties')}
         >
           {companiesBySpecialtyData.length > 0 ? (
-            <ResponsiveContainer width="100%" height={300}>
+            <ResponsiveContainer width="100%" height={280}>
               <PieChart>
                 <Pie
                   data={companiesBySpecialtyData}
@@ -289,7 +294,7 @@ const Dashboard = () => {
               </PieChart>
             </ResponsiveContainer>
           ) : (
-            <div className="flex items-center justify-center h-[300px] text-muted-foreground">
+            <div className="flex items-center justify-center h-[280px] text-muted-foreground text-sm">
               {t('dashboard.noData')}
             </div>
           )}
@@ -300,17 +305,17 @@ const Dashboard = () => {
           description={t('mainSpecialty.title')}
         >
           {companiesByMainSpecialtyData.length > 0 ? (
-            <ResponsiveContainer width="100%" height={300}>
+            <ResponsiveContainer width="100%" height={280}>
               <BarChart data={companiesByMainSpecialtyData}>
                 <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="name" angle={-45} textAnchor="end" height={100} />
-                <YAxis />
+                <XAxis dataKey="name" angle={-45} textAnchor="end" height={100} fontSize={12} />
+                <YAxis fontSize={12} />
                 <Tooltip />
-                <Bar dataKey="value" fill="#0088FE" />
+                <Bar dataKey="value" fill="#0088FE" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           ) : (
-            <div className="flex items-center justify-center h-[300px] text-muted-foreground">
+            <div className="flex items-center justify-center h-[280px] text-muted-foreground text-sm">
               {t('dashboard.noData')}
             </div>
           )}
@@ -318,8 +323,8 @@ const Dashboard = () => {
 
       </div>
 
-      {/* Additional Info Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      {/* Recent Lists Section */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <RecentList
           title={t('brand.title')}
           description={t('dashboard.brandsDistribution')}
@@ -330,20 +335,25 @@ const Dashboard = () => {
           emptyMessage={t('dashboard.noData')}
           emptyIcon={Package}
           renderItem={(brand) => (
-            <div className="flex items-center justify-between p-2 hover:bg-muted/50 rounded transition-colors">
-              <div className="flex items-center gap-2">
-                <Package className="h-4 w-4 text-muted-foreground" />
-                <span className="font-medium">{brand.name}</span>
+            <div 
+              className="flex items-center justify-between p-3 hover:bg-muted/50 rounded-lg transition-colors cursor-pointer"
+              onClick={() => navigate('/brands')}
+            >
+              <div className="flex items-center gap-3 flex-1 min-w-0">
+                <div className="h-8 w-8 rounded-md bg-primary/10 flex items-center justify-center flex-shrink-0">
+                  <Package className="h-4 w-4 text-primary" />
+                </div>
+                <span className="font-medium truncate">{brand.name}</span>
               </div>
               {brand.website && (
                 <a 
                   href={brand.website} 
                   target="_blank" 
                   rel="noopener noreferrer"
-                  className="text-xs text-primary hover:underline"
+                  className="text-xs text-primary hover:underline ml-2 flex-shrink-0"
                   onClick={(e) => e.stopPropagation()}
                 >
-                  {brand.website.replace(/^https?:\/\//, '').slice(0, 20)}...
+                  Visit
                 </a>
               )}
             </div>
@@ -361,15 +371,15 @@ const Dashboard = () => {
           emptyIcon={Building2}
           renderItem={(company) => (
             <div 
-              className="flex items-center justify-between p-2 hover:bg-muted/50 rounded transition-colors cursor-pointer"
+              className="flex items-center gap-3 p-3 hover:bg-muted/50 rounded-lg transition-colors cursor-pointer"
               onClick={() => navigate('/companies')}
             >
-              <div className="flex items-center gap-2">
-                <Building2 className="h-4 w-4 text-muted-foreground" />
-                <div>
-                  <div className="font-medium">{company.name}</div>
-                  {company.email && <div className="text-xs text-muted-foreground">{company.email}</div>}
-                </div>
+              <div className="h-8 w-8 rounded-md bg-primary/10 flex items-center justify-center flex-shrink-0">
+                <Building2 className="h-4 w-4 text-primary" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="font-medium truncate">{company.name}</div>
+                {company.email && <div className="text-xs text-muted-foreground truncate">{company.email}</div>}
               </div>
             </div>
           )}

@@ -11,7 +11,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Pencil, Trash2, Eye, Download, User, Building2 } from "lucide-react";
+import { Pencil, Trash2, Download, User, Building2 } from "lucide-react";
 import { useState, useMemo } from "react";
 import { ContactDialog } from "./ContactDialog";
 import { toast } from "sonner";
@@ -203,53 +203,57 @@ export const ContactsTable = () => {
 
   return (
     <>
-      <div className="mb-4 space-y-4">
-        <Input
-          placeholder={t('contact.searchPlaceholder') || 'Search contacts...'}
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="max-w-sm"
-        />
-        <div className="flex gap-2 justify-between items-center">
-          <div className="flex gap-2">
-            <Button
-              variant={contactFilter === "all" ? "default" : "outline"}
-              onClick={() => setContactFilter("all")}
-              size="sm"
-            >
-              {t('contact.filterAll') || 'All'}
-            </Button>
-            <Button
-              variant={contactFilter === "person" ? "default" : "outline"}
-              onClick={() => setContactFilter("person")}
-              size="sm"
-            >
-              {t('contact.filterPerson') || 'Person'}
-            </Button>
-            <Button
-              variant={contactFilter === "company" ? "default" : "outline"}
-              onClick={() => setContactFilter("company")}
-              size="sm"
-            >
-              {t('contact.filterCompany') || 'Company'}
-            </Button>
-          </div>
-          <Button variant="outline" onClick={exportToExcel} size="sm">
-            <Download className="mr-2 h-4 w-4" />
+      <div className="space-y-4 mb-6">
+        <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+          <Input
+            placeholder={t('contact.searchPlaceholder') || 'Search contacts...'}
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="max-w-sm"
+          />
+          <Button variant="outline" onClick={exportToExcel} size="sm" className="gap-2 whitespace-nowrap">
+            <Download className="h-4 w-4" />
             {t('contact.exportCSV') || 'Export Excel'}
           </Button>
         </div>
+        <div className="flex gap-2">
+          <Button
+            variant={contactFilter === "all" ? "default" : "outline"}
+            onClick={() => setContactFilter("all")}
+            size="sm"
+          >
+            {t('contact.filterAll') || 'All'}
+          </Button>
+          <Button
+            variant={contactFilter === "person" ? "default" : "outline"}
+            onClick={() => setContactFilter("person")}
+            size="sm"
+            className="gap-1.5"
+          >
+            <User className="h-3.5 w-3.5" />
+            {t('contact.filterPerson') || 'Person'}
+          </Button>
+          <Button
+            variant={contactFilter === "company" ? "default" : "outline"}
+            onClick={() => setContactFilter("company")}
+            size="sm"
+            className="gap-1.5"
+          >
+            <Building2 className="h-3.5 w-3.5" />
+            {t('contact.filterCompany') || 'Company'}
+          </Button>
+        </div>
       </div>
-      <div className="rounded-md border">
+      <div className="rounded-md border overflow-hidden">
         <Table>
           <TableHeader>
-            <TableRow>
-              <TableHead>{t('contact.name') || 'Name'}</TableHead>
-              <TableHead>{t('contact.company') || 'Company'}</TableHead>
-              <TableHead>{t('contact.email') || 'Email'}</TableHead>
-              <TableHead>{t('contact.mobile') || 'Mobile'}</TableHead>
-              <TableHead>{t('contact.website') || 'Website'}</TableHead>
-              <TableHead className="text-right">{t('company.actions') || 'Actions'}</TableHead>
+            <TableRow className="bg-muted/50">
+              <TableHead className="font-semibold">{t('contact.name') || 'Name'}</TableHead>
+              <TableHead className="font-semibold">{t('contact.company') || 'Company'}</TableHead>
+              <TableHead className="font-semibold">{t('contact.email') || 'Email'}</TableHead>
+              <TableHead className="font-semibold">{t('contact.mobile') || 'Mobile'}</TableHead>
+              <TableHead className="font-semibold">{t('contact.website') || 'Website'}</TableHead>
+              <TableHead className="text-right font-semibold">{t('company.actions') || 'Actions'}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -263,7 +267,8 @@ export const ContactsTable = () => {
               filteredContacts?.map((contact) => (
                 <TableRow 
                   key={contact.id}
-                  className="hover:bg-muted/50"
+                  className="cursor-pointer hover:bg-muted/50"
+                  onClick={() => setViewingContact(contact)}
                 >
                   <TableCell className="font-medium">
                     <div className="flex items-center gap-2">
@@ -295,13 +300,6 @@ export const ContactsTable = () => {
                   <TableCell>{contact.website || "—"}</TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => setViewingContact(contact)}
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Button>
                       <Button
                         variant="ghost"
                         size="icon"
