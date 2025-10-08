@@ -347,7 +347,13 @@ export const CompanyDialog = ({ open, onOpenChange, company, readOnly = false }:
   });
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={(isOpen) => {
+      if (!isOpen) {
+        // Reset form when dialog closes
+        form.reset();
+      }
+      onOpenChange(isOpen);
+    }}>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>

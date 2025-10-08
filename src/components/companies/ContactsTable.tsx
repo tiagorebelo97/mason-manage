@@ -205,43 +205,45 @@ export const ContactsTable = () => {
     <>
       <div className="space-y-4 mb-6">
         <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-          <Input
-            placeholder={t('contact.searchPlaceholder') || 'Search contacts...'}
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="max-w-sm"
-          />
-          <div className="flex gap-2">
-            <Button
-              variant={contactFilter === "all" ? "default" : "outline"}
-              onClick={() => setContactFilter("all")}
-              size="sm"
-            >
-              {t('contact.filterAll') || 'All'}
-            </Button>
-            <Button
-              variant={contactFilter === "person" ? "default" : "outline"}
-              onClick={() => setContactFilter("person")}
-              size="sm"
-              className="gap-1.5"
-            >
-              <User className="h-3.5 w-3.5" />
-              {t('contact.filterPerson') || 'Person'}
-            </Button>
-            <Button
-              variant={contactFilter === "company" ? "default" : "outline"}
-              onClick={() => setContactFilter("company")}
-              size="sm"
-              className="gap-1.5"
-            >
-              <Building2 className="h-3.5 w-3.5" />
-              {t('contact.filterCompany') || 'Company'}
-            </Button>
-            <Button variant="outline" onClick={exportToExcel} size="sm" className="gap-2 whitespace-nowrap">
-              <Download className="h-4 w-4" />
-              {t('contact.exportCSV') || 'Export Excel'}
-            </Button>
+          <div className="flex flex-col sm:flex-row gap-2 items-start sm:items-center flex-1">
+            <Input
+              placeholder={t('contact.searchPlaceholder') || 'Search contacts...'}
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="max-w-sm"
+            />
+            <div className="flex gap-2">
+              <Button
+                variant={contactFilter === "all" ? "default" : "outline"}
+                onClick={() => setContactFilter("all")}
+                size="sm"
+              >
+                {t('contact.filterAll') || 'All'}
+              </Button>
+              <Button
+                variant={contactFilter === "person" ? "default" : "outline"}
+                onClick={() => setContactFilter("person")}
+                size="sm"
+                className="gap-1.5"
+              >
+                <User className="h-3.5 w-3.5" />
+                {t('contact.filterPerson') || 'Person'}
+              </Button>
+              <Button
+                variant={contactFilter === "company" ? "default" : "outline"}
+                onClick={() => setContactFilter("company")}
+                size="sm"
+                className="gap-1.5"
+              >
+                <Building2 className="h-3.5 w-3.5" />
+                {t('contact.filterCompany') || 'Company'}
+              </Button>
+            </div>
           </div>
+          <Button variant="outline" onClick={exportToExcel} size="sm" className="gap-2 whitespace-nowrap">
+            <Download className="h-4 w-4" />
+            {t('contact.exportCSV') || 'Export Excel'}
+          </Button>
         </div>
       </div>
       <div className="rounded-md border overflow-hidden">

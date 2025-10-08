@@ -24,7 +24,6 @@ export const countryCodes: CountryCode[] = [
   { code: "+47", country: "Norway", flag: "🇳🇴", countryPt: "Noruega" },
   { code: "+358", country: "Finland", flag: "🇫🇮", countryPt: "Finlândia" },
   { code: "+30", country: "Greece", flag: "🇬🇷", countryPt: "Grécia" },
-  { code: "+351", country: "Portugal", flag: "🇵🇹", countryPt: "Portugal" },
   { code: "+55", country: "Brazil", flag: "🇧🇷", countryPt: "Brasil" },
   { code: "+244", country: "Angola", flag: "🇦🇴", countryPt: "Angola" },
   { code: "+258", country: "Mozambique", flag: "🇲🇿", countryPt: "Moçambique" },
