@@ -50,6 +50,11 @@ const contactSchema = z.object({
   owner_type: z.enum(["person", "company"]),
   person_id: z.string().optional(),
   company_id: z.string().optional(),
+  // Person creation fields
+  person_first_name: z.string().optional(),
+  person_last_name: z.string().optional(),
+  person_company_id: z.string().optional(),
+  // Contact fields
   email: z.string().email("Invalid email").optional().or(z.literal("")),
   country_code: z.string().max(10).optional(),
   website: z.string().max(500).optional(),
@@ -57,11 +62,16 @@ const contactSchema = z.object({
   fax: z.string().max(50).optional(),
   address: z.string().max(500).optional(),
 }).refine((data) => {
-  if (data.owner_type === "person" && !data.person_id) return false;
+  if (data.owner_type === "person") {
+    // Either select existing person or create new one
+    if (!data.person_id && !data.person_first_name) {
+      return false;
+    }
+  }
   if (data.owner_type === "company" && !data.company_id) return false;
   return true;
 }, {
-  message: "Please select a person or company",
+  message: "Please select or create a person, or select a company",
 });
 
 type ContactFormData = z.infer<typeof contactSchema>;
@@ -77,6 +87,7 @@ export const ContactDialog = ({ open, onOpenChange, contact, readOnly = false }:
   const queryClient = useQueryClient();
   const { t } = useLanguage();
   const [ownerType, setOwnerType] = useState<"person" | "company">("person");
+  const [createNewPerson, setCreateNewPerson] = useState(false);
 
   const form = useForm<ContactFormData>({
     resolver: zodResolver(contactSchema),
@@ -84,6 +95,9 @@ export const ContactDialog = ({ open, onOpenChange, contact, readOnly = false }:
       owner_type: "person",
       person_id: "",
       company_id: "",
+      person_first_name: "",
+      person_last_name: "",
+      person_company_id: "",
       email: "",
       country_code: "+351",
       website: "",
@@ -121,10 +135,14 @@ export const ContactDialog = ({ open, onOpenChange, contact, readOnly = false }:
     if (contact) {
       const type = contact.person_id ? "person" : "company";
       setOwnerType(type);
+      setCreateNewPerson(false);
       form.reset({
         owner_type: type,
         person_id: contact.person_id || "",
         company_id: contact.company_id || "",
+        person_first_name: "",
+        person_last_name: "",
+        person_company_id: "",
         email: contact.email || "",
         country_code: contact.country_code || "+351",
         website: contact.website || "",
@@ -133,10 +151,14 @@ export const ContactDialog = ({ open, onOpenChange, contact, readOnly = false }:
         address: contact.address || "",
       });
     } else {
+      setCreateNewPerson(false);
       form.reset({
         owner_type: "person",
         person_id: "",
         company_id: "",
+        person_first_name: "",
+        person_last_name: "",
+        person_company_id: "",
         email: "",
         country_code: "+351",
         website: "",
@@ -149,8 +171,29 @@ export const ContactDialog = ({ open, onOpenChange, contact, readOnly = false }:
 
   const mutation = useMutation({
     mutationFn: async (data: ContactFormData) => {
+      let personId = data.person_id;
+
+      // If creating a new person, insert person first
+      if (data.owner_type === "person" && !data.person_id && data.person_first_name) {
+        const { data: newPerson, error: personError } = await supabase
+          .from("people")
+          .insert([{
+            first_name: data.person_first_name,
+            last_name: data.person_last_name || null,
+            company_id: data.person_company_id === "none" ? null : (data.person_company_id || null),
+          }])
+          .select()
+          .single();
+        
+        if (personError) throw personError;
+        personId = newPerson.id;
+        
+        // Invalidate people cache
+        queryClient.invalidateQueries({ queryKey: ["people", import.meta.env.VITE_SUPABASE_URL] });
+      }
+
       const contactData = {
-        person_id: data.owner_type === "person" ? data.person_id || null : null,
+        person_id: data.owner_type === "person" ? personId || null : null,
         company_id: data.owner_type === "company" ? data.company_id || null : null,
         email: data.email || null,
         country_code: data.country_code || null,
@@ -228,7 +271,125 @@ export const ContactDialog = ({ open, onOpenChange, contact, readOnly = false }:
               )}
             />
             
-            {ownerType === "person" && (
+            {ownerType === "person" && !contact && !readOnly && (
+              <>
+                <div className="flex items-center gap-2 mb-2">
+                  <Button
+                    type="button"
+                    variant={!createNewPerson ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => {
+                      setCreateNewPerson(false);
+                      form.setValue("person_first_name", "");
+                      form.setValue("person_last_name", "");
+                      form.setValue("person_company_id", "");
+                    }}
+                  >
+                    {t('contact.selectExistingPerson') || 'Select Existing'}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={createNewPerson ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => {
+                      setCreateNewPerson(true);
+                      form.setValue("person_id", "");
+                    }}
+                  >
+                    {t('contact.createNewPerson') || 'Create New'}
+                  </Button>
+                </div>
+
+                {!createNewPerson ? (
+                  <FormField
+                    control={form.control}
+                    name="person_id"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{t('contact.selectPerson') || 'Select Person'}</FormLabel>
+                        <Select 
+                          onValueChange={field.onChange} 
+                          value={field.value}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder={t('contact.selectPersonPlaceholder') || 'Select a person...'} />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {people?.map((person) => (
+                              <SelectItem key={person.id} value={person.id}>
+                                {person.first_name} {person.last_name || ''}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                ) : (
+                  <>
+                    <FormField
+                      control={form.control}
+                      name="person_first_name"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>{t('person.firstName') || 'First Name'} *</FormLabel>
+                          <FormControl>
+                            <Input {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="person_last_name"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>{t('person.lastName') || 'Last Name'}</FormLabel>
+                          <FormControl>
+                            <Input {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="person_company_id"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>{t('person.company') || 'Company'}</FormLabel>
+                          <Select 
+                            onValueChange={field.onChange} 
+                            value={field.value}
+                          >
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder={t('person.selectCompany') || 'Select a company...'} />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="none">{t('person.noCompany') || 'No company'}</SelectItem>
+                              {companies?.map((company) => (
+                                <SelectItem key={company.id} value={company.id}>
+                                  {company.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </>
+                )}
+              </>
+            )}
+
+            {ownerType === "person" && (contact || readOnly) && (
               <FormField
                 control={form.control}
                 name="person_id"

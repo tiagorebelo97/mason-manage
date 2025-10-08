@@ -239,6 +239,8 @@ const translations = {
     'contact.exportCSV': 'Export Excel',
     'contact.exportSuccess': 'Contacts exported successfully',
     'contact.exportError': 'No data to export',
+    'contact.selectExistingPerson': 'Select Existing',
+    'contact.createNewPerson': 'Create New',
   },
   pt: {
     // Auth
@@ -468,6 +470,8 @@ const translations = {
     'contact.exportCSV': 'Exportar Excel',
     'contact.exportSuccess': 'Contactos exportados com sucesso',
     'contact.exportError': 'Sem dados para exportar',
+    'contact.selectExistingPerson': 'Selecionar Existente',
+    'contact.createNewPerson': 'Criar Novo',
   },
 };
 

@@ -76,7 +76,7 @@ export const ContactsTable = () => {
   const filteredContacts = useMemo(() => {
     if (!contacts) return [];
 
-    let filtered = contacts.filter((contact) => {
+    const filtered = contacts.filter((contact) => {
       // Apply type filter
       if (contactFilter === "person" && !contact.person_id) return false;
       if (contactFilter === "company" && !contact.company_id) return false;
