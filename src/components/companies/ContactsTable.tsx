@@ -11,7 +11,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Pencil, Trash2, Eye, Download, User, Building2 } from "lucide-react";
+import { Pencil, Trash2, Download, User, Building2 } from "lucide-react";
 import { useState, useMemo } from "react";
 import { ContactDialog } from "./ContactDialog";
 import { toast } from "sonner";
@@ -263,7 +263,8 @@ export const ContactsTable = () => {
               filteredContacts?.map((contact) => (
                 <TableRow 
                   key={contact.id}
-                  className="hover:bg-muted/50"
+                  className="cursor-pointer hover:bg-muted/50"
+                  onClick={() => setViewingContact(contact)}
                 >
                   <TableCell className="font-medium">
                     <div className="flex items-center gap-2">
@@ -295,13 +296,6 @@ export const ContactsTable = () => {
                   <TableCell>{contact.website || "—"}</TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => setViewingContact(contact)}
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Button>
                       <Button
                         variant="ghost"
                         size="icon"

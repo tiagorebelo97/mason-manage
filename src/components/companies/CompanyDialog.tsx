@@ -29,6 +29,7 @@ import { useEffect, useState } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Plus, Mail, Phone, User, Pencil, Trash2 } from "lucide-react";
 import { PersonDialog } from "./PersonDialog";
+import { ContactDialog } from "./ContactDialog";
 
 type Company = {
   id: string;
@@ -46,9 +47,13 @@ type PersonWithContact = {
   company_id: string | null;
   created_at: string;
   contacts?: {
+    id?: string;
     email: string | null;
     mobile: string | null;
     country_code: string | null;
+    website?: string | null;
+    fax?: string | null;
+    address?: string | null;
   }[];
 };
 
@@ -74,6 +79,9 @@ export const CompanyDialog = ({ open, onOpenChange, company, readOnly = false }:
   const { t, language } = useLanguage();
   const [isPersonDialogOpen, setIsPersonDialogOpen] = useState(false);
   const [editingPerson, setEditingPerson] = useState<PersonWithContact | null>(null);
+  const [isContactDialogOpen, setIsContactDialogOpen] = useState(false);
+  const [editingContact, setEditingContact] = useState<{id: string; person_id: string | null; email: string | null; mobile: string | null; country_code: string | null; website: string | null; fax: string | null; address: string | null;} | null>(null);
+  const [selectedPersonForContact, setSelectedPersonForContact] = useState<string | null>(null);
 
   const form = useForm<CompanyFormData>({
     resolver: zodResolver(companySchema),
@@ -174,7 +182,7 @@ export const CompanyDialog = ({ open, onOpenChange, company, readOnly = false }:
       if (!company?.id) return [];
       const { data, error } = await supabase
         .from("people")
-        .select("id, first_name, last_name, company_id, created_at, contacts(email, mobile, country_code)")
+        .select("id, first_name, last_name, company_id, created_at, contacts(id, email, mobile, country_code, website, fax, address)")
         .eq("company_id", company.id)
         .order("first_name");
       if (error) throw error;
@@ -520,48 +528,96 @@ export const CompanyDialog = ({ open, onOpenChange, company, readOnly = false }:
                       return (
                         <div 
                           key={person.id} 
-                          className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 transition-colors"
+                          className="flex flex-col p-3 border rounded-lg hover:bg-muted/50 transition-colors gap-3"
                         >
-                          <div className="flex items-center gap-3 flex-1">
-                            <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-                              <User className="h-5 w-5 text-primary" />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="font-medium text-sm">
-                                {person.first_name} {person.last_name || ''}
-                              </p>
-                              <div className="flex flex-col gap-1 mt-1">
-                                {contact?.email && (
-                                  <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                                    <Mail className="h-3 w-3" />
-                                    <span className="truncate">{contact.email}</span>
-                                  </div>
-                                )}
-                                {contact?.mobile && (
-                                  <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                                    <Phone className="h-3 w-3" />
-                                    <span>{contact.country_code || ''} {contact.mobile}</span>
-                                  </div>
-                                )}
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3 flex-1">
+                              <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+                                <User className="h-5 w-5 text-primary" />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="font-medium text-sm">
+                                  {person.first_name} {person.last_name || ''}
+                                </p>
+                                <div className="flex flex-col gap-1 mt-1">
+                                  {contact?.email && (
+                                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                      <Mail className="h-3 w-3" />
+                                      <span className="truncate">{contact.email}</span>
+                                    </div>
+                                  )}
+                                  {contact?.mobile && (
+                                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                      <Phone className="h-3 w-3" />
+                                      <span>{contact.country_code || ''} {contact.mobile}</span>
+                                    </div>
+                                  )}
+                                  {!contact && (
+                                    <span className="text-xs text-muted-foreground italic">{t('contact.noContact') || 'No contact info'}</span>
+                                  )}
+                                </div>
                               </div>
                             </div>
+                            {!readOnly && (
+                              <div className="flex gap-1">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => setEditingPerson(person)}
+                                  title={t('person.editPerson') || 'Edit person'}
+                                >
+                                  <Pencil className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => deletePerson.mutate(person.id)}
+                                  title={t('person.deletePerson') || 'Delete person'}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            )}
                           </div>
                           {!readOnly && (
-                            <div className="flex gap-1">
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => setEditingPerson(person)}
-                              >
-                                <Pencil className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => deletePerson.mutate(person.id)}
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
+                            <div className="flex gap-2 pt-2 border-t">
+                              {contact ? (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => {
+                                    setEditingContact({
+                                      id: contact.id || '',
+                                      person_id: person.id,
+                                      email: contact.email,
+                                      mobile: contact.mobile,
+                                      country_code: contact.country_code,
+                                      website: null,
+                                      fax: null,
+                                      address: null,
+                                    });
+                                    setIsContactDialogOpen(true);
+                                  }}
+                                  className="gap-2"
+                                >
+                                  <Pencil className="h-3 w-3" />
+                                  {t('contact.editContact') || 'Edit Contact'}
+                                </Button>
+                              ) : (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => {
+                                    setSelectedPersonForContact(person.id);
+                                    setEditingContact(null);
+                                    setIsContactDialogOpen(true);
+                                  }}
+                                  className="gap-2"
+                                >
+                                  <Plus className="h-3 w-3" />
+                                  {t('contact.addContact') || 'Add Contact'}
+                                </Button>
+                              )}
                             </div>
                           )}
                         </div>
@@ -608,6 +664,41 @@ export const CompanyDialog = ({ open, onOpenChange, company, readOnly = false }:
           }}
           person={editingPerson}
           preselectedCompanyId={company?.id}
+        />
+        
+        <ContactDialog 
+          open={isContactDialogOpen} 
+          onOpenChange={(open) => {
+            if (!open) {
+              setIsContactDialogOpen(false);
+              setEditingContact(null);
+              setSelectedPersonForContact(null);
+              queryClient.invalidateQueries({ queryKey: ["company-people", company?.id, import.meta.env.VITE_SUPABASE_URL] });
+            }
+          }}
+          contact={editingContact ? {
+            id: editingContact.id,
+            person_id: editingContact.person_id,
+            company_id: null,
+            email: editingContact.email,
+            mobile: editingContact.mobile,
+            country_code: editingContact.country_code,
+            website: editingContact.website,
+            fax: editingContact.fax,
+            address: editingContact.address,
+            created_at: null,
+          } : (selectedPersonForContact ? {
+            id: '',
+            person_id: selectedPersonForContact,
+            company_id: null,
+            email: null,
+            mobile: null,
+            country_code: '+351',
+            website: null,
+            fax: null,
+            address: null,
+            created_at: null,
+          } : undefined)}
         />
       </DialogContent>
     </Dialog>
