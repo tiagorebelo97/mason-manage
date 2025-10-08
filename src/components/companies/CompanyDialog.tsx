@@ -20,11 +20,15 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { MultiSelect } from "@/components/ui/multi-select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { Plus, Mail, Phone, User, Pencil, Trash2 } from "lucide-react";
+import { PersonDialog } from "./PersonDialog";
 
 type Company = {
   id: string;
@@ -55,6 +59,8 @@ interface CompanyDialogProps {
 export const CompanyDialog = ({ open, onOpenChange, company, readOnly = false }: CompanyDialogProps) => {
   const queryClient = useQueryClient();
   const { t, language } = useLanguage();
+  const [isPersonDialogOpen, setIsPersonDialogOpen] = useState(false);
+  const [editingPerson, setEditingPerson] = useState<any>(null);
 
   const form = useForm<CompanyFormData>({
     resolver: zodResolver(companySchema),
@@ -146,6 +152,36 @@ export const CompanyDialog = ({ open, onOpenChange, company, readOnly = false }:
       return data.map(item => item.location_id);
     },
     enabled: !!company?.id,
+  });
+
+  // Fetch people related to this company with their contact information
+  const { data: companyPeople } = useQuery({
+    queryKey: ["company-people", company?.id, import.meta.env.VITE_SUPABASE_URL],
+    queryFn: async () => {
+      if (!company?.id) return [];
+      const { data, error } = await supabase
+        .from("people")
+        .select("id, first_name, last_name, contacts(email, mobile, country_code)")
+        .eq("company_id", company.id)
+        .order("first_name");
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!company?.id,
+  });
+
+  const deletePerson = useMutation({
+    mutationFn: async (personId: string) => {
+      const { error } = await supabase.from("people").delete().eq("id", personId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["company-people", company?.id, import.meta.env.VITE_SUPABASE_URL] });
+      toast.success(t('person.deleteSuccess') || 'Person deleted successfully');
+    },
+    onError: () => {
+      toast.error(t('person.deleteError') || 'Failed to delete person');
+    },
   });
 
   useEffect(() => {
@@ -294,7 +330,7 @@ export const CompanyDialog = ({ open, onOpenChange, company, readOnly = false }:
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
             {readOnly ? t('company.viewCompany') || 'View Company' : (company ? t('company.editCompany') : t('dialog.addCompany'))}
@@ -303,128 +339,263 @@ export const CompanyDialog = ({ open, onOpenChange, company, readOnly = false }:
             {readOnly ? t('company.viewCompanyDesc') || 'Company details' : (company ? t('dialog.updateCompany') : t('dialog.addCompanyDesc'))}
           </DialogDescription>
         </DialogHeader>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit((data) => mutation.mutate(data))} className="space-y-4">
-            <FormField
-              control={form.control}
-              name="name"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>{t('company.name')}</FormLabel>
-                  <FormControl>
-                    <Input {...field} disabled={readOnly} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="comments"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>{t('company.comments') || 'Comments'}</FormLabel>
-                  <FormControl>
-                    <Textarea {...field} disabled={readOnly} placeholder={t('company.commentsPlaceholder') || 'Add any comments about this company...'} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="speciality_ids"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>{t('company.speciality')}</FormLabel>
-                  <FormControl>
-                    <MultiSelect
-                      options={
-                        specialities?.map((speciality) => ({
-                          label: language === 'pt' ? speciality.name_pt : speciality.name_en,
-                          value: speciality.id,
-                        })) || []
-                      }
-                      selected={field.value || []}
-                      onChange={field.onChange}
-                      placeholder={t('company.selectSpeciality') || "Select specialities..."}
-                      emptyText={t('company.noSpeciality') || "No specialities found."}
-                      disabled={readOnly}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="brand_ids"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>{t('company.brands') || 'Brands'}</FormLabel>
-                  <FormControl>
-                    <MultiSelect
-                      options={
-                        brands?.map((brand) => ({
-                          label: brand.name,
-                          value: brand.id,
-                        })) || []
-                      }
-                      selected={field.value || []}
-                      onChange={field.onChange}
-                      placeholder={t('company.selectBrands') || "Select brands..."}
-                      emptyText={t('company.noBrands') || "No brands found."}
-                      disabled={readOnly}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="location_ids"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>{t('company.locations') || 'Locations'}</FormLabel>
-                  <FormControl>
-                    <MultiSelect
-                      options={
-                        locations?.map((location) => ({
-                          label: location.name,
-                          value: location.id,
-                        })) || []
-                      }
-                      selected={field.value || []}
-                      onChange={field.onChange}
-                      placeholder={t('company.selectLocations') || "Select locations..."}
-                      emptyText={t('company.noLocations') || "No locations found."}
-                      disabled={readOnly}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            {!readOnly && (
-              <div className="flex justify-end gap-2">
-                <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-                  {t('dialog.cancel')}
-                </Button>
-                <Button type="submit" disabled={mutation.isPending}>
-                  {mutation.isPending ? "..." : company ? t('dialog.save') : t('dialog.create')}
-                </Button>
-              </div>
-            )}
+        
+        <Tabs defaultValue="details" className="w-full">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="details">{t('company.details') || 'Details'}</TabsTrigger>
+            <TabsTrigger value="people" disabled={!company}>
+              {t('company.people') || 'People'} {company && companyPeople ? `(${companyPeople.length})` : ''}
+            </TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="details" className="space-y-4">
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit((data) => mutation.mutate(data))} className="space-y-4">
+                <div className="grid grid-cols-1 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="name"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{t('company.name')}</FormLabel>
+                        <FormControl>
+                          <Input {...field} disabled={readOnly} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="comments"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{t('company.comments') || 'Comments'}</FormLabel>
+                        <FormControl>
+                          <Textarea {...field} disabled={readOnly} placeholder={t('company.commentsPlaceholder') || 'Add any comments about this company...'} rows={3} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="speciality_ids"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{t('company.speciality')}</FormLabel>
+                        <FormControl>
+                          <MultiSelect
+                            options={
+                              specialities?.map((speciality) => ({
+                                label: language === 'pt' ? speciality.name_pt : speciality.name_en,
+                                value: speciality.id,
+                              })) || []
+                            }
+                            selected={field.value || []}
+                            onChange={field.onChange}
+                            placeholder={t('company.selectSpeciality') || "Select specialities..."}
+                            emptyText={t('company.noSpeciality') || "No specialities found."}
+                            disabled={readOnly}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="brand_ids"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{t('company.brands') || 'Brands'}</FormLabel>
+                        <FormControl>
+                          <MultiSelect
+                            options={
+                              brands?.map((brand) => ({
+                                label: brand.name,
+                                value: brand.id,
+                              })) || []
+                            }
+                            selected={field.value || []}
+                            onChange={field.onChange}
+                            placeholder={t('company.selectBrands') || "Select brands..."}
+                            emptyText={t('company.noBrands') || "No brands found."}
+                            disabled={readOnly}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="location_ids"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{t('company.locations') || 'Locations'}</FormLabel>
+                        <FormControl>
+                          <MultiSelect
+                            options={
+                              locations?.map((location) => ({
+                                label: location.name,
+                                value: location.id,
+                              })) || []
+                            }
+                            selected={field.value || []}
+                            onChange={field.onChange}
+                            placeholder={t('company.selectLocations') || "Select locations..."}
+                            emptyText={t('company.noLocations') || "No locations found."}
+                            disabled={readOnly}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                
+                {!readOnly && (
+                  <div className="flex justify-end gap-2 pt-4">
+                    <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+                      {t('dialog.cancel')}
+                    </Button>
+                    <Button type="submit" disabled={mutation.isPending}>
+                      {mutation.isPending ? "..." : company ? t('dialog.save') : t('dialog.create')}
+                    </Button>
+                  </div>
+                )}
+                {readOnly && (
+                  <div className="flex justify-end pt-4">
+                    <Button type="button" onClick={() => onOpenChange(false)}>
+                      {t('dialog.close') || 'Close'}
+                    </Button>
+                  </div>
+                )}
+              </form>
+            </Form>
+          </TabsContent>
+          
+          <TabsContent value="people" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle>{t('company.relatedPeople') || 'Related People'}</CardTitle>
+                    <CardDescription>{t('company.relatedPeopleDesc') || 'People associated with this company'}</CardDescription>
+                  </div>
+                  {!readOnly && (
+                    <Button 
+                      size="sm" 
+                      onClick={() => setIsPersonDialogOpen(true)}
+                      className="gap-2"
+                    >
+                      <Plus className="h-4 w-4" />
+                      {t('person.addPerson') || 'Add Person'}
+                    </Button>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent>
+                {companyPeople && companyPeople.length > 0 ? (
+                  <div className="space-y-3">
+                    {companyPeople.map((person: any) => {
+                      const contact = person.contacts?.[0];
+                      return (
+                        <div 
+                          key={person.id} 
+                          className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 transition-colors"
+                        >
+                          <div className="flex items-center gap-3 flex-1">
+                            <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+                              <User className="h-5 w-5 text-primary" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="font-medium text-sm">
+                                {person.first_name} {person.last_name || ''}
+                              </p>
+                              <div className="flex flex-col gap-1 mt-1">
+                                {contact?.email && (
+                                  <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                    <Mail className="h-3 w-3" />
+                                    <span className="truncate">{contact.email}</span>
+                                  </div>
+                                )}
+                                {contact?.mobile && (
+                                  <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                    <Phone className="h-3 w-3" />
+                                    <span>{contact.country_code || ''} {contact.mobile}</span>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                          {!readOnly && (
+                            <div className="flex gap-1">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => setEditingPerson(person)}
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => deletePerson.mutate(person.id)}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <User className="h-12 w-12 mx-auto mb-2 opacity-20" />
+                    <p>{t('company.noPeople') || 'No people associated with this company'}</p>
+                    {!readOnly && (
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="mt-4"
+                        onClick={() => setIsPersonDialogOpen(true)}
+                      >
+                        <Plus className="h-4 w-4 mr-2" />
+                        {t('person.addFirstPerson') || 'Add first person'}
+                      </Button>
+                    )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+            
             {readOnly && (
-              <div className="flex justify-end">
+              <div className="flex justify-end pt-4">
                 <Button type="button" onClick={() => onOpenChange(false)}>
                   {t('dialog.close') || 'Close'}
                 </Button>
               </div>
             )}
-          </form>
-        </Form>
+          </TabsContent>
+        </Tabs>
+
+        <PersonDialog 
+          open={isPersonDialogOpen || !!editingPerson} 
+          onOpenChange={(open) => {
+            if (!open) {
+              setIsPersonDialogOpen(false);
+              setEditingPerson(null);
+            }
+          }}
+          person={editingPerson}
+          preselectedCompanyId={company?.id}
+        />
       </DialogContent>
     </Dialog>
   );

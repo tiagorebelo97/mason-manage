@@ -52,9 +52,10 @@ interface PersonDialogProps {
   onOpenChange: (open: boolean) => void;
   person?: Person | null;
   readOnly?: boolean;
+  preselectedCompanyId?: string;
 }
 
-export const PersonDialog = ({ open, onOpenChange, person, readOnly = false }: PersonDialogProps) => {
+export const PersonDialog = ({ open, onOpenChange, person, readOnly = false, preselectedCompanyId }: PersonDialogProps) => {
   const queryClient = useQueryClient();
   const { t } = useLanguage();
 
@@ -63,7 +64,7 @@ export const PersonDialog = ({ open, onOpenChange, person, readOnly = false }: P
     defaultValues: {
       first_name: "",
       last_name: "",
-      company_id: "none",
+      company_id: preselectedCompanyId || "none",
     },
   });
 
@@ -90,10 +91,10 @@ export const PersonDialog = ({ open, onOpenChange, person, readOnly = false }: P
       form.reset({
         first_name: "",
         last_name: "",
-        company_id: "none",
+        company_id: preselectedCompanyId || "none",
       });
     }
-  }, [person, form]);
+  }, [person, form, preselectedCompanyId]);
 
   const mutation = useMutation({
     mutationFn: async (data: PersonFormData) => {
@@ -122,6 +123,7 @@ export const PersonDialog = ({ open, onOpenChange, person, readOnly = false }: P
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["people", import.meta.env.VITE_SUPABASE_URL] });
+      queryClient.invalidateQueries({ queryKey: ["company-people"] });
       toast.success(person ? t('person.updateSuccess') || 'Person updated' : t('person.addSuccess') || 'Person added');
       onOpenChange(false);
       form.reset();
