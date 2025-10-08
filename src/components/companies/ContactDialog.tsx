@@ -94,7 +94,6 @@ export const ContactDialog = ({ open, onOpenChange, contact, readOnly = false }:
   const queryClient = useQueryClient();
   const { t, language } = useLanguage();
   const [ownerType, setOwnerType] = useState<"person" | "company">("person");
-  const [createNewPerson, setCreateNewPerson] = useState(false);
   const [emails, setEmails] = useState<string[]>([""]);
   const [mobiles, setMobiles] = useState<string[]>([""]);
   const [faxes, setFaxes] = useState<string[]>([""]);
@@ -145,7 +144,6 @@ export const ContactDialog = ({ open, onOpenChange, contact, readOnly = false }:
     if (contact) {
       const type = contact.person_id ? "person" : "company";
       setOwnerType(type);
-      setCreateNewPerson(false);
       
       // Parse comma-separated values
       setEmails(contact.email ? contact.email.split(',').map(e => e.trim()) : [""]);
@@ -167,7 +165,6 @@ export const ContactDialog = ({ open, onOpenChange, contact, readOnly = false }:
         address: contact.address || "",
       });
     } else {
-      setCreateNewPerson(false);
       setEmails([""]);
       setMobiles([""]);
       setFaxes([""]);
@@ -262,7 +259,16 @@ export const ContactDialog = ({ open, onOpenChange, contact, readOnly = false }:
   });
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={(isOpen) => {
+      if (!isOpen) {
+        // Reset form when dialog closes
+        form.reset();
+        setEmails([""]);
+        setMobiles([""]);
+        setFaxes([""]);
+      }
+      onOpenChange(isOpen);
+    }}>
       <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
@@ -307,119 +313,60 @@ export const ContactDialog = ({ open, onOpenChange, contact, readOnly = false }:
             
             {ownerType === "person" && !contact && !readOnly && (
               <>
-                <div className="flex items-center gap-2 mb-2">
-                  <Button
-                    type="button"
-                    variant={!createNewPerson ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => {
-                      setCreateNewPerson(false);
-                      form.setValue("person_first_name", "");
-                      form.setValue("person_last_name", "");
-                      form.setValue("person_company_id", "");
-                    }}
-                  >
-                    {t('contact.selectExistingPerson') || 'Select Existing'}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant={createNewPerson ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => {
-                      setCreateNewPerson(true);
-                      form.setValue("person_id", "");
-                    }}
-                  >
-                    {t('contact.createNewPerson') || 'Create New'}
-                  </Button>
-                </div>
-
-                {!createNewPerson ? (
-                  <FormField
-                    control={form.control}
-                    name="person_id"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>{t('contact.selectPerson') || 'Select Person'}</FormLabel>
-                        <Select 
-                          onValueChange={field.onChange} 
-                          value={field.value}
-                        >
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder={t('contact.selectPersonPlaceholder') || 'Select a person...'} />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {people?.map((person) => (
-                              <SelectItem key={person.id} value={person.id}>
-                                {person.first_name} {person.last_name || ''}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                ) : (
-                  <>
-                    <FormField
-                      control={form.control}
-                      name="person_first_name"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>{t('person.firstName') || 'First Name'} *</FormLabel>
-                          <FormControl>
-                            <Input {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="person_last_name"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>{t('person.lastName') || 'Last Name'}</FormLabel>
-                          <FormControl>
-                            <Input {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="person_company_id"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>{t('person.company') || 'Company'}</FormLabel>
-                          <Select 
-                            onValueChange={field.onChange} 
-                            value={field.value}
-                          >
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder={t('person.selectCompany') || 'Select a company...'} />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              <SelectItem value="none">{t('person.noCompany') || 'No company'}</SelectItem>
-                              {companies?.map((company) => (
-                                <SelectItem key={company.id} value={company.id}>
-                                  {company.name}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </>
-                )}
+                <FormField
+                  control={form.control}
+                  name="person_first_name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t('person.firstName') || 'First Name'} *</FormLabel>
+                      <FormControl>
+                        <Input {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="person_last_name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t('person.lastName') || 'Last Name'}</FormLabel>
+                      <FormControl>
+                        <Input {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="person_company_id"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t('person.company') || 'Company'}</FormLabel>
+                      <Select 
+                        onValueChange={field.onChange} 
+                        value={field.value}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder={t('person.selectCompany') || 'Select a company...'} />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="none">{t('person.noCompany') || 'No company'}</SelectItem>
+                          {companies?.map((company) => (
+                            <SelectItem key={company.id} value={company.id}>
+                              {company.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
               </>
             )}
 

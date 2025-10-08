@@ -31,6 +31,32 @@ const queryClient = new QueryClient({
   },
 });
 
+const AppLayout = () => (
+  <SidebarProvider>
+    <div className="min-h-screen flex w-full">
+      <AppSidebar />
+      <div className="flex-1 flex flex-col">
+        <header className="h-12 flex items-center border-b px-4 bg-background sticky top-0 z-10">
+          <SidebarTrigger />
+        </header>
+        <main className="flex-1">
+          <Routes>
+            <Route path="/" element={<Dashboard />} />
+            <Route path="/companies" element={<Index />} />
+            <Route path="/specialities" element={<Specialities />} />
+            <Route path="/main-specialties" element={<MainSpecialties />} />
+            <Route path="/brands" element={<Brands />} />
+            <Route path="/locations" element={<Locations />} />
+            <Route path="/people" element={<People />} />
+            <Route path="/contacts" element={<Contacts />} />
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </main>
+      </div>
+    </div>
+  </SidebarProvider>
+);
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <LanguageProvider>
@@ -40,34 +66,7 @@ const App = () => (
         <BrowserRouter>
           <Routes>
             <Route path="/auth" element={<Auth />} />
-            <Route
-              path="/*"
-              element={
-                <SidebarProvider>
-                  <div className="min-h-screen flex w-full">
-                    <AppSidebar />
-                    <div className="flex-1 flex flex-col">
-                      <header className="h-12 flex items-center border-b px-4 bg-background sticky top-0 z-10">
-                        <SidebarTrigger />
-                      </header>
-                      <main className="flex-1">
-                        <Routes>
-                          <Route path="/" element={<Dashboard />} />
-                          <Route path="/companies" element={<Index />} />
-                          <Route path="/specialities" element={<Specialities />} />
-                          <Route path="/main-specialties" element={<MainSpecialties />} />
-                          <Route path="/brands" element={<Brands />} />
-                          <Route path="/locations" element={<Locations />} />
-                          <Route path="/people" element={<People />} />
-                          <Route path="/contacts" element={<Contacts />} />
-                          <Route path="*" element={<NotFound />} />
-                        </Routes>
-                      </main>
-                    </div>
-                  </div>
-                </SidebarProvider>
-              }
-            />
+            <Route path="*" element={<AppLayout />} />
           </Routes>
         </BrowserRouter>
       </TooltipProvider>
