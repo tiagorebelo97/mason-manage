@@ -143,41 +143,69 @@ export const PersonContactDialog = ({ open, onOpenChange, person, preselectedCom
 
   const mutation = useMutation({
     mutationFn: async (data: PersonContactFormData) => {
-      if (!person) return;
+      if (person) {
+        // Update existing person
+        const companyId = data.company_id === "none" ? null : (data.company_id || null);
+        const { error: personError } = await supabase
+          .from("people")
+          .update({
+            first_name: data.first_name,
+            last_name: data.last_name || null,
+            company_id: companyId,
+          })
+          .eq("id", person.id);
+        if (personError) throw personError;
 
-      // Update person info
-      const companyId = data.company_id === "none" ? null : (data.company_id || null);
-      const { error: personError } = await supabase
-        .from("people")
-        .update({
-          first_name: data.first_name,
-          last_name: data.last_name || null,
-          company_id: companyId,
-        })
-        .eq("id", person.id);
-      if (personError) throw personError;
+        // Update or create contact info
+        const contactData = {
+          person_id: person.id,
+          email: emails.filter(e => e.trim()).join(', ') || null,
+          country_code: data.country_code || null,
+          website: data.website || null,
+          mobile: mobiles.filter(m => m.trim()).join(', ') || null,
+          fax: faxes.filter(f => f.trim()).join(', ') || null,
+        };
 
-      // Update or create contact info
-      const contactData = {
-        person_id: person.id,
-        email: emails.filter(e => e.trim()).join(', ') || null,
-        country_code: data.country_code || null,
-        website: data.website || null,
-        mobile: mobiles.filter(m => m.trim()).join(', ') || null,
-        fax: faxes.filter(f => f.trim()).join(', ') || null,
-      };
-
-      const existingContact = person.contacts?.[0];
-      
-      if (existingContact?.id) {
-        // Update existing contact
-        const { error: contactError } = await supabase
-          .from("contacts")
-          .update(contactData)
-          .eq("id", existingContact.id);
-        if (contactError) throw contactError;
+        const existingContact = person.contacts?.[0];
+        
+        if (existingContact?.id) {
+          // Update existing contact
+          const { error: contactError } = await supabase
+            .from("contacts")
+            .update(contactData)
+            .eq("id", existingContact.id);
+          if (contactError) throw contactError;
+        } else {
+          // Create new contact if person has no contact
+          const { error: contactError } = await supabase
+            .from("contacts")
+            .insert([contactData]);
+          if (contactError) throw contactError;
+        }
       } else {
-        // Create new contact if person has no contact
+        // Create new person
+        const companyId = data.company_id === "none" ? null : (data.company_id || null);
+        const { data: newPerson, error: personError } = await supabase
+          .from("people")
+          .insert([{
+            first_name: data.first_name,
+            last_name: data.last_name || null,
+            company_id: companyId,
+          }])
+          .select()
+          .single();
+        if (personError) throw personError;
+
+        // Create contact info for new person
+        const contactData = {
+          person_id: newPerson.id,
+          email: emails.filter(e => e.trim()).join(', ') || null,
+          country_code: data.country_code || null,
+          website: data.website || null,
+          mobile: mobiles.filter(m => m.trim()).join(', ') || null,
+          fax: faxes.filter(f => f.trim()).join(', ') || null,
+        };
+
         const { error: contactError } = await supabase
           .from("contacts")
           .insert([contactData]);
@@ -188,7 +216,10 @@ export const PersonContactDialog = ({ open, onOpenChange, person, preselectedCom
       queryClient.invalidateQueries({ queryKey: ["people", import.meta.env.VITE_SUPABASE_URL] });
       queryClient.invalidateQueries({ queryKey: ["company-people"] });
       queryClient.invalidateQueries({ queryKey: ["contacts", import.meta.env.VITE_SUPABASE_URL] });
-      toast.success(t('person.updateSuccess') || 'Person and contact updated successfully');
+      toast.success(person 
+        ? (t('person.updateSuccess') || 'Person and contact updated successfully')
+        : (t('person.addSuccess') || 'Person and contact added successfully')
+      );
       onOpenChange(false);
       form.reset();
     },
@@ -202,17 +233,20 @@ export const PersonContactDialog = ({ open, onOpenChange, person, preselectedCom
       <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
-            {t('person.editPersonAndContact') || 'Edit Person & Contact'}
+            {person ? (t('person.editPersonAndContact') || 'Edit Person & Contact') : (t('person.addPerson') || 'Add Person')}
           </DialogTitle>
           <DialogDescription>
-            {t('person.editPersonAndContactDesc') || 'Update person information and contact details'}
+            {person 
+              ? (t('person.editPersonAndContactDesc') || 'Update person information and contact details')
+              : (t('person.addPersonDesc') || 'Add a new person with contact information')
+            }
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit((data) => mutation.mutate(data))} className="space-y-4">
             {/* Person Information Section */}
             <div className="space-y-4">
-              <h3 className="text-sm font-semibold">{t('person.personInfo') || 'Person Information'}</h3>
+              <h3 className="text-sm font-semibold">{t('person.personalDetails') || 'Personal Details'}</h3>
               
               <FormField
                 control={form.control}
@@ -274,7 +308,7 @@ export const PersonContactDialog = ({ open, onOpenChange, person, preselectedCom
 
             {/* Contact Information Section */}
             <div className="space-y-4 pt-4 border-t">
-              <h3 className="text-sm font-semibold">{t('contact.contactInfo') || 'Contact Information'}</h3>
+              <h3 className="text-sm font-semibold">{t('person.contactDetails') || 'Contact Details'}</h3>
 
               <FormField
                 control={form.control}
@@ -477,7 +511,7 @@ export const PersonContactDialog = ({ open, onOpenChange, person, preselectedCom
                 {t('dialog.cancel') || 'Cancel'}
               </Button>
               <Button type="submit" disabled={mutation.isPending}>
-                {mutation.isPending ? "..." : t('dialog.save') || 'Save'}
+                {mutation.isPending ? "..." : person ? (t('dialog.save') || 'Save') : (t('dialog.create') || 'Create')}
               </Button>
             </div>
           </form>

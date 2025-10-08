@@ -28,8 +28,8 @@ import { toast } from "sonner";
 import { useEffect, useState } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Plus, Mail, Phone, User, Pencil, Trash2 } from "lucide-react";
-import { PersonDialog } from "./PersonDialog";
 import { PersonContactDialog } from "./PersonContactDialog";
+import { Badge } from "@/components/ui/badge";
 
 type Company = {
   id: string;
@@ -77,8 +77,8 @@ interface CompanyDialogProps {
 export const CompanyDialog = ({ open, onOpenChange, company, readOnly = false }: CompanyDialogProps) => {
   const queryClient = useQueryClient();
   const { t, language } = useLanguage();
-  const [isPersonDialogOpen, setIsPersonDialogOpen] = useState(false);
   const [editingPerson, setEditingPerson] = useState<PersonWithContact | null>(null);
+  const [isAddingPerson, setIsAddingPerson] = useState(false);
 
   const form = useForm<CompanyFormData>({
     resolver: zodResolver(companySchema),
@@ -508,7 +508,7 @@ export const CompanyDialog = ({ open, onOpenChange, company, readOnly = false }:
                   {!readOnly && (
                     <Button 
                       size="sm" 
-                      onClick={() => setIsPersonDialogOpen(true)}
+                      onClick={() => setIsAddingPerson(true)}
                       className="gap-2"
                     >
                       <Plus className="h-4 w-4" />
@@ -536,19 +536,19 @@ export const CompanyDialog = ({ open, onOpenChange, company, readOnly = false }:
                                 <p className="font-medium text-sm">
                                   {person.first_name} {person.last_name || ''}
                                 </p>
-                                <div className="flex flex-col gap-1 mt-1">
-                                  {contact?.email && (
-                                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                <div className="flex flex-wrap gap-1 mt-1">
+                                  {contact?.email && contact.email.split(',').map((email, idx) => (
+                                    <Badge key={idx} variant="secondary" className="text-xs flex items-center gap-1">
                                       <Mail className="h-3 w-3" />
-                                      <span className="truncate">{contact.email}</span>
-                                    </div>
-                                  )}
-                                  {contact?.mobile && (
-                                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                      {email.trim()}
+                                    </Badge>
+                                  ))}
+                                  {contact?.mobile && contact.mobile.split(',').map((mobile, idx) => (
+                                    <Badge key={idx} variant="secondary" className="text-xs flex items-center gap-1">
                                       <Phone className="h-3 w-3" />
-                                      <span>{contact.country_code || ''} {contact.mobile}</span>
-                                    </div>
-                                  )}
+                                      {contact.country_code || ''} {mobile.trim()}
+                                    </Badge>
+                                  ))}
                                   {!contact && (
                                     <span className="text-xs text-muted-foreground italic">{t('person.noContact')}</span>
                                   )}
@@ -589,7 +589,7 @@ export const CompanyDialog = ({ open, onOpenChange, company, readOnly = false }:
                         variant="outline" 
                         size="sm" 
                         className="mt-4"
-                        onClick={() => setIsPersonDialogOpen(true)}
+                        onClick={() => setIsAddingPerson(true)}
                       >
                         <Plus className="h-4 w-4 mr-2" />
                         {t('person.addFirstPerson')}
@@ -610,20 +610,11 @@ export const CompanyDialog = ({ open, onOpenChange, company, readOnly = false }:
           </TabsContent>
         </Tabs>
 
-        <PersonDialog 
-          open={isPersonDialogOpen} 
-          onOpenChange={(open) => {
-            if (!open) {
-              setIsPersonDialogOpen(false);
-            }
-          }}
-          preselectedCompanyId={company?.id}
-        />
-
         <PersonContactDialog 
-          open={!!editingPerson} 
+          open={isAddingPerson || !!editingPerson} 
           onOpenChange={(open) => {
             if (!open) {
+              setIsAddingPerson(false);
               setEditingPerson(null);
             }
           }}

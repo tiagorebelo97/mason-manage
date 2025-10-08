@@ -38,6 +38,7 @@ type Company = {
   }>;
   brand_companies?: Array<{ brands: { name: string } }>;
   company_locations?: Array<{ locations: { name: string } }>;
+  people?: Array<{ id: string }>;
 };
 
 type SortField = "name" | "speciality" | "brands" | "locations";
@@ -65,7 +66,8 @@ export const CompaniesTable = () => {
           *, 
           company_specialities(specialities(name, name_en, name_pt, main_specialties(id, main_specialty_en, main_specialty_pt))),
           brand_companies(brands(name)),
-          company_locations(locations(name))
+          company_locations(locations(name)),
+          people(id)
         `);
       if (error) throw error;
       return data;
@@ -513,13 +515,14 @@ export const CompaniesTable = () => {
                   />
                 </div>
               </TableHead>
+              <TableHead>{t('company.associatedPeopleCount')}</TableHead>
               <TableHead className="text-right">{t('company.actions')}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {filteredAndSortedCompanies?.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} className="text-center text-muted-foreground">
+                <TableCell colSpan={6} className="text-center text-muted-foreground">
                   {searchTerm ? t('company.noResults') : t('company.noCompanies')}
                 </TableCell>
               </TableRow>
@@ -551,6 +554,9 @@ export const CompaniesTable = () => {
                           .map(cl => cl.locations.name)
                           .join(", ")
                       : "—"}
+                  </TableCell>
+                  <TableCell className="text-center">
+                    {company.people ? company.people.length : 0}
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">

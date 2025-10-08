@@ -69,6 +69,7 @@ const translations = {
     'company.peopleInCompanyDesc': 'Manage people associated with this company',
     'company.noPeople': 'No people associated with this company',
     'company.addFirstPerson': 'Add first person',
+    'company.associatedPeopleCount': 'Associated People',
     
     // Speciality Management
     'speciality.name': 'Speciality',
@@ -213,6 +214,10 @@ const translations = {
     'person.addFirstPerson': 'Add first person',
     'person.deletePerson': 'Delete person',
     'person.noContact': 'No contact info',
+    'person.editPersonAndContact': 'Edit Person & Contact',
+    'person.editPersonAndContactDesc': 'Update person information and contact details',
+    'person.personalDetails': 'Personal Details',
+    'person.contactDetails': 'Contact Details',
     
     // Contact Management
     'contact.title': 'Contact Management',
@@ -258,6 +263,7 @@ const translations = {
     'contact.addMobile': 'Add Mobile',
     'contact.addFax': 'Add Fax',
     'contact.noContact': 'No contact info',
+    'contact.contactInfo': 'Contact Information',
   },
   pt: {
     // Auth
@@ -317,6 +323,7 @@ const translations = {
     'company.peopleInCompanyDesc': 'Gerir pessoas associadas a esta empresa',
     'company.noPeople': 'Nenhuma pessoa associada a esta empresa',
     'company.addFirstPerson': 'Adicionar primeira pessoa',
+    'company.associatedPeopleCount': 'Pessoas Associadas',
     
     // Speciality Management
     'speciality.name': 'Especialidade',
@@ -461,6 +468,10 @@ const translations = {
     'person.addFirstPerson': 'Adicionar primeira pessoa',
     'person.deletePerson': 'Eliminar pessoa',
     'person.noContact': 'Sem informação de contacto',
+    'person.editPersonAndContact': 'Editar Pessoa e Contacto',
+    'person.editPersonAndContactDesc': 'Atualizar informações da pessoa e detalhes de contacto',
+    'person.personalDetails': 'Detalhes Pessoais',
+    'person.contactDetails': 'Detalhes de Contacto',
     
     // Contact Management
     'contact.title': 'Gestão de Contactos',
@@ -506,6 +517,7 @@ const translations = {
     'contact.addMobile': 'Adicionar Telemóvel',
     'contact.addFax': 'Adicionar Fax',
     'contact.noContact': 'Sem informação de contacto',
+    'contact.contactInfo': 'Informações de Contacto',
   },
 };
 
