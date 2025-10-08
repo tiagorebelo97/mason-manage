@@ -178,6 +178,29 @@ const translations = {
     'location.updateSuccess': 'Location updated successfully',
     'location.saveError': 'Failed to save location',
     
+    // People Management
+    'person.title': 'People Management',
+    'person.subtitle': 'Manage people and their companies',
+    'person.addPerson': 'Add Person',
+    'person.editPerson': 'Edit Person',
+    'person.viewPerson': 'View Person',
+    'person.viewPersonDesc': 'Person details',
+    'person.updatePerson': 'Update person information',
+    'person.addPersonDesc': 'Add a new person',
+    'person.firstName': 'First Name',
+    'person.middleName': 'Middle Name',
+    'person.company': 'Company',
+    'person.selectCompany': 'Select a company...',
+    'person.noCompany': 'No company',
+    'person.searchPlaceholder': 'Search people...',
+    'person.noPeople': 'No people found. Add your first person!',
+    'person.noResults': 'No people match your search.',
+    'person.deleteSuccess': 'Person deleted successfully',
+    'person.deleteError': 'Failed to delete person',
+    'person.addSuccess': 'Person added successfully',
+    'person.updateSuccess': 'Person updated successfully',
+    'person.saveError': 'Failed to save person',
+    
     // Navigation
     'nav.dashboard': 'Dashboard',
     'nav.companies': 'Companies',
@@ -185,6 +208,7 @@ const translations = {
     'nav.mainSpecialties': 'Main Specialties',
     'nav.brands': 'Brands',
     'nav.locations': 'Locations',
+    'nav.people': 'People',
   },
   pt: {
     // Auth
@@ -353,6 +377,29 @@ const translations = {
     'location.updateSuccess': 'Localização atualizada com sucesso',
     'location.saveError': 'Falha ao guardar localização',
     
+    // People Management
+    'person.title': 'Gestão de Pessoas',
+    'person.subtitle': 'Gerir pessoas e suas empresas',
+    'person.addPerson': 'Adicionar Pessoa',
+    'person.editPerson': 'Editar Pessoa',
+    'person.viewPerson': 'Ver Pessoa',
+    'person.viewPersonDesc': 'Detalhes da pessoa',
+    'person.updatePerson': 'Atualizar informações da pessoa',
+    'person.addPersonDesc': 'Adicionar uma nova pessoa',
+    'person.firstName': 'Primeiro Nome',
+    'person.middleName': 'Nome do Meio',
+    'person.company': 'Empresa',
+    'person.selectCompany': 'Selecionar uma empresa...',
+    'person.noCompany': 'Sem empresa',
+    'person.searchPlaceholder': 'Pesquisar pessoas...',
+    'person.noPeople': 'Nenhuma pessoa encontrada. Adicione a sua primeira pessoa!',
+    'person.noResults': 'Nenhuma pessoa corresponde à sua pesquisa.',
+    'person.deleteSuccess': 'Pessoa eliminada com sucesso',
+    'person.deleteError': 'Falha ao eliminar pessoa',
+    'person.addSuccess': 'Pessoa adicionada com sucesso',
+    'person.updateSuccess': 'Pessoa atualizada com sucesso',
+    'person.saveError': 'Falha ao guardar pessoa',
+    
     // Navigation
     'nav.dashboard': 'Dashboard',
     'nav.companies': 'Empresas',
@@ -360,6 +407,7 @@ const translations = {
     'nav.mainSpecialties': 'Especialidades Principais',
     'nav.brands': 'Marcas',
     'nav.locations': 'Localizações',
+    'nav.people': 'Pessoas',
   },
 };
 
