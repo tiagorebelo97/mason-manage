@@ -361,8 +361,30 @@ const MapaQuantidades = () => {
       }> = [];
 
       // Process each sheet and create tabs
-      // Only create tabs if there are multiple sheets
+      // For single-sheet files, create 3 default tabs: Principal, Arquitetura, Instalações Especiais
+      // For multi-sheet files, create tabs from sheet names
       const hasMultipleSheets = workbook.SheetNames.length > 1;
+      
+      if (!hasMultipleSheets) {
+        // Create 3 default tabs for single-sheet files
+        tabsToInsert.push(
+          {
+            orcamento_id: id!,
+            name: "Principal",
+            display_order: 0,
+          },
+          {
+            orcamento_id: id!,
+            name: "Arquitetura",
+            display_order: 1,
+          },
+          {
+            orcamento_id: id!,
+            name: "Instalações Especiais",
+            display_order: 2,
+          }
+        );
+      }
       
       workbook.SheetNames.forEach((sheetName, index) => {
         if (hasMultipleSheets) {
@@ -611,9 +633,9 @@ const MapaQuantidades = () => {
         }
       });
 
-      // Insert tabs into database only if multiple sheets exist
+      // Insert tabs into database
       let insertedTabs: OrcamentoTab[] = [];
-      let sheetNameToTabId = new Map<string, string>();
+      const sheetNameToTabId = new Map<string, string>();
       
       if (tabsToInsert.length > 0) {
         const { data, error: tabError } = await supabase
@@ -625,14 +647,24 @@ const MapaQuantidades = () => {
         insertedTabs = data || [];
         
         // Create a map of sheet names to tab IDs
-        insertedTabs.forEach(tab => {
-          sheetNameToTabId.set(tab.name, tab.id);
-        });
+        // For single-sheet files, map the single sheet to "Principal" tab
+        // For multi-sheet files, map each sheet to its corresponding tab
+        if (hasMultipleSheets) {
+          insertedTabs.forEach(tab => {
+            sheetNameToTabId.set(tab.name, tab.id);
+          });
+        } else {
+          // Map the single sheet to the "Principal" tab
+          const principalTab = insertedTabs.find(tab => tab.name === "Principal");
+          if (principalTab && workbook.SheetNames.length > 0) {
+            sheetNameToTabId.set(workbook.SheetNames[0], principalTab.id);
+          }
+        }
       }
       
-      // Update chapters with tab IDs (if tabs exist)
+      // Update chapters with tab IDs
       const chaptersWithTabIds = chaptersToInsert.map(chapter => ({
-        tab_id: hasMultipleSheets ? sheetNameToTabId.get(chapter.sheet_name!) : null,
+        tab_id: sheetNameToTabId.get(chapter.sheet_name!) || null,
         chapter_number: chapter.chapter_number,
         chapter_name: chapter.chapter_name,
         chapter_comments: chapter.chapter_comments || null,
@@ -649,11 +681,20 @@ const MapaQuantidades = () => {
         // Create a map of (sheet_name + chapter_number) to chapter IDs
         const chapterMap = new Map<string, string>();
         insertedChapters.forEach(chapter => {
-          // Find the corresponding tab to get sheet name
-          const tab = insertedTabs.find(t => t.id === chapter.tab_id);
-          if (tab) {
-            const key = `${tab.name}_${chapter.chapter_number}`;
-            chapterMap.set(key, chapter.id);
+          if (hasMultipleSheets) {
+            // For multi-sheet files, find the corresponding tab to get sheet name
+            const tab = insertedTabs.find(t => t.id === chapter.tab_id);
+            if (tab) {
+              const key = `${tab.name}_${chapter.chapter_number}`;
+              chapterMap.set(key, chapter.id);
+            }
+          } else {
+            // For single-sheet files, use the original sheet name
+            // Since we mapped the sheet to Principal tab, we need to use the original sheet name
+            if (workbook.SheetNames.length > 0) {
+              const key = `${workbook.SheetNames[0]}_${chapter.chapter_number}`;
+              chapterMap.set(key, chapter.id);
+            }
           }
         });
         
