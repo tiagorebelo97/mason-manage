@@ -55,11 +55,11 @@ const personContactSchema = z.object({
   first_name: z.string().min(1, "First name is required").max(100),
   last_name: z.string().max(100).optional(),
   company_id: z.string().optional(),
-  // Contact fields
-  email: z.string().email("Invalid email").optional().or(z.literal("")),
+  // Contact fields - these are managed by arrays and joined on save, so no validation needed
+  email: z.string().optional(),
   country_code: z.string().max(10).optional(),
-  mobile: z.string().max(50).optional(),
-  fax: z.string().max(50).optional(),
+  mobile: z.string().optional(),
+  fax: z.string().optional(),
 });
 
 type PersonContactFormData = z.infer<typeof personContactSchema>;

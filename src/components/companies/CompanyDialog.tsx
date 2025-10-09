@@ -461,8 +461,6 @@ export const CompanyDialog = ({ open, onOpenChange, company, readOnly = false }:
       if (!isOpen) {
         // Reset form when dialog closes
         form.reset();
-        // Invalidate queries to refresh table data
-        queryClient.invalidateQueries({ queryKey: ["companies", import.meta.env.VITE_SUPABASE_URL] });
       }
       onOpenChange(isOpen);
     }}>
