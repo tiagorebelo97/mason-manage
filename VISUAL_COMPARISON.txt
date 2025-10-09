@@ -1,0 +1,82 @@
+═══════════════════════════════════════════════════════════════════════════════
+                    BEFORE FIX vs AFTER FIX - VISUAL COMPARISON
+═══════════════════════════════════════════════════════════════════════════════
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                           EXCEL FILE (Same Input)                           │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+╔════════╦═══════════════╦════╦════╗
+║ ARTIGO ║   DESCRIÇÃO   ║ UN ║ QT ║
+╠════════╬═══════════════╬════╬════╣
+║   1    ║ Materials     ║ -  ║ -  ║
+║  1.1   ║ Cement bags   ║ un ║ 0  ║  ← Zero value
+║  1.2   ║ Sand          ║ m3 ║ 10 ║
+║  1.3   ║ Gravel        ║ m3 ║ 5  ║
+╚════════╩═══════════════╩════╩════╝
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         BEFORE FIX ❌ (BROKEN)                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+Table Display (Mixed English/Portuguese - not translated):
+┌─────────┬─────────────┬──────┬──────────┬─────────────────────────┐
+│ Artigo  │ Descrição   │ Unit │ Quantity │ Observações Empreiteiro │
+├─────────┼─────────────┼──────┼──────────┼─────────────────────────┤
+│ 1.2     │ Sand        │ m3   │    10    │          -              │
+│ 1.3     │ Gravel      │ m3   │     5    │          -              │
+└─────────┴─────────────┴──────┴──────────┴─────────────────────────┘
+         ⚠️  Item 1.1 with QT=0 is MISSING! ⚠️
+
+Problems:
+❌ Item 1.1 (Cement bags) NOT DETECTED (zero value treated as false)
+❌ Item 1.1 DOES NOT APPEAR in table
+❌ User has NO WAY to see items with zero quantity
+❌ Headers are MIXED language (some PT, some EN)
+❌ Headers DO NOT change when switching language
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                          AFTER FIX ✅ (WORKING)                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+Table Display in ENGLISH:
+┌─────────┬─────────────┬──────┬──────────┬──────────────────────────┐
+│ Article │ Description │ Unit │ Quantity │ Contractor Observations  │
+├─────────┼─────────────┼──────┼──────────┼──────────────────────────┤
+│ 1.1     │ Cement bags │ un   │     0    │           -              │  ✅
+│ 1.2     │ Sand        │ m3   │    10    │           -              │
+│ 1.3     │ Gravel      │ m3   │     5    │           -              │
+└─────────┴─────────────┴──────┴──────────┴──────────────────────────┘
+         ✅ Item 1.1 with QT=0 NOW APPEARS! ✅
+
+Table Display in PORTUGUESE:
+┌─────────┬─────────────┬──────────┬────────────┬─────────────────────────┐
+│ Artigo  │ Descrição   │ Unidade  │ Quantidade │ Observações Empreiteiro │
+├─────────┼─────────────┼──────────┼────────────┼─────────────────────────┤
+│ 1.1     │ Cement bags │ un       │      0     │           -             │  ✅
+│ 1.2     │ Sand        │ m3       │     10     │           -             │
+│ 1.3     │ Gravel      │ m3       │      5     │           -             │
+└─────────┴─────────────┴──────────┴────────────┴─────────────────────────┘
+         ✅ Headers properly translated! ✅
+
+Benefits:
+✅ Item 1.1 (Cement bags) CORRECTLY DETECTED (zero value handled properly)
+✅ Item 1.1 APPEARS in table with QT=0 displayed
+✅ User CAN SEE all items including those with zero quantity
+✅ Headers are CONSISTENT language (all EN or all PT)
+✅ Headers CHANGE correctly when switching language
+✅ NO DATA LOSS - all items from Excel are imported
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+SUMMARY:
+  ✅ QT value extraction now works for zero values
+  ✅ Table headers now properly translated (EN/PT)
+  ✅ No data loss - all items from Excel are imported
+  ✅ Better user experience for bilingual teams
+
+═══════════════════════════════════════════════════════════════════════════════

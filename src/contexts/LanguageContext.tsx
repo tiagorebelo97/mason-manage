@@ -298,6 +298,11 @@ const translations = {
     'orcamento.analyzeError': 'Failed to analyze file',
     'orcamento.noFile': 'No file uploaded yet',
     'orcamento.filterState': 'Filter by state...',
+    'orcamento.artigo': 'Article',
+    'orcamento.descricao': 'Description',
+    'orcamento.unit': 'Unit',
+    'orcamento.quantity': 'Quantity',
+    'orcamento.observacoesEmpreiteiro': 'Contractor Observations',
   },
   pt: {
     // Auth
@@ -586,6 +591,11 @@ const translations = {
     'orcamento.analyzeError': 'Falha ao analisar ficheiro',
     'orcamento.noFile': 'Nenhum ficheiro carregado ainda',
     'orcamento.filterState': 'Filtrar por estado...',
+    'orcamento.artigo': 'Artigo',
+    'orcamento.descricao': 'Descrição',
+    'orcamento.unit': 'Unidade',
+    'orcamento.quantity': 'Quantidade',
+    'orcamento.observacoesEmpreiteiro': 'Observações Empreiteiro',
   },
 };
 
