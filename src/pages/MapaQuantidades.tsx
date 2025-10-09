@@ -54,6 +54,7 @@ import {
   HoverCardTrigger,
 } from "@/components/ui/hover-card";
 import { MultiSelect } from "@/components/ui/multi-select";
+import { Badge } from "@/components/ui/badge";
 
 type OrcamentoFile = {
   id: string;
@@ -1014,7 +1015,7 @@ const MapaQuantidades = () => {
       .map(cs => cs.speciality_id);
   };
 
-  // Get specialities for an item
+  // Get specialities for an item (with inheritance for display)
   const getItemSpecialityIds = (itemId: string, chapterId?: string): string[] => {
     if (!itemSpecialities) return [];
     const itemSpecs = itemSpecialities.filter(is => is.item_id === itemId);
@@ -1030,6 +1031,19 @@ const MapaQuantidades = () => {
     }
     
     return [];
+  };
+
+  // Get only item-specific specialities (no inheritance) for editing
+  const getItemOwnSpecialityIds = (itemId: string): string[] => {
+    if (!itemSpecialities) return [];
+    const itemSpecs = itemSpecialities.filter(is => is.item_id === itemId);
+    return itemSpecs.map(is => is.speciality_id);
+  };
+
+  // Get speciality objects for display
+  const getSpecialitiesByIds = (ids: string[]): Speciality[] => {
+    if (!specialities) return [];
+    return specialities.filter(s => ids.includes(s.id));
   };
 
   // Convert specialities to grouped multiselect options by main specialty
@@ -1300,44 +1314,60 @@ const MapaQuantidades = () => {
                                   <TableCell>{item.un || '-'}</TableCell>
                                   <TableCell className="text-right">{item.qt !== null ? item.qt : '-'}</TableCell>
                                   <TableCell>
-                                    <Dialog open={editingItemId === item.id} onOpenChange={(open) => setEditingItemId(open ? item.id : null)}>
-                                      <DialogTrigger asChild>
-                                        <Button variant="outline" size="sm" className="h-8 gap-2">
-                                          <Tag className="h-3 w-3" />
-                                          <span className="text-xs">
-                                            {(() => {
-                                              const itemSpecs = getItemSpecialityIds(item.id, item.chapter_id);
-                                              const hasOwnSpecs = itemSpecialities?.some(is => is.item_id === item.id);
-                                              if (itemSpecs.length === 0) return 'None';
-                                              if (itemSpecs.length === 1) return hasOwnSpecs ? '1' : '1 (inherited)';
-                                              return hasOwnSpecs ? `${itemSpecs.length}` : `${itemSpecs.length} (inherited)`;
-                                            })()}
-                                          </span>
-                                        </Button>
-                                      </DialogTrigger>
-                                      <DialogContent>
-                                        <DialogHeader>
-                                          <DialogTitle>Item Specialities</DialogTitle>
-                                          <DialogDescription>
-                                            Select specialities for this item. Leave empty to inherit from chapter.
-                                          </DialogDescription>
-                                        </DialogHeader>
-                                        <div className="space-y-4 py-4">
-                                          <MultiSelect
-                                            groupedOptions={groupedSpecialityOptions}
-                                            selected={getItemSpecialityIds(item.id, item.chapter_id)}
-                                            onChange={(selected) => {
-                                              updateItemSpecialitiesMutation.mutate({
-                                                itemId: item.id,
-                                                specialityIds: selected,
-                                              });
-                                            }}
-                                            placeholder="Select specialities (or inherit from chapter)..."
-                                            emptyText="No specialities found"
-                                          />
-                                        </div>
-                                      </DialogContent>
-                                    </Dialog>
+                                    <div className="flex flex-wrap gap-1 items-center">
+                                      {(() => {
+                                        const itemSpecs = getItemSpecialityIds(item.id, item.chapter_id);
+                                        const hasOwnSpecs = itemSpecialities?.some(is => is.item_id === item.id);
+                                        const specs = getSpecialitiesByIds(itemSpecs);
+                                        
+                                        return (
+                                          <>
+                                            {specs.map(spec => (
+                                              <Badge 
+                                                key={spec.id} 
+                                                variant={hasOwnSpecs ? "default" : "secondary"}
+                                                className="text-xs"
+                                              >
+                                                {language === 'pt' ? spec.name_pt : spec.name_en}
+                                                {!hasOwnSpecs && <span className="ml-1 opacity-60">(inherited)</span>}
+                                              </Badge>
+                                            ))}
+                                            {specs.length === 0 && (
+                                              <span className="text-xs text-muted-foreground">None</span>
+                                            )}
+                                            <Dialog open={editingItemId === item.id} onOpenChange={(open) => setEditingItemId(open ? item.id : null)}>
+                                              <DialogTrigger asChild>
+                                                <Button variant="ghost" size="icon" className="h-6 w-6 ml-1">
+                                                  <Tag className="h-3 w-3 text-muted-foreground hover:text-foreground" />
+                                                </Button>
+                                              </DialogTrigger>
+                                              <DialogContent>
+                                                <DialogHeader>
+                                                  <DialogTitle>Item Specialities</DialogTitle>
+                                                  <DialogDescription>
+                                                    Select specialities for this item. Leave empty to inherit from chapter.
+                                                  </DialogDescription>
+                                                </DialogHeader>
+                                                <div className="space-y-4 py-4">
+                                                  <MultiSelect
+                                                    groupedOptions={groupedSpecialityOptions}
+                                                    selected={getItemOwnSpecialityIds(item.id)}
+                                                    onChange={(selected) => {
+                                                      updateItemSpecialitiesMutation.mutate({
+                                                        itemId: item.id,
+                                                        specialityIds: selected,
+                                                      });
+                                                    }}
+                                                    placeholder="Select specialities (or inherit from chapter)..."
+                                                    emptyText="No specialities found"
+                                                  />
+                                                </div>
+                                              </DialogContent>
+                                            </Dialog>
+                                          </>
+                                        );
+                                      })()}
+                                    </div>
                                   </TableCell>
                                   <TableCell className="text-sm">
                                     <div className="space-y-2">
