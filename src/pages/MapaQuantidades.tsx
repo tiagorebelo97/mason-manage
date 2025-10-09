@@ -1286,7 +1286,7 @@ const MapaQuantidades = () => {
                               <TableHead>{t('orcamento.descricao')}</TableHead>
                               <TableHead>{t('orcamento.unit')}</TableHead>
                               <TableHead className="text-right">{t('orcamento.quantity')}</TableHead>
-                              <TableHead>Specialities</TableHead>
+                              <TableHead>{t('orcamento.specialities')}</TableHead>
                               <TableHead>{t('orcamento.observacoesEmpreiteiro')}</TableHead>
                               <TableHead className="w-12"></TableHead>
                             </TableRow>
@@ -1325,7 +1325,7 @@ const MapaQuantidades = () => {
                                         <div className="space-y-4 py-4">
                                           <MultiSelect
                                             groupedOptions={groupedSpecialityOptions}
-                                            selected={getItemSpecialityIds(item.id)}
+                                            selected={getItemSpecialityIds(item.id, item.chapter_id)}
                                             onChange={(selected) => {
                                               updateItemSpecialitiesMutation.mutate({
                                                 itemId: item.id,
