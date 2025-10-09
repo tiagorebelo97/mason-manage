@@ -1173,9 +1173,6 @@ const MapaQuantidades = () => {
       });
       setEditingChapterId(null);
       setPendingChapterSpecialities([]);
-    } else if (open && !editingChapterId) {
-      // Dialog is being opened, this shouldn't happen but handle it
-      setEditingChapterId(null);
     }
   };
 
@@ -1194,9 +1191,6 @@ const MapaQuantidades = () => {
       });
       setEditingItemId(null);
       setPendingItemSpecialities([]);
-    } else if (open && !editingItemId) {
-      // Dialog is being opened, this shouldn't happen but handle it
-      setEditingItemId(null);
     }
   };
 
@@ -1368,20 +1362,24 @@ const MapaQuantidades = () => {
                               </Dialog>
                             </>
                           )}
-                          <Dialog open={editingChapterId === chapter.id} onOpenChange={handleCloseChapterDialog}>
+                          <Dialog open={editingChapterId === chapter.id} onOpenChange={(open) => {
+                            if (open) {
+                              handleOpenChapterDialog(chapter.id);
+                            } else {
+                              handleCloseChapterDialog(false);
+                            }
+                          }}>
                             <TooltipProvider>
                               <Tooltip>
                                 <TooltipTrigger asChild>
-                                  <DialogTrigger asChild>
-                                    <Button 
-                                      variant="ghost" 
-                                      size="icon" 
-                                      className="h-8 w-8 ml-auto"
-                                      onClick={() => handleOpenChapterDialog(chapter.id)}
-                                    >
-                                      <Tag className="h-4 w-4 text-muted-foreground hover:text-foreground" />
-                                    </Button>
-                                  </DialogTrigger>
+                                  <Button 
+                                    variant="ghost" 
+                                    size="icon" 
+                                    className="h-8 w-8 ml-auto"
+                                    onClick={() => setEditingChapterId(chapter.id)}
+                                  >
+                                    <Tag className="h-4 w-4 text-muted-foreground hover:text-foreground" />
+                                  </Button>
                                 </TooltipTrigger>
                                 <TooltipContent side="top" className="max-w-xs">
                                   <p className="text-xs">Manage Chapter Specialities</p>
@@ -1472,18 +1470,22 @@ const MapaQuantidades = () => {
                                             {specs.length === 0 && (
                                               <span className="text-xs text-muted-foreground">None</span>
                                             )}
-                                            <Dialog open={editingItemId === item.id} onOpenChange={handleCloseItemDialog}>
-                                              <DialogTrigger asChild>
-                                                <Button 
-                                                  variant="outline" 
-                                                  size="sm" 
-                                                  className="h-7 px-2 ml-1 gap-1"
-                                                  onClick={() => handleOpenItemDialog(item.id, item.chapter_id)}
-                                                >
-                                                  <Tag className="h-3 w-3" />
-                                                  <span className="text-xs">Edit</span>
-                                                </Button>
-                                              </DialogTrigger>
+                                            <Dialog open={editingItemId === item.id} onOpenChange={(open) => {
+                                              if (open) {
+                                                handleOpenItemDialog(item.id, item.chapter_id);
+                                              } else {
+                                                handleCloseItemDialog(false);
+                                              }
+                                            }}>
+                                              <Button 
+                                                variant="outline" 
+                                                size="sm" 
+                                                className="h-7 px-2 ml-1 gap-1"
+                                                onClick={() => setEditingItemId(item.id)}
+                                              >
+                                                <Tag className="h-3 w-3" />
+                                                <span className="text-xs">Edit</span>
+                                              </Button>
                                               <DialogContent>
                                                 <DialogHeader>
                                                   <DialogTitle>Item Specialities</DialogTitle>
@@ -1654,15 +1656,24 @@ const MapaQuantidades = () => {
                           </Dialog>
                         </>
                       )}
-                      <Dialog open={editingChapterId === chapter.id} onOpenChange={(open) => setEditingChapterId(open ? chapter.id : null)}>
+                      <Dialog open={editingChapterId === chapter.id} onOpenChange={(open) => {
+                        if (open) {
+                          handleOpenChapterDialog(chapter.id);
+                        } else {
+                          handleCloseChapterDialog(false);
+                        }
+                      }}>
                         <TooltipProvider>
                           <Tooltip>
                             <TooltipTrigger asChild>
-                              <DialogTrigger asChild>
-                                <Button variant="ghost" size="icon" className="h-8 w-8 ml-auto">
-                                  <Tag className="h-4 w-4 text-muted-foreground hover:text-foreground" />
-                                </Button>
-                              </DialogTrigger>
+                              <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                className="h-8 w-8 ml-auto"
+                                onClick={() => setEditingChapterId(chapter.id)}
+                              >
+                                <Tag className="h-4 w-4 text-muted-foreground hover:text-foreground" />
+                              </Button>
                             </TooltipTrigger>
                             <TooltipContent side="top" className="max-w-xs">
                               <p className="text-xs">Manage Chapter Specialities</p>
@@ -1679,12 +1690,11 @@ const MapaQuantidades = () => {
                           <div className="space-y-4 py-4">
                             <MultiSelect
                               groupedOptions={groupedSpecialityOptions}
-                              selected={getChapterSpecialityIds(chapter.id)}
+                              selected={editingChapterId === chapter.id ? pendingChapterSpecialities : getChapterSpecialityIds(chapter.id)}
                               onChange={(selected) => {
-                                updateChapterSpecialitiesMutation.mutate({
-                                  chapterId: chapter.id,
-                                  specialityIds: selected,
-                                });
+                                if (editingChapterId === chapter.id) {
+                                  setPendingChapterSpecialities(selected);
+                                }
                               }}
                               placeholder="Select specialities..."
                               emptyText="No specialities found"
@@ -1754,18 +1764,22 @@ const MapaQuantidades = () => {
                                         {specs.length === 0 && (
                                           <span className="text-xs text-muted-foreground">None</span>
                                         )}
-                                        <Dialog open={editingItemId === item.id} onOpenChange={handleCloseItemDialog}>
-                                          <DialogTrigger asChild>
-                                            <Button 
-                                              variant="outline" 
-                                              size="sm" 
-                                              className="h-7 px-2 ml-1 gap-1"
-                                              onClick={() => handleOpenItemDialog(item.id, item.chapter_id)}
-                                            >
-                                              <Tag className="h-3 w-3" />
-                                              <span className="text-xs">Edit</span>
-                                            </Button>
-                                          </DialogTrigger>
+                                        <Dialog open={editingItemId === item.id} onOpenChange={(open) => {
+                                          if (open) {
+                                            handleOpenItemDialog(item.id, item.chapter_id);
+                                          } else {
+                                            handleCloseItemDialog(false);
+                                          }
+                                        }}>
+                                          <Button 
+                                            variant="outline" 
+                                            size="sm" 
+                                            className="h-7 px-2 ml-1 gap-1"
+                                            onClick={() => setEditingItemId(item.id)}
+                                          >
+                                            <Tag className="h-3 w-3" />
+                                            <span className="text-xs">Edit</span>
+                                          </Button>
                                           <DialogContent>
                                             <DialogHeader>
                                               <DialogTitle>Item Specialities</DialogTitle>
