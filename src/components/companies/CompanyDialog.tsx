@@ -27,9 +27,17 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useEffect, useState } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { Plus, Mail, Phone, User, Pencil, Trash2 } from "lucide-react";
+import { Plus, Mail, Phone, User, Pencil, Trash2, X } from "lucide-react";
 import { PersonContactDialog } from "./PersonContactDialog";
 import { Badge } from "@/components/ui/badge";
+import { countryCodes } from "@/lib/countryCodes";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 type Company = {
   id: string;
@@ -63,6 +71,13 @@ const companySchema = z.object({
   speciality_ids: z.array(z.string()).optional(),
   brand_ids: z.array(z.string()).optional(),
   location_ids: z.array(z.string()).optional(),
+  // Contact fields
+  email: z.string().optional(),
+  country_code: z.string().max(10).optional(),
+  website: z.string().max(500).optional(),
+  mobile: z.string().optional(),
+  fax: z.string().optional(),
+  address: z.string().max(500).optional(),
 });
 
 type CompanyFormData = z.infer<typeof companySchema>;
@@ -79,6 +94,9 @@ export const CompanyDialog = ({ open, onOpenChange, company, readOnly = false }:
   const { t, language } = useLanguage();
   const [editingPerson, setEditingPerson] = useState<PersonWithContact | null>(null);
   const [isAddingPerson, setIsAddingPerson] = useState(false);
+  const [emails, setEmails] = useState<string[]>([""]);
+  const [mobiles, setMobiles] = useState<string[]>([""]);
+  const [faxes, setFaxes] = useState<string[]>([""]);
 
   const form = useForm<CompanyFormData>({
     resolver: zodResolver(companySchema),
@@ -88,6 +106,12 @@ export const CompanyDialog = ({ open, onOpenChange, company, readOnly = false }:
       speciality_ids: [],
       brand_ids: [],
       location_ids: [],
+      email: "",
+      country_code: "+351",
+      website: "",
+      mobile: "",
+      fax: "",
+      address: "",
     },
   });
 
@@ -188,6 +212,22 @@ export const CompanyDialog = ({ open, onOpenChange, company, readOnly = false }:
     enabled: !!company?.id,
   });
 
+  // Fetch contact information for the company itself
+  const { data: companyContact } = useQuery({
+    queryKey: ["company-contact", company?.id, import.meta.env.VITE_SUPABASE_URL],
+    queryFn: async () => {
+      if (!company?.id) return null;
+      const { data, error } = await supabase
+        .from("contacts")
+        .select("*")
+        .eq("company_id", company.id)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!company?.id,
+  });
+
   const deletePerson = useMutation({
     mutationFn: async (personId: string) => {
       const { error } = await supabase.from("people").delete().eq("id", personId);
@@ -204,24 +244,50 @@ export const CompanyDialog = ({ open, onOpenChange, company, readOnly = false }:
 
   useEffect(() => {
     if (company) {
+      // Parse comma-separated values for contacts
+      if (companyContact) {
+        setEmails(companyContact.email ? companyContact.email.split(',').map((e: string) => e.trim()) : [""]);
+        setMobiles(companyContact.mobile ? companyContact.mobile.split(',').map((m: string) => m.trim()) : [""]);
+        setFaxes(companyContact.fax ? companyContact.fax.split(',').map((f: string) => f.trim()) : [""]);
+      } else {
+        setEmails([""]);
+        setMobiles([""]);
+        setFaxes([""]);
+      }
+      
       form.reset({
         name: company.name,
         comments: company.comments || "",
         speciality_ids: companySpecialities || [],
         brand_ids: companyBrands || [],
         location_ids: companyLocations || [],
+        email: companyContact?.email || "",
+        country_code: companyContact?.country_code || "+351",
+        website: companyContact?.website || "",
+        mobile: companyContact?.mobile || "",
+        fax: companyContact?.fax || "",
+        address: companyContact?.address || "",
       });
     } else {
+      setEmails([""]);
+      setMobiles([""]);
+      setFaxes([""]);
       form.reset({
         name: "",
         comments: "",
         speciality_ids: [],
         brand_ids: [],
         location_ids: [],
+        email: "",
+        country_code: "+351",
+        website: "",
+        mobile: "",
+        fax: "",
+        address: "",
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [company, companySpecialities, companyBrands, companyLocations]);
+  }, [company, companySpecialities, companyBrands, companyLocations, companyContact]);
 
   const mutation = useMutation({
     mutationFn: async (data: CompanyFormData) => {
@@ -289,6 +355,32 @@ export const CompanyDialog = ({ open, onOpenChange, company, readOnly = false }:
             .insert(locationInserts);
           if (insertLocationsError) throw insertLocationsError;
         }
+
+        // Update or create contact info for company
+        const contactData = {
+          company_id: company.id,
+          email: emails.filter(e => e.trim()).join(', ') || null,
+          country_code: data.country_code || null,
+          website: data.website || null,
+          mobile: mobiles.filter(m => m.trim()).join(', ') || null,
+          fax: faxes.filter(f => f.trim()).join(', ') || null,
+          address: data.address || null,
+        };
+
+        if (companyContact?.id) {
+          // Update existing contact
+          const { error: contactError } = await supabase
+            .from("contacts")
+            .update(contactData)
+            .eq("id", companyContact.id);
+          if (contactError) throw contactError;
+        } else if (emails.some(e => e.trim()) || mobiles.some(m => m.trim()) || data.website || data.address) {
+          // Create new contact if there's any contact data
+          const { error: contactError } = await supabase
+            .from("contacts")
+            .insert([contactData]);
+          if (contactError) throw contactError;
+        }
       } else {
         // Create new company
         const { data: newCompany, error: insertError } = await supabase
@@ -332,6 +424,24 @@ export const CompanyDialog = ({ open, onOpenChange, company, readOnly = false }:
             .from("company_locations")
             .insert(locationInserts);
           if (locationsError) throw locationsError;
+        }
+
+        // Create contact info for new company if there's any contact data
+        if (emails.some(e => e.trim()) || mobiles.some(m => m.trim()) || data.website || data.address) {
+          const contactData = {
+            company_id: newCompany.id,
+            email: emails.filter(e => e.trim()).join(', ') || null,
+            country_code: data.country_code || null,
+            website: data.website || null,
+            mobile: mobiles.filter(m => m.trim()).join(', ') || null,
+            fax: faxes.filter(f => f.trim()).join(', ') || null,
+            address: data.address || null,
+          };
+
+          const { error: contactError } = await supabase
+            .from("contacts")
+            .insert([contactData]);
+          if (contactError) throw contactError;
         }
       }
     },
@@ -477,6 +587,228 @@ export const CompanyDialog = ({ open, onOpenChange, company, readOnly = false }:
                             emptyText={t('company.noLocations') || "No locations found."}
                             disabled={readOnly}
                           />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                {/* Contact Information Section */}
+                <div className="space-y-4 border-t pt-4 mt-4">
+                  <h3 className="text-sm font-semibold">{t('contact.contactInfo') || 'Contact Information'}</h3>
+                  
+                  <FormField
+                    control={form.control}
+                    name="email"
+                    render={() => (
+                      <FormItem>
+                        <FormLabel>{t('contact.email') || 'Email'}</FormLabel>
+                        <div className="space-y-2">
+                          {emails.map((email, index) => (
+                            <div key={index} className="flex gap-2">
+                              <Input
+                                type="email"
+                                value={email}
+                                onChange={(e) => {
+                                  const newEmails = [...emails];
+                                  newEmails[index] = e.target.value;
+                                  setEmails(newEmails);
+                                }}
+                                disabled={readOnly}
+                                placeholder={t('contact.email') || 'Email'}
+                              />
+                              {!readOnly && emails.length > 1 && (
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="icon"
+                                  onClick={() => {
+                                    const newEmails = emails.filter((_, i) => i !== index);
+                                    setEmails(newEmails);
+                                  }}
+                                >
+                                  <X className="h-4 w-4" />
+                                </Button>
+                              )}
+                            </div>
+                          ))}
+                          {!readOnly && (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setEmails([...emails, ""])}
+                              className="w-full"
+                            >
+                              <Plus className="h-4 w-4 mr-2" />
+                              {t('contact.addEmail') || 'Add Email'}
+                            </Button>
+                          )}
+                        </div>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="mobile"
+                    render={() => (
+                      <FormItem>
+                        <FormLabel>{t('contact.mobile') || 'Mobile'}</FormLabel>
+                        <div className="space-y-2">
+                          {mobiles.map((mobile, index) => (
+                            <div key={index} className="flex gap-2">
+                              <div className="grid grid-cols-[1fr_150px] gap-2 flex-1">
+                                <Input
+                                  value={mobile}
+                                  onChange={(e) => {
+                                    const newMobiles = [...mobiles];
+                                    newMobiles[index] = e.target.value;
+                                    setMobiles(newMobiles);
+                                  }}
+                                  disabled={readOnly}
+                                  placeholder={t('contact.mobile') || 'Mobile'}
+                                />
+                                <FormField
+                                  control={form.control}
+                                  name="country_code"
+                                  render={({ field }) => (
+                                    <Select 
+                                      onValueChange={field.onChange} 
+                                      value={field.value}
+                                      disabled={readOnly}
+                                    >
+                                      <FormControl>
+                                        <SelectTrigger>
+                                          <SelectValue placeholder="+351" />
+                                        </SelectTrigger>
+                                      </FormControl>
+                                      <SelectContent className="max-h-[300px]">
+                                        {countryCodes.map((country) => (
+                                          <SelectItem key={country.code} value={country.code}>
+                                            <div className="flex items-center gap-2">
+                                              <span className="text-lg">{country.flag}</span>
+                                              <span>{country.code}</span>
+                                              <span className="text-xs text-muted-foreground">
+                                                {language === 'pt' ? country.countryPt : country.country}
+                                              </span>
+                                            </div>
+                                          </SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
+                                  )}
+                                />
+                              </div>
+                              {!readOnly && mobiles.length > 1 && (
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="icon"
+                                  onClick={() => {
+                                    const newMobiles = mobiles.filter((_, i) => i !== index);
+                                    setMobiles(newMobiles);
+                                  }}
+                                >
+                                  <X className="h-4 w-4" />
+                                </Button>
+                              )}
+                            </div>
+                          ))}
+                          {!readOnly && (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setMobiles([...mobiles, ""])}
+                              className="w-full"
+                            >
+                              <Plus className="h-4 w-4 mr-2" />
+                              {t('contact.addMobile') || 'Add Mobile'}
+                            </Button>
+                          )}
+                        </div>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="fax"
+                    render={() => (
+                      <FormItem>
+                        <FormLabel>{t('contact.fax') || 'Fax'}</FormLabel>
+                        <div className="space-y-2">
+                          {faxes.map((fax, index) => (
+                            <div key={index} className="flex gap-2">
+                              <Input
+                                value={fax}
+                                onChange={(e) => {
+                                  const newFaxes = [...faxes];
+                                  newFaxes[index] = e.target.value;
+                                  setFaxes(newFaxes);
+                                }}
+                                disabled={readOnly}
+                                placeholder={t('contact.fax') || 'Fax'}
+                              />
+                              {!readOnly && faxes.length > 1 && (
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="icon"
+                                  onClick={() => {
+                                    const newFaxes = faxes.filter((_, i) => i !== index);
+                                    setFaxes(newFaxes);
+                                  }}
+                                >
+                                  <X className="h-4 w-4" />
+                                </Button>
+                              )}
+                            </div>
+                          ))}
+                          {!readOnly && (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setFaxes([...faxes, ""])}
+                              className="w-full"
+                            >
+                              <Plus className="h-4 w-4 mr-2" />
+                              {t('contact.addFax') || 'Add Fax'}
+                            </Button>
+                          )}
+                        </div>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="website"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{t('contact.website') || 'Website'}</FormLabel>
+                        <FormControl>
+                          <Input {...field} disabled={readOnly} placeholder="https://example.com" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="address"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{t('contact.address') || 'Address'}</FormLabel>
+                        <FormControl>
+                          <Input {...field} disabled={readOnly} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
