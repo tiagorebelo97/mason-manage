@@ -34,6 +34,7 @@ import { useEffect, useState } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { countryCodes } from "@/lib/countryCodes";
 import { Plus, X } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 
 type Contact = {
   id: string;
@@ -61,12 +62,12 @@ const contactSchema = z.object({
   person_first_name: z.string().optional(),
   person_last_name: z.string().optional(),
   person_company_id: z.string().optional(),
-  // Contact fields
-  email: z.string().email("Invalid email").optional().or(z.literal("")),
+  // Contact fields - email, mobile, fax are managed by arrays and joined on save, so no validation needed
+  email: z.string().optional(),
   country_code: z.string().max(10).optional(),
   website: z.string().max(500).optional(),
-  mobile: z.string().max(50).optional(),
-  fax: z.string().max(50).optional(),
+  mobile: z.string().optional(),
+  fax: z.string().optional(),
   address: z.string().max(500).optional(),
 }).refine((data) => {
   if (data.owner_type === "person") {
