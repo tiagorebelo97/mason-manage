@@ -25,6 +25,17 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
@@ -354,10 +365,11 @@ const MapaQuantidades = () => {
               const chapterNumber = artigoCell.split('.')[0];
               
               // Check if this row has QT or UN to determine if it's a full item or just a parent comment
+              // Enhanced to handle numeric values (including 0), text values, and various cell formats
               const hasQT = qtColumnIndex !== -1 && 
                 typeof row[qtColumnIndex] !== 'undefined' && 
                 row[qtColumnIndex] !== null && 
-                String(row[qtColumnIndex]).trim() !== "";
+                (typeof row[qtColumnIndex] === 'number' || String(row[qtColumnIndex]).trim() !== "");
               const hasUN = unColumnIndex !== -1 && 
                 typeof row[unColumnIndex] !== 'undefined' && 
                 row[unColumnIndex] !== null && 
@@ -373,10 +385,13 @@ const MapaQuantidades = () => {
                   ? String(row[unColumnIndex]).trim() 
                   : null;
                 
+                // Enhanced QT value extraction to handle numeric and general formats
                 const qtValue = qtColumnIndex !== -1 && 
                   typeof row[qtColumnIndex] !== 'undefined' && 
                   row[qtColumnIndex] !== null
-                  ? String(row[qtColumnIndex]).trim()
+                  ? (typeof row[qtColumnIndex] === 'number' 
+                      ? row[qtColumnIndex].toString() 
+                      : String(row[qtColumnIndex]).trim())
                   : null;
                 const parsedQt = qtValue ? parseFloat(qtValue.replace(',', '.')) : null;
                 
@@ -696,14 +711,39 @@ const MapaQuantidades = () => {
                   {isAnalyzing ? t('orcamento.analyzing') : t('orcamento.analyze')}
                 </Button>
               )}
-              <Button
-                variant="destructive"
-                size="icon"
-                onClick={handleDeleteFile}
-                disabled={deleteMutation.isPending}
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    variant="destructive"
+                    size="icon"
+                    disabled={deleteMutation.isPending}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>{t('orcamento.deleteFileTitle')}</AlertDialogTitle>
+                    <AlertDialogDescription className="space-y-2">
+                      <p>{t('orcamento.deleteFileDescription')}</p>
+                      <ul className="space-y-1 text-left">
+                        <li>{t('orcamento.deleteFileImpact1')}</li>
+                        <li>{t('orcamento.deleteFileImpact2')}</li>
+                        <li>{t('orcamento.deleteFileImpact3')}</li>
+                      </ul>
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>{t('orcamento.deleteFileCancel')}</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={handleDeleteFile}
+                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    >
+                      {t('orcamento.deleteFileConfirm')}
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             </div>
           </div>
 
@@ -731,31 +771,35 @@ const MapaQuantidades = () => {
                             </Button>
                           </CollapsibleTrigger>
                           {chapter.chapter_comments && (
-                            <HoverCard openDelay={200}>
-                              <HoverCardTrigger asChild>
-                                <Dialog>
-                                  <DialogTrigger asChild>
-                                    <Button variant="ghost" size="icon" className="h-8 w-8">
-                                      <MessageSquare className="h-4 w-4 text-muted-foreground hover:text-foreground" />
-                                    </Button>
-                                  </DialogTrigger>
-                                  <DialogContent>
-                                    <DialogHeader>
-                                      <DialogTitle>Chapter Comments</DialogTitle>
-                                      <DialogDescription className="whitespace-pre-line text-left">
-                                        {chapter.chapter_comments}
-                                      </DialogDescription>
-                                    </DialogHeader>
-                                  </DialogContent>
-                                </Dialog>
-                              </HoverCardTrigger>
-                              <HoverCardContent className="w-80" side="top">
-                                <div className="space-y-2">
-                                  <h4 className="text-sm font-semibold">Chapter Comments</h4>
-                                  <p className="text-sm whitespace-pre-line">{chapter.chapter_comments}</p>
-                                </div>
-                              </HoverCardContent>
-                            </HoverCard>
+                            <>
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <Dialog>
+                                    <TooltipTrigger asChild>
+                                      <DialogTrigger asChild>
+                                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                                          <MessageSquare className="h-4 w-4 text-muted-foreground hover:text-foreground" />
+                                        </Button>
+                                      </DialogTrigger>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="top" className="max-w-xs">
+                                      <div className="space-y-1">
+                                        <p className="text-xs font-semibold">Chapter Comments</p>
+                                        <p className="text-xs whitespace-pre-line line-clamp-3">{chapter.chapter_comments}</p>
+                                      </div>
+                                    </TooltipContent>
+                                    <DialogContent>
+                                      <DialogHeader>
+                                        <DialogTitle>Chapter Comments</DialogTitle>
+                                        <DialogDescription className="whitespace-pre-line text-left">
+                                          {chapter.chapter_comments}
+                                        </DialogDescription>
+                                      </DialogHeader>
+                                    </DialogContent>
+                                  </Dialog>
+                                </Tooltip>
+                              </TooltipProvider>
+                            </>
                           )}
                         </div>
                       </div>
@@ -782,14 +826,22 @@ const MapaQuantidades = () => {
                                   <TableCell className="text-sm">{item.observacoes_empreiteiro || '-'}</TableCell>
                                   <TableCell>
                                     {item.item_comments && (
-                                      <HoverCard openDelay={200}>
-                                        <HoverCardTrigger asChild>
+                                      <TooltipProvider>
+                                        <Tooltip>
                                           <Dialog>
-                                            <DialogTrigger asChild>
-                                              <Button variant="ghost" size="icon" className="h-8 w-8">
-                                                <MessageSquare className="h-4 w-4 text-muted-foreground hover:text-foreground" />
-                                              </Button>
-                                            </DialogTrigger>
+                                            <TooltipTrigger asChild>
+                                              <DialogTrigger asChild>
+                                                <Button variant="ghost" size="icon" className="h-8 w-8">
+                                                  <MessageSquare className="h-4 w-4 text-muted-foreground hover:text-foreground" />
+                                                </Button>
+                                              </DialogTrigger>
+                                            </TooltipTrigger>
+                                            <TooltipContent side="top" className="max-w-xs">
+                                              <div className="space-y-1">
+                                                <p className="text-xs font-semibold">Item Comments</p>
+                                                <p className="text-xs whitespace-pre-line line-clamp-3">{item.item_comments}</p>
+                                              </div>
+                                            </TooltipContent>
                                             <DialogContent>
                                               <DialogHeader>
                                                 <DialogTitle>Item Comments</DialogTitle>
@@ -799,14 +851,8 @@ const MapaQuantidades = () => {
                                               </DialogHeader>
                                             </DialogContent>
                                           </Dialog>
-                                        </HoverCardTrigger>
-                                        <HoverCardContent className="w-80" side="top">
-                                          <div className="space-y-2">
-                                            <h4 className="text-sm font-semibold">Item Comments</h4>
-                                            <p className="text-sm whitespace-pre-line">{item.item_comments}</p>
-                                          </div>
-                                        </HoverCardContent>
-                                      </HoverCard>
+                                        </Tooltip>
+                                      </TooltipProvider>
                                     )}
                                   </TableCell>
                                 </TableRow>
