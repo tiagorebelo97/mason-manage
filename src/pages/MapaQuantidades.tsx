@@ -124,6 +124,8 @@ const MapaQuantidades = () => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [editingChapterId, setEditingChapterId] = useState<string | null>(null);
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
+  const [pendingChapterSpecialities, setPendingChapterSpecialities] = useState<string[]>([]);
+  const [pendingItemSpecialities, setPendingItemSpecialities] = useState<string[]>([]);
 
   const { data: orcamento } = useQuery({
     queryKey: ["orcamento", id, import.meta.env.VITE_SUPABASE_URL],
@@ -1115,6 +1117,48 @@ const MapaQuantidades = () => {
     return sortedGrouped;
   }, [specialities, language]);
 
+  // Handlers for chapter specialities dialog
+  const handleOpenChapterDialog = (chapterId: string) => {
+    setEditingChapterId(chapterId);
+    setPendingChapterSpecialities(getChapterSpecialityIds(chapterId));
+  };
+
+  const handleCloseChapterDialog = (open: boolean) => {
+    if (!open && editingChapterId) {
+      // Save changes when closing
+      updateChapterSpecialitiesMutation.mutate({
+        chapterId: editingChapterId,
+        specialityIds: pendingChapterSpecialities,
+      });
+      setEditingChapterId(null);
+      setPendingChapterSpecialities([]);
+    } else if (open && !editingChapterId) {
+      // Dialog is being opened, this shouldn't happen but handle it
+      setEditingChapterId(null);
+    }
+  };
+
+  // Handlers for item specialities dialog
+  const handleOpenItemDialog = (itemId: string, chapterId?: string) => {
+    setEditingItemId(itemId);
+    setPendingItemSpecialities(getItemSpecialityIds(itemId, chapterId));
+  };
+
+  const handleCloseItemDialog = (open: boolean) => {
+    if (!open && editingItemId) {
+      // Save changes when closing
+      updateItemSpecialitiesMutation.mutate({
+        itemId: editingItemId,
+        specialityIds: pendingItemSpecialities,
+      });
+      setEditingItemId(null);
+      setPendingItemSpecialities([]);
+    } else if (open && !editingItemId) {
+      // Dialog is being opened, this shouldn't happen but handle it
+      setEditingItemId(null);
+    }
+  };
+
   // Group chapters by tab
   const chaptersByTab = chapters?.reduce((acc, chapter) => {
     if (!acc[chapter.tab_id]) {
@@ -1283,12 +1327,17 @@ const MapaQuantidades = () => {
                               </Dialog>
                             </>
                           )}
-                          <Dialog open={editingChapterId === chapter.id} onOpenChange={(open) => setEditingChapterId(open ? chapter.id : null)}>
+                          <Dialog open={editingChapterId === chapter.id} onOpenChange={handleCloseChapterDialog}>
                             <TooltipProvider>
                               <Tooltip>
                                 <TooltipTrigger asChild>
                                   <DialogTrigger asChild>
-                                    <Button variant="ghost" size="icon" className="h-8 w-8 ml-auto">
+                                    <Button 
+                                      variant="ghost" 
+                                      size="icon" 
+                                      className="h-8 w-8 ml-auto"
+                                      onClick={() => handleOpenChapterDialog(chapter.id)}
+                                    >
                                       <Tag className="h-4 w-4 text-muted-foreground hover:text-foreground" />
                                     </Button>
                                   </DialogTrigger>
@@ -1308,12 +1357,11 @@ const MapaQuantidades = () => {
                               <div className="space-y-4 py-4">
                                 <MultiSelect
                                   groupedOptions={groupedSpecialityOptions}
-                                  selected={getChapterSpecialityIds(chapter.id)}
+                                  selected={editingChapterId === chapter.id ? pendingChapterSpecialities : getChapterSpecialityIds(chapter.id)}
                                   onChange={(selected) => {
-                                    updateChapterSpecialitiesMutation.mutate({
-                                      chapterId: chapter.id,
-                                      specialityIds: selected,
-                                    });
+                                    if (editingChapterId === chapter.id) {
+                                      setPendingChapterSpecialities(selected);
+                                    }
                                   }}
                                   placeholder="Select specialities..."
                                   emptyText="No specialities found"
@@ -1383,9 +1431,14 @@ const MapaQuantidades = () => {
                                             {specs.length === 0 && (
                                               <span className="text-xs text-muted-foreground">None</span>
                                             )}
-                                            <Dialog open={editingItemId === item.id} onOpenChange={(open) => setEditingItemId(open ? item.id : null)}>
+                                            <Dialog open={editingItemId === item.id} onOpenChange={handleCloseItemDialog}>
                                               <DialogTrigger asChild>
-                                                <Button variant="outline" size="sm" className="h-7 px-2 ml-1 gap-1">
+                                                <Button 
+                                                  variant="outline" 
+                                                  size="sm" 
+                                                  className="h-7 px-2 ml-1 gap-1"
+                                                  onClick={() => handleOpenItemDialog(item.id, item.chapter_id)}
+                                                >
                                                   <Tag className="h-3 w-3" />
                                                   <span className="text-xs">Edit</span>
                                                 </Button>
@@ -1400,12 +1453,11 @@ const MapaQuantidades = () => {
                                                 <div className="space-y-4 py-4">
                                                   <MultiSelect
                                                     groupedOptions={groupedSpecialityOptions}
-                                                    selected={getItemSpecialityIds(item.id, item.chapter_id)}
+                                                    selected={editingItemId === item.id ? pendingItemSpecialities : getItemSpecialityIds(item.id, item.chapter_id)}
                                                     onChange={(selected) => {
-                                                      updateItemSpecialitiesMutation.mutate({
-                                                        itemId: item.id,
-                                                        specialityIds: selected,
-                                                      });
+                                                      if (editingItemId === item.id) {
+                                                        setPendingItemSpecialities(selected);
+                                                      }
                                                     }}
                                                     placeholder="Select specialities..."
                                                     emptyText="No specialities found"
@@ -1661,9 +1713,14 @@ const MapaQuantidades = () => {
                                         {specs.length === 0 && (
                                           <span className="text-xs text-muted-foreground">None</span>
                                         )}
-                                        <Dialog open={editingItemId === item.id} onOpenChange={(open) => setEditingItemId(open ? item.id : null)}>
+                                        <Dialog open={editingItemId === item.id} onOpenChange={handleCloseItemDialog}>
                                           <DialogTrigger asChild>
-                                            <Button variant="outline" size="sm" className="h-7 px-2 ml-1 gap-1">
+                                            <Button 
+                                              variant="outline" 
+                                              size="sm" 
+                                              className="h-7 px-2 ml-1 gap-1"
+                                              onClick={() => handleOpenItemDialog(item.id, item.chapter_id)}
+                                            >
                                               <Tag className="h-3 w-3" />
                                               <span className="text-xs">Edit</span>
                                             </Button>
@@ -1678,12 +1735,11 @@ const MapaQuantidades = () => {
                                             <div className="space-y-4 py-4">
                                               <MultiSelect
                                                 groupedOptions={groupedSpecialityOptions}
-                                                selected={getItemSpecialityIds(item.id, item.chapter_id)}
+                                                selected={editingItemId === item.id ? pendingItemSpecialities : getItemSpecialityIds(item.id, item.chapter_id)}
                                                 onChange={(selected) => {
-                                                  updateItemSpecialitiesMutation.mutate({
-                                                    itemId: item.id,
-                                                    specialityIds: selected,
-                                                  });
+                                                  if (editingItemId === item.id) {
+                                                    setPendingItemSpecialities(selected);
+                                                  }
                                                 }}
                                                 placeholder="Select specialities..."
                                                 emptyText="No specialities found"
