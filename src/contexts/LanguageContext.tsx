@@ -303,6 +303,13 @@ const translations = {
     'orcamento.unit': 'Unit',
     'orcamento.quantity': 'Quantity',
     'orcamento.observacoesEmpreiteiro': 'Contractor Observations',
+    'orcamento.deleteFileTitle': 'Delete Excel File',
+    'orcamento.deleteFileDescription': 'Are you sure you want to delete this Excel file? This action will:',
+    'orcamento.deleteFileImpact1': '• Remove the uploaded Excel file from storage',
+    'orcamento.deleteFileImpact2': '• Delete all extracted data (tabs, chapters, and items)',
+    'orcamento.deleteFileImpact3': '• This action cannot be undone',
+    'orcamento.deleteFileCancel': 'Cancel',
+    'orcamento.deleteFileConfirm': 'Delete File',
   },
   pt: {
     // Auth
@@ -596,6 +603,13 @@ const translations = {
     'orcamento.unit': 'Unidade',
     'orcamento.quantity': 'Quantidade',
     'orcamento.observacoesEmpreiteiro': 'Observações Empreiteiro',
+    'orcamento.deleteFileTitle': 'Eliminar Ficheiro Excel',
+    'orcamento.deleteFileDescription': 'Tem a certeza que deseja eliminar este ficheiro Excel? Esta ação irá:',
+    'orcamento.deleteFileImpact1': '• Remover o ficheiro Excel carregado do armazenamento',
+    'orcamento.deleteFileImpact2': '• Eliminar todos os dados extraídos (separadores, capítulos e itens)',
+    'orcamento.deleteFileImpact3': '• Esta ação não pode ser desfeita',
+    'orcamento.deleteFileCancel': 'Cancelar',
+    'orcamento.deleteFileConfirm': 'Eliminar Ficheiro',
   },
 };
 
