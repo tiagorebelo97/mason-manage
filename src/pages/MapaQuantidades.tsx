@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Upload, FileSpreadsheet } from "lucide-react";
+import { ArrowLeft, Upload, FileSpreadsheet, Loader2 } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
@@ -40,6 +40,7 @@ const MapaQuantidades = () => {
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
 
   const { data: orcamento } = useQuery({
     queryKey: ["orcamento", id, import.meta.env.VITE_SUPABASE_URL],
@@ -100,9 +101,10 @@ const MapaQuantidades = () => {
         .select()
         .single();
       if (error) throw error;
-      return data;
+      return { data, file };
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
+      setUploadedFile(result.file);
       queryClient.invalidateQueries({ queryKey: ["orcamento_files", id, import.meta.env.VITE_SUPABASE_URL] });
       toast.success(t('orcamento.uploadSuccess'));
     },
@@ -113,8 +115,6 @@ const MapaQuantidades = () => {
 
   const analyzeMutation = useMutation({
     mutationFn: async (file: File) => {
-      setIsAnalyzing(true);
-      
       // Read the Excel file
       const arrayBuffer = await file.arrayBuffer();
       const workbook = XLSX.read(arrayBuffer, { type: 'array' });
@@ -184,8 +184,9 @@ const MapaQuantidades = () => {
   };
 
   const handleAnalyze = () => {
-    if (fileInputRef.current?.files?.[0]) {
-      analyzeMutation.mutate(fileInputRef.current.files[0]);
+    if (uploadedFile) {
+      setIsAnalyzing(true);
+      analyzeMutation.mutate(uploadedFile);
     }
   };
 
@@ -257,6 +258,7 @@ const MapaQuantidades = () => {
                 onClick={handleAnalyze}
                 disabled={isAnalyzing}
               >
+                {isAnalyzing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 {isAnalyzing ? t('orcamento.analyzing') : t('orcamento.analyze')}
               </Button>
             )}
