@@ -718,7 +718,55 @@ const MapaQuantidades = () => {
         }
       }
 
-      // Delete associated tabs (which will cascade delete chapters)
+      // Delete all observacoes images associated with items in this orcamento
+      // First, get all chapters for this orcamento through tabs
+      const { data: tabs } = await supabase
+        .from("orcamento_tabs")
+        .select("id")
+        .eq("orcamento_id", id);
+      
+      if (tabs && tabs.length > 0) {
+        const tabIds = tabs.map(t => t.id);
+        
+        // Get all chapters for these tabs
+        const { data: chapters } = await supabase
+          .from("orcamento_chapters")
+          .select("id")
+          .in("tab_id", tabIds);
+        
+        if (chapters && chapters.length > 0) {
+          const chapterIds = chapters.map(c => c.id);
+          
+          // Get all items with image URLs for these chapters
+          const { data: itemsWithImages } = await supabase
+            .from("orcamento_items")
+            .select("observacoes_image_url")
+            .in("chapter_id", chapterIds)
+            .not("observacoes_image_url", "is", null);
+          
+          // Delete each image from storage
+          if (itemsWithImages && itemsWithImages.length > 0) {
+            for (const item of itemsWithImages) {
+              if (item.observacoes_image_url) {
+                try {
+                  // Extract the path from the public URL
+                  const urlParts = item.observacoes_image_url.split('/orcamento-observacoes/');
+                  if (urlParts.length > 1) {
+                    const imagePath = urlParts[1];
+                    await supabase.storage
+                      .from('orcamento-observacoes')
+                      .remove([imagePath]);
+                  }
+                } catch (e) {
+                  console.error('Error deleting observacoes image:', e);
+                }
+              }
+            }
+          }
+        }
+      }
+
+      // Delete associated tabs (which will cascade delete chapters and items)
       const { error: tabsError } = await supabase
         .from("orcamento_tabs")
         .delete()
