@@ -197,6 +197,7 @@ const MapaQuantidades = () => {
         const jsonData = XLSX.utils.sheet_to_json<unknown[]>(worksheet, { header: 1 });
         
         // Find the header row with "ARTIGO" and "DESCRIÇÃO" columns
+        // This searches dynamically for these columns regardless of their position in the Excel sheet
         let artigoColumnIndex = -1;
         let descricaoColumnIndex = -1;
         
@@ -221,6 +222,8 @@ const MapaQuantidades = () => {
         }
         
         // Find chapters (rows where ARTIGO column has a number without a dot)
+        // A chapter is identified by a pure number (e.g., "1", "2") in the ARTIGO column
+        // Sub-items with dots (e.g., "1.1", "2.3") are NOT considered chapters
         if (artigoColumnIndex !== -1 && descricaoColumnIndex !== -1) {
           jsonData.forEach((row: unknown) => {
             if (Array.isArray(row) && row[artigoColumnIndex]) {
