@@ -310,6 +310,9 @@ const translations = {
     'orcamento.deleteFileImpact3': '• This action cannot be undone',
     'orcamento.deleteFileCancel': 'Cancel',
     'orcamento.deleteFileConfirm': 'Delete File',
+    'orcamento.uploadImage': 'Upload Image',
+    'orcamento.imageUploadSuccess': 'Image uploaded successfully',
+    'orcamento.imageUploadError': 'Failed to upload image',
   },
   pt: {
     // Auth
@@ -610,6 +613,9 @@ const translations = {
     'orcamento.deleteFileImpact3': '• Esta ação não pode ser desfeita',
     'orcamento.deleteFileCancel': 'Cancelar',
     'orcamento.deleteFileConfirm': 'Eliminar Ficheiro',
+    'orcamento.uploadImage': 'Carregar Imagem',
+    'orcamento.imageUploadSuccess': 'Imagem carregada com sucesso',
+    'orcamento.imageUploadError': 'Falha ao carregar imagem',
   },
 };
 
