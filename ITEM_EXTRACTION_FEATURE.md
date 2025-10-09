@@ -23,10 +23,25 @@ A row is identified as an item when:
 
 ### 3. Chapter-Item Relationship
 
-Items are automatically linked to their parent chapter:
-- The chapter number is extracted from the item's ARTIGO value
-- Example: Item "1.1" belongs to Chapter "1"
-- Example: Item "2.15" belongs to Chapter "2"
+Items are automatically linked to their parent chapter based on **sequential order**:
+- Items belong to the most recent chapter that appears before them in the Excel sheet
+- The ARTIGO numbering doesn't determine the relationship - it's purely based on order
+- Example: After Chapter "1", all items (even "2.1", "3.5") belong to Chapter "1" until a new chapter is encountered
+- Example: After Chapter "2", all subsequent items belong to Chapter "2" until another chapter is found
+
+**Important**: This is a contextual approach where the chapter context is maintained as the Excel rows are processed sequentially.
+
+### 4. Single-Sheet Support
+
+When an Excel file contains only one sheet:
+- No tabs are created in the database
+- The UI displays chapters and items directly without tab navigation
+- This simplifies the interface for single-sheet files
+
+When an Excel file contains multiple sheets:
+- Tabs are created for each sheet
+- The UI displays tabs at the top for navigation between sheets
+- Each tab contains its own chapters and items
 
 ## Examples
 
@@ -34,20 +49,36 @@ Items are automatically linked to their parent chapter:
 ```
 | ARTIGO | DESCRIÇÃO              | UN  | QT   |
 |--------|------------------------|-----|------|
-| 1      | Trabalhos Preliminares |     |      | <- CHAPTER
-| 1.1    | Limpeza do terreno     | m2  | 100  | <- ITEM
-| 1.2    | Demolições             | un  | 50   | <- ITEM
-| 2      | Fundações              |     |      | <- CHAPTER
-| 2.1    | Escavações             | m3  | 200  | <- ITEM
-| 2.2    | Betão                  | m3  | 150  | <- ITEM
+| 1      | Trabalhos Preliminares |     |      | <- CHAPTER 1
+| 1.1    | Limpeza do terreno     | m2  | 100  | <- ITEM (belongs to Chapter 1)
+| 1.2    | Demolições             | un  | 50   | <- ITEM (belongs to Chapter 1)
+| 2      | Fundações              |     |      | <- CHAPTER 2
+| 2.1    | Escavações             | m3  | 200  | <- ITEM (belongs to Chapter 2)
+| 2.2    | Betão                  | m3  | 150  | <- ITEM (belongs to Chapter 2)
 ```
 
 **Result**: 
 - 2 chapters detected (1, 2)
 - 4 items detected (1.1, 1.2, 2.1, 2.2)
-- Items automatically linked to their chapters
+- Items automatically linked to the chapter they appear after
 
-### Example 2: Different Column Order
+### Example 2: Mixed ARTIGO Numbering (Sequential Context)
+```
+| ARTIGO | DESCRIÇÃO              | UN  | QT   |
+|--------|------------------------|-----|------|
+| 1      | Trabalhos Preliminares |     |      | <- CHAPTER 1
+| 1.1    | Limpeza do terreno     | m2  | 100  | <- ITEM (belongs to Chapter 1)
+| 3.5    | Some other work        | un  | 25   | <- ITEM (belongs to Chapter 1, not Chapter 3!)
+| 2      | Fundações              |     |      | <- CHAPTER 2
+| 1.5    | Different work         | m3  | 200  | <- ITEM (belongs to Chapter 2, not Chapter 1!)
+```
+
+**Result**: 
+- 2 chapters detected (1, 2)
+- 3 items detected (1.1, 3.5, 1.5)
+- Items belong to the chapter they appear after, regardless of ARTIGO numbering
+
+### Example 3: Different Column Order
 ```
 | Item | ARTIGO | Nome | DESCRIÇÃO              | UN  | QT  |
 |------|--------|------|------------------------|-----|-----|
@@ -73,7 +104,8 @@ Items are automatically linked to their parent chapter:
 ### Algorithm Steps
 
 1. **For each sheet in the workbook:**
-   - Create a tab entry for the sheet
+   - Create a tab entry for the sheet (only if multiple sheets exist)
+   - Single-sheet files will not create tabs
    
 2. **Find header columns:**
    ```typescript
@@ -94,6 +126,8 @@ Items are automatically linked to their parent chapter:
 3. **Extract chapters and items:**
    ```typescript
    if required columns were found:
+     let currentChapterNumber = null
+     
      for each row in sheet:
        artigoValue = row[artigoColumnIndex]
        
@@ -101,19 +135,21 @@ Items are automatically linked to their parent chapter:
        if artigoValue matches /^\d+$/ (pure number):
          if row[descricaoColumnIndex] has value:
            create chapter
+           currentChapterNumber = artigoValue  // Update context
        
        // Item detection
        else if artigoValue matches /^\d+\.\d+/ (number with dot):
          if row[descricaoColumnIndex] has value:
-           chapterNumber = extract number before dot
+           // Use current chapter context, not extracted from ARTIGO
+           chapterNumber = currentChapterNumber
            unValue = row[unColumnIndex] or null
            qtValue = row[qtColumnIndex] or null
            create item with chapter_number reference
    ```
 
 4. **Store in database:**
-   - Insert tabs (one per sheet)
-   - Insert chapters (linked to their tabs)
+   - Insert tabs (one per sheet, only if multiple sheets)
+   - Insert chapters (linked to their tabs if tabs exist, null otherwise)
    - Insert items (linked to their chapters)
 
 ## Database Schema
@@ -146,8 +182,17 @@ orcamento_items (Items 1.1, 1.2, 2.1, 2.2...)
 
 After analyzing an Excel file with items:
 
+### Multi-Sheet Files (2+ sheets)
 1. **Tabs** are displayed at the top (one per sheet)
 2. **Within each tab**, chapters are displayed as separate sections
+3. **Each chapter contains a table** with:
+   - Column headers: Artigo, Descrição, UN, QT
+   - All items belonging to that chapter
+   - Empty state message if no items exist
+
+### Single-Sheet Files (1 sheet)
+1. **No tabs** are displayed (simplified interface)
+2. **Chapters** are displayed directly as separate sections
 3. **Each chapter contains a table** with:
    - Column headers: Artigo, Descrição, UN, QT
    - All items belonging to that chapter
@@ -181,9 +226,10 @@ After analyzing an Excel file with items:
 
 1. **Automatic Extraction**: No manual entry needed
 2. **Flexible Layout**: Works with various Excel column arrangements
-3. **Hierarchical Organization**: Items automatically linked to chapters
+3. **Sequential Organization**: Items belong to the chapter they appear after (context-based)
 4. **Complete Data**: Captures all relevant fields (artigo, description, unit, quantity)
 5. **Multi-sheet Support**: Processes all sheets in a workbook
+6. **Single-sheet Optimization**: Simplified UI for single-sheet files (no unnecessary tabs)
 
 ## Testing
 

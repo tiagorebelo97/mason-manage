@@ -358,12 +358,17 @@ const MapaQuantidades = () => {
       }> = [];
 
       // Process each sheet and create tabs
+      // Only create tabs if there are multiple sheets
+      const hasMultipleSheets = workbook.SheetNames.length > 1;
+      
       workbook.SheetNames.forEach((sheetName, index) => {
-        tabsToInsert.push({
-          orcamento_id: id!,
-          name: sheetName,
-          display_order: index,
-        });
+        if (hasMultipleSheets) {
+          tabsToInsert.push({
+            orcamento_id: id!,
+            name: sheetName,
+            display_order: index,
+          });
+        }
         
         const worksheet = workbook.Sheets[sheetName];
         const jsonData = XLSX.utils.sheet_to_json<unknown[]>(worksheet, { header: 1 });
@@ -502,7 +507,9 @@ const MapaQuantidades = () => {
             }
             // Case 3: Item with full data (has ARTIGO with dot pattern)
             else if (/^\d+\./.test(artigoCell) && descricaoCell) {
-              const chapterNumber = artigoCell.split('.')[0];
+              // Use the current chapter context instead of extracting from ARTIGO
+              // Items belong to the chapter they appear after
+              const chapterNumber = currentChapterNumber;
               
               // Check if this row has QT or UN to determine if it's a full item or just a parent comment
               // Enhanced to handle numeric values (including 0), text values, and various cell formats
@@ -601,23 +608,28 @@ const MapaQuantidades = () => {
         }
       });
 
-      // Insert tabs into database
-      const { data: insertedTabs, error: tabError } = await supabase
-        .from("orcamento_tabs")
-        .insert(tabsToInsert)
-        .select();
+      // Insert tabs into database only if multiple sheets exist
+      let insertedTabs: OrcamentoTab[] = [];
+      let sheetNameToTabId = new Map<string, string>();
       
-      if (tabError) throw tabError;
+      if (tabsToInsert.length > 0) {
+        const { data, error: tabError } = await supabase
+          .from("orcamento_tabs")
+          .insert(tabsToInsert)
+          .select();
+        
+        if (tabError) throw tabError;
+        insertedTabs = data || [];
+        
+        // Create a map of sheet names to tab IDs
+        insertedTabs.forEach(tab => {
+          sheetNameToTabId.set(tab.name, tab.id);
+        });
+      }
       
-      // Create a map of sheet names to tab IDs
-      const sheetNameToTabId = new Map<string, string>();
-      insertedTabs.forEach(tab => {
-        sheetNameToTabId.set(tab.name, tab.id);
-      });
-      
-      // Update chapters with tab IDs
+      // Update chapters with tab IDs (if tabs exist)
       const chaptersWithTabIds = chaptersToInsert.map(chapter => ({
-        tab_id: sheetNameToTabId.get(chapter.sheet_name!),
+        tab_id: hasMultipleSheets ? sheetNameToTabId.get(chapter.sheet_name!) : null,
         chapter_number: chapter.chapter_number,
         chapter_name: chapter.chapter_name,
         chapter_comments: chapter.chapter_comments || null,
@@ -1198,7 +1210,7 @@ const MapaQuantidades = () => {
             </div>
           </div>
 
-          {isAnalyzed && tabs && tabs.length > 0 && (
+          {isAnalyzed && tabs && tabs.length > 1 && (
             <Tabs defaultValue={tabs[0]?.id} className="w-full">
               <TabsList className="w-full justify-start overflow-x-auto flex-wrap h-auto">
                 {tabs.map((tab) => (
@@ -1482,6 +1494,282 @@ const MapaQuantidades = () => {
                 </TabsContent>
               ))}
             </Tabs>
+          )}
+          
+          {/* Single-sheet view: no tabs needed */}
+          {isAnalyzed && (!tabs || tabs.length <= 1) && chapters && chapters.length > 0 && (
+            <div className="space-y-6">
+              {chapters.map((chapter) => (
+                <Collapsible key={chapter.id} defaultOpen={false} className="border rounded-lg overflow-hidden">
+                  <div className="bg-muted">
+                    <div className="flex items-center gap-2 p-4">
+                      <CollapsibleTrigger asChild>
+                        <Button variant="ghost" size="sm" className="flex items-center gap-2 hover:bg-transparent p-0 h-auto">
+                          <ChevronDown className="h-5 w-5 transition-transform duration-200 data-[state=open]:rotate-180" />
+                          <h3 className="text-lg font-semibold">
+                            {chapter.chapter_number}. {cleanChapterName(chapter.chapter_name)}
+                          </h3>
+                        </Button>
+                      </CollapsibleTrigger>
+                      {chapter.chapter_comments && (
+                        <>
+                          <Dialog>
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <DialogTrigger asChild>
+                                    <Button variant="ghost" size="icon" className="h-8 w-8">
+                                      <MessageSquare className="h-4 w-4 text-muted-foreground hover:text-foreground" />
+                                    </Button>
+                                  </DialogTrigger>
+                                </TooltipTrigger>
+                                <TooltipContent side="top" className="max-w-xs">
+                                  <div className="space-y-1">
+                                    <p className="text-xs font-semibold">Chapter Comments</p>
+                                    <p className="text-xs whitespace-pre-line line-clamp-3">{chapter.chapter_comments}</p>
+                                  </div>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                            <DialogContent>
+                              <DialogHeader>
+                                <DialogTitle>Chapter Comments</DialogTitle>
+                                <DialogDescription className="whitespace-pre-line text-left">
+                                  {chapter.chapter_comments}
+                                </DialogDescription>
+                              </DialogHeader>
+                            </DialogContent>
+                          </Dialog>
+                        </>
+                      )}
+                      <Dialog open={editingChapterId === chapter.id} onOpenChange={(open) => setEditingChapterId(open ? chapter.id : null)}>
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <DialogTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-8 w-8 ml-auto">
+                                  <Tag className="h-4 w-4 text-muted-foreground hover:text-foreground" />
+                                </Button>
+                              </DialogTrigger>
+                            </TooltipTrigger>
+                            <TooltipContent side="top" className="max-w-xs">
+                              <p className="text-xs">Manage Chapter Specialities</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                        <DialogContent>
+                          <DialogHeader>
+                            <DialogTitle>Chapter Specialities</DialogTitle>
+                            <DialogDescription>
+                              Select specialities for this chapter. All items will inherit these by default.
+                            </DialogDescription>
+                          </DialogHeader>
+                          <div className="space-y-4 py-4">
+                            <MultiSelect
+                              groupedOptions={groupedSpecialityOptions}
+                              selected={getChapterSpecialityIds(chapter.id)}
+                              onChange={(selected) => {
+                                updateChapterSpecialitiesMutation.mutate({
+                                  chapterId: chapter.id,
+                                  specialityIds: selected,
+                                });
+                              }}
+                              placeholder="Select specialities..."
+                              emptyText="No specialities found"
+                            />
+                          </div>
+                        </DialogContent>
+                      </Dialog>
+                    </div>
+                  </div>
+                  <CollapsibleContent>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>{t('orcamento.artigo')}</TableHead>
+                          <TableHead>{t('orcamento.descricao')}</TableHead>
+                          <TableHead>{t('orcamento.unit')}</TableHead>
+                          <TableHead className="text-right">{t('orcamento.quantity')}</TableHead>
+                          <TableHead>{t('orcamento.specialities')}</TableHead>
+                          <TableHead>{t('orcamento.observacoesEmpreiteiro')}</TableHead>
+                          <TableHead className="w-12"></TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {itemsByChapter[chapter.id] && itemsByChapter[chapter.id].length > 0 ? (
+                          itemsByChapter[chapter.id].map((item) => (
+                            <TableRow key={item.id}>
+                              <TableCell>{item.artigo}</TableCell>
+                              <TableCell>{item.descricao}</TableCell>
+                              <TableCell>{item.un || '-'}</TableCell>
+                              <TableCell className="text-right">{item.qt !== null ? item.qt : '-'}</TableCell>
+                              <TableCell>
+                                <div className="flex flex-wrap gap-1 items-center">
+                                  {(() => {
+                                    const itemSpecs = getItemSpecialityIds(item.id, item.chapter_id);
+                                    const specs = getSpecialitiesByIds(itemSpecs);
+                                    
+                                    const handleRemoveSpeciality = (specialityId: string) => {
+                                      const currentSpecs = getItemSpecialityIds(item.id, item.chapter_id);
+                                      const updatedSpecs = currentSpecs.filter(id => id !== specialityId);
+                                      updateItemSpecialitiesMutation.mutate({
+                                        itemId: item.id,
+                                        specialityIds: updatedSpecs,
+                                      });
+                                    };
+                                    
+                                    return (
+                                      <>
+                                        {specs.map(spec => (
+                                          <Badge 
+                                            key={spec.id} 
+                                            variant="secondary"
+                                            className="text-xs flex items-center gap-1"
+                                          >
+                                            {language === 'pt' ? spec.name_pt : spec.name_en}
+                                            <button
+                                              className="ml-1 ring-offset-background rounded-full outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                                              onClick={(e) => {
+                                                e.preventDefault();
+                                                e.stopPropagation();
+                                                handleRemoveSpeciality(spec.id);
+                                              }}
+                                            >
+                                              <X className="h-3 w-3 text-muted-foreground hover:text-foreground" />
+                                            </button>
+                                          </Badge>
+                                        ))}
+                                        {specs.length === 0 && (
+                                          <span className="text-xs text-muted-foreground">None</span>
+                                        )}
+                                        <Dialog open={editingItemId === item.id} onOpenChange={(open) => setEditingItemId(open ? item.id : null)}>
+                                          <DialogTrigger asChild>
+                                            <Button variant="outline" size="sm" className="h-7 px-2 ml-1 gap-1">
+                                              <Tag className="h-3 w-3" />
+                                              <span className="text-xs">Edit</span>
+                                            </Button>
+                                          </DialogTrigger>
+                                          <DialogContent>
+                                            <DialogHeader>
+                                              <DialogTitle>Item Specialities</DialogTitle>
+                                              <DialogDescription>
+                                                Select specialities for this item.
+                                              </DialogDescription>
+                                            </DialogHeader>
+                                            <div className="space-y-4 py-4">
+                                              <MultiSelect
+                                                groupedOptions={groupedSpecialityOptions}
+                                                selected={getItemSpecialityIds(item.id, item.chapter_id)}
+                                                onChange={(selected) => {
+                                                  updateItemSpecialitiesMutation.mutate({
+                                                    itemId: item.id,
+                                                    specialityIds: selected,
+                                                  });
+                                                }}
+                                                placeholder="Select specialities..."
+                                                emptyText="No specialities found"
+                                              />
+                                            </div>
+                                          </DialogContent>
+                                        </Dialog>
+                                      </>
+                                    );
+                                  })()}
+                                </div>
+                              </TableCell>
+                              <TableCell className="text-sm">
+                                <div className="space-y-2">
+                                  {item.observacoes_empreiteiro && (
+                                    <p>{item.observacoes_empreiteiro}</p>
+                                  )}
+                                  {item.observacoes_image_url && (
+                                    <Dialog>
+                                      <DialogTrigger asChild>
+                                        <img 
+                                          src={item.observacoes_image_url} 
+                                          alt="Observação"
+                                          className="max-w-[100px] max-h-[100px] object-contain cursor-pointer hover:opacity-80 transition-opacity rounded border"
+                                        />
+                                      </DialogTrigger>
+                                      <DialogContent className="max-w-3xl">
+                                        <DialogHeader>
+                                          <DialogTitle>Observação - Imagem</DialogTitle>
+                                        </DialogHeader>
+                                        <div className="flex justify-center">
+                                          <img 
+                                            src={item.observacoes_image_url} 
+                                            alt="Observação"
+                                            className="max-w-full max-h-[70vh] object-contain"
+                                          />
+                                        </div>
+                                      </DialogContent>
+                                    </Dialog>
+                                  )}
+                                  {!item.observacoes_image_url && (
+                                    <div className="inline-flex">
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => handleImageUpload(item.id)}
+                                        disabled={uploadImageMutation.isPending}
+                                        className="h-auto py-2 px-3 gap-2 text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+                                      >
+                                        <ImageIcon className="h-5 w-5" />
+                                        <span className="text-sm">{t('orcamento.uploadImage') || 'Upload Image'}</span>
+                                      </Button>
+                                    </div>
+                                  )}
+                                  {!item.observacoes_empreiteiro && !item.observacoes_image_url && (
+                                    <span className="text-muted-foreground">-</span>
+                                  )}
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                {item.item_comments && (
+                                  <Dialog>
+                                    <TooltipProvider>
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <DialogTrigger asChild>
+                                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                                              <MessageSquare className="h-4 w-4 text-muted-foreground hover:text-foreground" />
+                                            </Button>
+                                          </DialogTrigger>
+                                        </TooltipTrigger>
+                                        <TooltipContent side="top" className="max-w-xs">
+                                          <div className="space-y-1">
+                                            <p className="text-xs font-semibold">Item Comments</p>
+                                            <p className="text-xs whitespace-pre-line line-clamp-3">{item.item_comments}</p>
+                                          </div>
+                                        </TooltipContent>
+                                      </Tooltip>
+                                    </TooltipProvider>
+                                    <DialogContent>
+                                      <DialogHeader>
+                                        <DialogTitle>Item Comments</DialogTitle>
+                                        <DialogDescription className="whitespace-pre-line text-left">
+                                          {item.item_comments}
+                                        </DialogDescription>
+                                      </DialogHeader>
+                                    </DialogContent>
+                                  </Dialog>
+                                )}
+                              </TableCell>
+                            </TableRow>
+                          ))
+                        ) : (
+                          <TableRow>
+                            <TableCell colSpan={6} className="text-center text-muted-foreground">
+                              No items yet
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </TableBody>
+                    </Table>
+                  </CollapsibleContent>
+                </Collapsible>
+              ))}
+            </div>
           )}
         </div>
       )}
