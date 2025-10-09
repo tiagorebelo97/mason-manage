@@ -85,6 +85,7 @@ type OrcamentoItem = {
   preco_unitario: number | null;
   item_comments: string | null;
   observacoes_empreiteiro: string | null;
+  observacoes_image_url: string | null;
 };
 
 const MapaQuantidades = () => {
@@ -257,6 +258,7 @@ const MapaQuantidades = () => {
         preco_unitario: number | null;
         item_comments?: string | null;
         observacoes_empreiteiro: string | null;
+        observacoes_image_url: string | null;
       }> = [];
 
       // Process each sheet and create tabs
@@ -439,6 +441,7 @@ const MapaQuantidades = () => {
                   preco_unitario: (parsedPreco !== null && !isNaN(parsedPreco)) ? parsedPreco : null,
                   item_comments: itemComment,
                   observacoes_empreiteiro: observacoesValue || null,
+                  observacoes_image_url: null, // Future enhancement: extract images from Excel
                 });
               }
               // If it has ARTIGO but no QT/UN, it's a comment for child items (e.g., "1.2" for "1.2.1")
@@ -513,6 +516,7 @@ const MapaQuantidades = () => {
             preco_unitario: item.preco_unitario,
             item_comments: item.item_comments,
             observacoes_empreiteiro: item.observacoes_empreiteiro,
+            observacoes_image_url: item.observacoes_image_url,
           };
         }).filter(item => item.chapter_id); // Only include items with valid chapter_id
         
@@ -823,7 +827,37 @@ const MapaQuantidades = () => {
                                   <TableCell>{item.descricao}</TableCell>
                                   <TableCell>{item.un || '-'}</TableCell>
                                   <TableCell className="text-right">{item.qt !== null ? item.qt : '-'}</TableCell>
-                                  <TableCell className="text-sm">{item.observacoes_empreiteiro || '-'}</TableCell>
+                                  <TableCell className="text-sm">
+                                    <div className="space-y-2">
+                                      {item.observacoes_empreiteiro && (
+                                        <p>{item.observacoes_empreiteiro}</p>
+                                      )}
+                                      {item.observacoes_image_url && (
+                                        <Dialog>
+                                          <DialogTrigger asChild>
+                                            <img 
+                                              src={item.observacoes_image_url} 
+                                              alt="Observação"
+                                              className="max-w-[100px] max-h-[100px] object-contain cursor-pointer hover:opacity-80 transition-opacity rounded border"
+                                            />
+                                          </DialogTrigger>
+                                          <DialogContent className="max-w-3xl">
+                                            <DialogHeader>
+                                              <DialogTitle>Observação - Imagem</DialogTitle>
+                                            </DialogHeader>
+                                            <div className="flex justify-center">
+                                              <img 
+                                                src={item.observacoes_image_url} 
+                                                alt="Observação"
+                                                className="max-w-full max-h-[70vh] object-contain"
+                                              />
+                                            </div>
+                                          </DialogContent>
+                                        </Dialog>
+                                      )}
+                                      {!item.observacoes_empreiteiro && !item.observacoes_image_url && '-'}
+                                    </div>
+                                  </TableCell>
                                   <TableCell>
                                     {item.item_comments && (
                                       <TooltipProvider>
