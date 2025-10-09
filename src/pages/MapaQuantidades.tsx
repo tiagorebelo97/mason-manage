@@ -341,8 +341,14 @@ const MapaQuantidades = () => {
             }
             // Case 3: Item with full data (has ARTIGO with dot pattern AND has QT or UN)
             else if (/^\d+\./.test(artigoCell) && descricaoCell) {
-              const hasQT = qtColumnIndex !== -1 && row[qtColumnIndex] && String(row[qtColumnIndex]).trim() !== "";
-              const hasUN = unColumnIndex !== -1 && row[unColumnIndex] && String(row[unColumnIndex]).trim() !== "";
+              const hasQT = qtColumnIndex !== -1 && 
+                typeof row[qtColumnIndex] !== 'undefined' && 
+                row[qtColumnIndex] !== null && 
+                String(row[qtColumnIndex]).trim() !== "";
+              const hasUN = unColumnIndex !== -1 && 
+                typeof row[unColumnIndex] !== 'undefined' && 
+                row[unColumnIndex] !== null && 
+                String(row[unColumnIndex]).trim() !== "";
               
               // If it has QT or UN, it's an actual item
               if (hasQT || hasUN) {
@@ -717,11 +723,11 @@ const MapaQuantidades = () => {
                       <Table>
                         <TableHeader>
                           <TableRow>
-                            <TableHead>Artigo</TableHead>
-                            <TableHead>Descrição</TableHead>
-                            <TableHead>Unit</TableHead>
-                            <TableHead className="text-right">Quantity</TableHead>
-                            <TableHead>Observações Empreiteiro</TableHead>
+                            <TableHead>{t('orcamento.artigo')}</TableHead>
+                            <TableHead>{t('orcamento.descricao')}</TableHead>
+                            <TableHead>{t('orcamento.unit')}</TableHead>
+                            <TableHead className="text-right">{t('orcamento.quantity')}</TableHead>
+                            <TableHead>{t('orcamento.observacoesEmpreiteiro')}</TableHead>
                             <TableHead className="w-12"></TableHead>
                           </TableRow>
                         </TableHeader>
