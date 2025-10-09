@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Upload, FileSpreadsheet, Loader2, Trash2, MessageSquare, ChevronDown, ImagePlus, ImageIcon } from "lucide-react";
+import { ArrowLeft, Upload, FileSpreadsheet, Loader2, Trash2, MessageSquare, ChevronDown, ImagePlus, ImageIcon, Download } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
@@ -815,6 +815,78 @@ const MapaQuantidades = () => {
     input.click();
   };
 
+  const handleExportToExcel = () => {
+    if (!tabs || tabs.length === 0 || !chapters || !items) {
+      toast.error(t('orcamento.exportError') || 'No data to export');
+      return;
+    }
+
+    const workbook = XLSX.utils.book_new();
+
+    // Export each tab as a separate sheet
+    tabs.forEach((tab) => {
+      const tabChapters = chaptersByTab[tab.id] || [];
+      
+      // Build worksheet data
+      const worksheetData: any[][] = [];
+      
+      // Add headers
+      worksheetData.push([
+        t('orcamento.artigo') || 'ARTIGO',
+        t('orcamento.descricao') || 'DESCRIÇÃO',
+        t('orcamento.unit') || 'UN',
+        t('orcamento.quantity') || 'TOTAIS',
+        t('orcamento.observacoesEmpreiteiro') || 'OBSERVAÇÕES EMPREITEIRO'
+      ]);
+
+      // Add chapter and item data
+      tabChapters.forEach((chapter) => {
+        // Add chapter row
+        worksheetData.push([
+          chapter.chapter_number,
+          cleanChapterName(chapter.chapter_name),
+          '',
+          '',
+          chapter.chapter_comments || ''
+        ]);
+
+        // Add items for this chapter
+        const chapterItems = itemsByChapter[chapter.id] || [];
+        chapterItems.forEach((item) => {
+          worksheetData.push([
+            item.artigo,
+            item.descricao,
+            item.un || '',
+            item.qt !== null ? item.qt : '',
+            item.observacoes_empreiteiro || ''
+          ]);
+        });
+      });
+
+      // Create worksheet
+      const worksheet = XLSX.utils.aoa_to_sheet(worksheetData);
+
+      // Set column widths
+      worksheet['!cols'] = [
+        { wch: 10 },  // ARTIGO
+        { wch: 50 },  // DESCRIÇÃO
+        { wch: 8 },   // UN
+        { wch: 12 },  // TOTAIS
+        { wch: 30 },  // OBSERVAÇÕES
+      ];
+
+      // Add sheet to workbook
+      XLSX.utils.book_append_sheet(workbook, worksheet, tab.name);
+    });
+
+    // Generate filename with orcamento name and current date
+    const fileName = `${orcamento?.name || 'mapa_quantidades'}_${new Date().toISOString().split('T')[0]}.xlsx`;
+    
+    // Write file
+    XLSX.writeFile(workbook, fileName);
+    toast.success(t('orcamento.exportSuccess') || 'File exported successfully');
+  };
+
   const currentFile = files && files.length > 0 ? files[0] : null;
   const hasFile = !!currentFile;
   const isAnalyzed = currentFile?.analyzed || false;
@@ -943,7 +1015,18 @@ const MapaQuantidades = () => {
           </div>
 
           {isAnalyzed && tabs && tabs.length > 0 && (
-            <Tabs defaultValue={tabs[0]?.id} className="w-full">
+            <>
+              <div className="flex justify-end mb-4">
+                <Button
+                  variant="outline"
+                  onClick={handleExportToExcel}
+                  className="gap-2"
+                >
+                  <Download className="h-4 w-4" />
+                  {t('orcamento.exportExcel') || 'Export to Excel'}
+                </Button>
+              </div>
+              <Tabs defaultValue={tabs[0]?.id} className="w-full">
               <TabsList className="w-full justify-start overflow-x-auto flex-wrap h-auto">
                 {tabs.map((tab) => (
                   <TabsTrigger key={tab.id} value={tab.id}>
@@ -1113,6 +1196,7 @@ const MapaQuantidades = () => {
                 </TabsContent>
               ))}
             </Tabs>
+            </>
           )}
         </div>
       )}
