@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Upload, FileSpreadsheet, Loader2, Trash2, MessageSquare, ChevronDown, ImagePlus, ImageIcon } from "lucide-react";
+import { ArrowLeft, Upload, FileSpreadsheet, Loader2, Trash2, MessageSquare, ChevronDown, ImagePlus, ImageIcon, Tag } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
@@ -52,6 +52,7 @@ import {
   HoverCardContent,
   HoverCardTrigger,
 } from "@/components/ui/hover-card";
+import { MultiSelect } from "@/components/ui/multi-select";
 
 type OrcamentoFile = {
   id: string;
@@ -89,13 +90,37 @@ type OrcamentoItem = {
   observacoes_image_url: string | null;
 };
 
+type Speciality = {
+  id: string;
+  name_en: string;
+  name_pt: string;
+  main_specialty_id: string | null;
+  main_specialties?: {
+    id: string;
+    main_specialty_en: string;
+    main_specialty_pt: string;
+  } | null;
+};
+
+type ChapterSpeciality = {
+  chapter_id: string;
+  speciality_id: string;
+};
+
+type ItemSpeciality = {
+  item_id: string;
+  speciality_id: string;
+};
+
 const MapaQuantidades = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [editingChapterId, setEditingChapterId] = useState<string | null>(null);
+  const [editingItemId, setEditingItemId] = useState<string | null>(null);
 
   const { data: orcamento } = useQuery({
     queryKey: ["orcamento", id, import.meta.env.VITE_SUPABASE_URL],
@@ -162,6 +187,44 @@ const MapaQuantidades = () => {
       return data as OrcamentoItem[];
     },
     enabled: !!id && chapters && chapters.length > 0,
+  });
+
+  const { data: specialities } = useQuery({
+    queryKey: ["specialities", import.meta.env.VITE_SUPABASE_URL],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("specialities")
+        .select(`
+          *,
+          main_specialties(id, main_specialty_en, main_specialty_pt)
+        `);
+      if (error) throw error;
+      return data as Speciality[];
+    },
+  });
+
+  const { data: chapterSpecialities } = useQuery({
+    queryKey: ["chapter_specialities", id, import.meta.env.VITE_SUPABASE_URL],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("chapter_specialities")
+        .select("*");
+      if (error) throw error;
+      return data as ChapterSpeciality[];
+    },
+    enabled: !!id && chapters && chapters.length > 0,
+  });
+
+  const { data: itemSpecialities } = useQuery({
+    queryKey: ["item_specialities", id, import.meta.env.VITE_SUPABASE_URL],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("item_specialities")
+        .select("*");
+      if (error) throw error;
+      return data as ItemSpeciality[];
+    },
+    enabled: !!id && items && items.length > 0,
   });
 
   const uploadMutation = useMutation({
@@ -829,6 +892,72 @@ const MapaQuantidades = () => {
     },
   });
 
+  const updateChapterSpecialitiesMutation = useMutation({
+    mutationFn: async ({ chapterId, specialityIds }: { chapterId: string; specialityIds: string[] }) => {
+      // Delete existing chapter specialities
+      const { error: deleteError } = await supabase
+        .from('chapter_specialities')
+        .delete()
+        .eq('chapter_id', chapterId);
+      
+      if (deleteError) throw deleteError;
+      
+      // Insert new chapter specialities
+      if (specialityIds.length > 0) {
+        const { error: insertError } = await supabase
+          .from('chapter_specialities')
+          .insert(
+            specialityIds.map(specialityId => ({
+              chapter_id: chapterId,
+              speciality_id: specialityId,
+            }))
+          );
+        
+        if (insertError) throw insertError;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["chapter_specialities", id, import.meta.env.VITE_SUPABASE_URL] });
+      toast.success('Chapter specialities updated successfully');
+    },
+    onError: () => {
+      toast.error('Failed to update chapter specialities');
+    },
+  });
+
+  const updateItemSpecialitiesMutation = useMutation({
+    mutationFn: async ({ itemId, specialityIds }: { itemId: string; specialityIds: string[] }) => {
+      // Delete existing item specialities
+      const { error: deleteError } = await supabase
+        .from('item_specialities')
+        .delete()
+        .eq('item_id', itemId);
+      
+      if (deleteError) throw deleteError;
+      
+      // Insert new item specialities
+      if (specialityIds.length > 0) {
+        const { error: insertError } = await supabase
+          .from('item_specialities')
+          .insert(
+            specialityIds.map(specialityId => ({
+              item_id: itemId,
+              speciality_id: specialityId,
+            }))
+          );
+        
+        if (insertError) throw insertError;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["item_specialities", id, import.meta.env.VITE_SUPABASE_URL] });
+      toast.success('Item specialities updated successfully');
+    },
+    onError: () => {
+      toast.error('Failed to update item specialities');
+    },
+  });
+
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
@@ -875,6 +1004,38 @@ const MapaQuantidades = () => {
       .replace(/_/g, ' ') // Replace remaining underscores with spaces
       .trim();
   };
+
+  // Get specialities for a chapter
+  const getChapterSpecialityIds = (chapterId: string): string[] => {
+    if (!chapterSpecialities) return [];
+    return chapterSpecialities
+      .filter(cs => cs.chapter_id === chapterId)
+      .map(cs => cs.speciality_id);
+  };
+
+  // Get specialities for an item
+  const getItemSpecialityIds = (itemId: string, chapterId?: string): string[] => {
+    if (!itemSpecialities) return [];
+    const itemSpecs = itemSpecialities.filter(is => is.item_id === itemId);
+    
+    // If item has its own specialities, return them
+    if (itemSpecs.length > 0) {
+      return itemSpecs.map(is => is.speciality_id);
+    }
+    
+    // Otherwise, inherit from chapter if chapterId is provided
+    if (chapterId) {
+      return getChapterSpecialityIds(chapterId);
+    }
+    
+    return [];
+  };
+
+  // Convert specialities to multiselect options
+  const specialityOptions = specialities?.map(s => ({
+    label: language === 'pt' ? s.name_pt : s.name_en,
+    value: s.id,
+  })) || [];
 
   // Group chapters by tab
   const chaptersByTab = chapters?.reduce((acc, chapter) => {
@@ -1044,6 +1205,44 @@ const MapaQuantidades = () => {
                               </Dialog>
                             </>
                           )}
+                          <Dialog open={editingChapterId === chapter.id} onOpenChange={(open) => setEditingChapterId(open ? chapter.id : null)}>
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <DialogTrigger asChild>
+                                    <Button variant="ghost" size="icon" className="h-8 w-8 ml-auto">
+                                      <Tag className="h-4 w-4 text-muted-foreground hover:text-foreground" />
+                                    </Button>
+                                  </DialogTrigger>
+                                </TooltipTrigger>
+                                <TooltipContent side="top" className="max-w-xs">
+                                  <p className="text-xs">Manage Chapter Specialities</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                            <DialogContent>
+                              <DialogHeader>
+                                <DialogTitle>Chapter Specialities</DialogTitle>
+                                <DialogDescription>
+                                  Select specialities for this chapter. All items will inherit these by default.
+                                </DialogDescription>
+                              </DialogHeader>
+                              <div className="space-y-4 py-4">
+                                <MultiSelect
+                                  options={specialityOptions}
+                                  selected={getChapterSpecialityIds(chapter.id)}
+                                  onChange={(selected) => {
+                                    updateChapterSpecialitiesMutation.mutate({
+                                      chapterId: chapter.id,
+                                      specialityIds: selected,
+                                    });
+                                  }}
+                                  placeholder="Select specialities..."
+                                  emptyText="No specialities found"
+                                />
+                              </div>
+                            </DialogContent>
+                          </Dialog>
                         </div>
                       </div>
                       <CollapsibleContent>
@@ -1054,6 +1253,7 @@ const MapaQuantidades = () => {
                               <TableHead>{t('orcamento.descricao')}</TableHead>
                               <TableHead>{t('orcamento.unit')}</TableHead>
                               <TableHead className="text-right">{t('orcamento.quantity')}</TableHead>
+                              <TableHead>Specialities</TableHead>
                               <TableHead>{t('orcamento.observacoesEmpreiteiro')}</TableHead>
                               <TableHead className="w-12"></TableHead>
                             </TableRow>
@@ -1066,6 +1266,46 @@ const MapaQuantidades = () => {
                                   <TableCell>{item.descricao}</TableCell>
                                   <TableCell>{item.un || '-'}</TableCell>
                                   <TableCell className="text-right">{item.qt !== null ? item.qt : '-'}</TableCell>
+                                  <TableCell>
+                                    <Dialog open={editingItemId === item.id} onOpenChange={(open) => setEditingItemId(open ? item.id : null)}>
+                                      <DialogTrigger asChild>
+                                        <Button variant="outline" size="sm" className="h-8 gap-2">
+                                          <Tag className="h-3 w-3" />
+                                          <span className="text-xs">
+                                            {(() => {
+                                              const itemSpecs = getItemSpecialityIds(item.id, item.chapter_id);
+                                              const hasOwnSpecs = itemSpecialities?.some(is => is.item_id === item.id);
+                                              if (itemSpecs.length === 0) return 'None';
+                                              if (itemSpecs.length === 1) return hasOwnSpecs ? '1' : '1 (inherited)';
+                                              return hasOwnSpecs ? `${itemSpecs.length}` : `${itemSpecs.length} (inherited)`;
+                                            })()}
+                                          </span>
+                                        </Button>
+                                      </DialogTrigger>
+                                      <DialogContent>
+                                        <DialogHeader>
+                                          <DialogTitle>Item Specialities</DialogTitle>
+                                          <DialogDescription>
+                                            Select specialities for this item. Leave empty to inherit from chapter.
+                                          </DialogDescription>
+                                        </DialogHeader>
+                                        <div className="space-y-4 py-4">
+                                          <MultiSelect
+                                            options={specialityOptions}
+                                            selected={getItemSpecialityIds(item.id)}
+                                            onChange={(selected) => {
+                                              updateItemSpecialitiesMutation.mutate({
+                                                itemId: item.id,
+                                                specialityIds: selected,
+                                              });
+                                            }}
+                                            placeholder="Select specialities (or inherit from chapter)..."
+                                            emptyText="No specialities found"
+                                          />
+                                        </div>
+                                      </DialogContent>
+                                    </Dialog>
+                                  </TableCell>
                                   <TableCell className="text-sm">
                                     <div className="space-y-2">
                                       {item.observacoes_empreiteiro && (
