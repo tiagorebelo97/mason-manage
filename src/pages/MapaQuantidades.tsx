@@ -4,7 +4,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Upload, FileSpreadsheet, Loader2, Trash2, MessageSquare, ChevronDown, ImagePlus, ImageIcon, Tag } from "lucide-react";
+import { ArrowLeft, Upload, FileSpreadsheet, Loader2, Trash2, MessageSquare, ChevronDown, ImagePlus, ImageIcon, Tag, X } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
@@ -1317,19 +1317,36 @@ const MapaQuantidades = () => {
                                     <div className="flex flex-wrap gap-1 items-center">
                                       {(() => {
                                         const itemSpecs = getItemSpecialityIds(item.id, item.chapter_id);
-                                        const hasOwnSpecs = itemSpecialities?.some(is => is.item_id === item.id);
                                         const specs = getSpecialitiesByIds(itemSpecs);
+                                        
+                                        const handleRemoveSpeciality = (specialityId: string) => {
+                                          const currentSpecs = getItemSpecialityIds(item.id, item.chapter_id);
+                                          const updatedSpecs = currentSpecs.filter(id => id !== specialityId);
+                                          updateItemSpecialitiesMutation.mutate({
+                                            itemId: item.id,
+                                            specialityIds: updatedSpecs,
+                                          });
+                                        };
                                         
                                         return (
                                           <>
                                             {specs.map(spec => (
                                               <Badge 
                                                 key={spec.id} 
-                                                variant={hasOwnSpecs ? "default" : "secondary"}
-                                                className="text-xs"
+                                                variant="secondary"
+                                                className="text-xs flex items-center gap-1"
                                               >
                                                 {language === 'pt' ? spec.name_pt : spec.name_en}
-                                                {!hasOwnSpecs && <span className="ml-1 opacity-60">(inherited)</span>}
+                                                <button
+                                                  className="ml-1 ring-offset-background rounded-full outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                                                  onClick={(e) => {
+                                                    e.preventDefault();
+                                                    e.stopPropagation();
+                                                    handleRemoveSpeciality(spec.id);
+                                                  }}
+                                                >
+                                                  <X className="h-3 w-3 text-muted-foreground hover:text-foreground" />
+                                                </button>
                                               </Badge>
                                             ))}
                                             {specs.length === 0 && (
@@ -1337,28 +1354,29 @@ const MapaQuantidades = () => {
                                             )}
                                             <Dialog open={editingItemId === item.id} onOpenChange={(open) => setEditingItemId(open ? item.id : null)}>
                                               <DialogTrigger asChild>
-                                                <Button variant="ghost" size="icon" className="h-6 w-6 ml-1">
-                                                  <Tag className="h-3 w-3 text-muted-foreground hover:text-foreground" />
+                                                <Button variant="outline" size="sm" className="h-7 px-2 ml-1 gap-1">
+                                                  <Tag className="h-3 w-3" />
+                                                  <span className="text-xs">Edit</span>
                                                 </Button>
                                               </DialogTrigger>
                                               <DialogContent>
                                                 <DialogHeader>
                                                   <DialogTitle>Item Specialities</DialogTitle>
                                                   <DialogDescription>
-                                                    Select specialities for this item. Leave empty to inherit from chapter.
+                                                    Select specialities for this item.
                                                   </DialogDescription>
                                                 </DialogHeader>
                                                 <div className="space-y-4 py-4">
                                                   <MultiSelect
                                                     groupedOptions={groupedSpecialityOptions}
-                                                    selected={getItemOwnSpecialityIds(item.id)}
+                                                    selected={getItemSpecialityIds(item.id, item.chapter_id)}
                                                     onChange={(selected) => {
                                                       updateItemSpecialitiesMutation.mutate({
                                                         itemId: item.id,
                                                         specialityIds: selected,
                                                       });
                                                     }}
-                                                    placeholder="Select specialities (or inherit from chapter)..."
+                                                    placeholder="Select specialities..."
                                                     emptyText="No specialities found"
                                                   />
                                                 </div>
