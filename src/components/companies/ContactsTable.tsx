@@ -57,7 +57,11 @@ export const ContactsTable = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("contacts")
-        .select("*, people(first_name, last_name, company_id, companies(name)), companies(name)")
+        .select(`
+          *, 
+          people(first_name, last_name, company_id, companies(name)), 
+          companies(name)
+        `)
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data;
