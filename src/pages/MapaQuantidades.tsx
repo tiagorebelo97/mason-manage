@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Upload, FileSpreadsheet, Loader2, Trash2 } from "lucide-react";
+import { ArrowLeft, Upload, FileSpreadsheet, Loader2, Trash2, MessageSquare } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
@@ -16,6 +16,20 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 type OrcamentoFile = {
   id: string;
@@ -256,10 +270,11 @@ const MapaQuantidades = () => {
                   cellValue === "DESCRICAO" || cellValue.includes("DESCRICAO")) {
                 descricaoColumnIndex = j;
               }
-              if (cellValue === "UN" || cellValue.includes("UN")) {
+              if (cellValue === "UN" || cellValue === "UNIDADE" || cellValue === "UNI") {
                 unColumnIndex = j;
               }
-              if (cellValue === "QT" || cellValue.includes("QT")) {
+              if (cellValue === "QT" || cellValue === "QUANTIDADE" || 
+                  (cellValue.includes("QUANT") && !cellValue.includes("MAPA"))) {
                 qtColumnIndex = j;
               }
               // Look for price column - could be "PREÇO UNITÁRIO", "PRECO UNITARIO", "PU", etc.
@@ -267,8 +282,9 @@ const MapaQuantidades = () => {
                   cellValue === "PU" || cellValue.includes("UNITARIO") || cellValue.includes("UNITÁRIO")) {
                 precoUnitarioColumnIndex = j;
               }
-              // Look for observacoes column
-              if (cellValue.includes("OBSERVA") && cellValue.includes("EMPREITEIRO")) {
+              // Look for observacoes column - be more flexible
+              if ((cellValue.includes("OBSERVA") || cellValue.includes("OBS")) && 
+                  (cellValue.includes("EMPREITEIRO") || cellValue.includes("EMPREIT"))) {
                 observacoesColumnIndex = j;
               }
             }
@@ -554,6 +570,15 @@ const MapaQuantidades = () => {
   const hasFile = !!currentFile;
   const isAnalyzed = currentFile?.analyzed || false;
 
+  // Helper function to clean chapter name - remove leading numbers and underscores
+  const cleanChapterName = (name: string): string => {
+    // Remove leading numbers followed by dots, spaces, underscores, and hyphens
+    return name
+      .replace(/^[\d._\-\s]+/, '') // Remove leading numbers, dots, underscores, hyphens, and spaces
+      .replace(/_/g, ' ') // Replace remaining underscores with spaces
+      .trim();
+  };
+
   // Group chapters by tab
   const chaptersByTab = chapters?.reduce((acc, chapter) => {
     if (!acc[chapter.tab_id]) {
@@ -657,14 +682,37 @@ const MapaQuantidades = () => {
                   {chaptersByTab[tab.id]?.map((chapter) => (
                     <div key={chapter.id} className="border rounded-lg overflow-hidden">
                       <div className="bg-muted p-4">
-                        <h3 className="text-lg font-semibold">
-                          {chapter.chapter_number}. {chapter.chapter_name}
-                        </h3>
-                        {chapter.chapter_comments && (
-                          <p className="text-sm text-muted-foreground mt-2 whitespace-pre-line">
-                            {chapter.chapter_comments}
-                          </p>
-                        )}
+                        <div className="flex items-center gap-2">
+                          <h3 className="text-lg font-semibold">
+                            {chapter.chapter_number}. {cleanChapterName(chapter.chapter_name)}
+                          </h3>
+                          {chapter.chapter_comments && (
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Dialog>
+                                    <DialogTrigger asChild>
+                                      <Button variant="ghost" size="icon" className="h-8 w-8">
+                                        <MessageSquare className="h-4 w-4 text-muted-foreground hover:text-foreground" />
+                                      </Button>
+                                    </DialogTrigger>
+                                    <DialogContent>
+                                      <DialogHeader>
+                                        <DialogTitle>Chapter Comments</DialogTitle>
+                                        <DialogDescription className="whitespace-pre-line text-left">
+                                          {chapter.chapter_comments}
+                                        </DialogDescription>
+                                      </DialogHeader>
+                                    </DialogContent>
+                                  </Dialog>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>View chapter comments</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          )}
+                        </div>
                       </div>
                       <Table>
                         <TableHeader>
@@ -673,30 +721,48 @@ const MapaQuantidades = () => {
                             <TableHead>Descrição</TableHead>
                             <TableHead>Unit</TableHead>
                             <TableHead className="text-right">Quantity</TableHead>
-                            <TableHead className="text-right">Unit Price</TableHead>
                             <TableHead>Observações Empreiteiro</TableHead>
+                            <TableHead className="w-12"></TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
                           {itemsByChapter[chapter.id] && itemsByChapter[chapter.id].length > 0 ? (
                             itemsByChapter[chapter.id].map((item) => (
-                              <>
-                                {item.item_comments && (
-                                  <TableRow key={`${item.id}-comment`} className="bg-muted/30">
-                                    <TableCell colSpan={6} className="text-sm italic text-muted-foreground whitespace-pre-line">
-                                      {item.item_comments}
-                                    </TableCell>
-                                  </TableRow>
-                                )}
-                                <TableRow key={item.id}>
-                                  <TableCell>{item.artigo}</TableCell>
-                                  <TableCell>{item.descricao}</TableCell>
-                                  <TableCell>{item.un || '-'}</TableCell>
-                                  <TableCell className="text-right">{item.qt !== null ? item.qt : '-'}</TableCell>
-                                  <TableCell className="text-right">{item.preco_unitario !== null ? item.preco_unitario : '-'}</TableCell>
-                                  <TableCell className="text-sm">{item.observacoes_empreiteiro || '-'}</TableCell>
-                                </TableRow>
-                              </>
+                              <TableRow key={item.id}>
+                                <TableCell>{item.artigo}</TableCell>
+                                <TableCell>{item.descricao}</TableCell>
+                                <TableCell>{item.un || '-'}</TableCell>
+                                <TableCell className="text-right">{item.qt !== null ? item.qt : '-'}</TableCell>
+                                <TableCell className="text-sm">{item.observacoes_empreiteiro || '-'}</TableCell>
+                                <TableCell>
+                                  {item.item_comments && (
+                                    <TooltipProvider>
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <Dialog>
+                                            <DialogTrigger asChild>
+                                              <Button variant="ghost" size="icon" className="h-8 w-8">
+                                                <MessageSquare className="h-4 w-4 text-muted-foreground hover:text-foreground" />
+                                              </Button>
+                                            </DialogTrigger>
+                                            <DialogContent>
+                                              <DialogHeader>
+                                                <DialogTitle>Item Comments</DialogTitle>
+                                                <DialogDescription className="whitespace-pre-line text-left">
+                                                  {item.item_comments}
+                                                </DialogDescription>
+                                              </DialogHeader>
+                                            </DialogContent>
+                                          </Dialog>
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                          <p>View item comments</p>
+                                        </TooltipContent>
+                                      </Tooltip>
+                                    </TooltipProvider>
+                                  )}
+                                </TableCell>
+                              </TableRow>
                             ))
                           ) : (
                             <TableRow>
