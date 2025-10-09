@@ -37,6 +37,7 @@ type OrcamentoChapter = {
   tab_id: string;
   chapter_number: string;
   chapter_name: string;
+  chapter_comments: string | null;
 };
 
 type OrcamentoItem = {
@@ -46,6 +47,9 @@ type OrcamentoItem = {
   descricao: string;
   un: string | null;
   qt: number | null;
+  preco_unitario: number | null;
+  item_comments: string | null;
+  observacoes_empreiteiro: string | null;
 };
 
 const MapaQuantidades = () => {
@@ -205,6 +209,7 @@ const MapaQuantidades = () => {
         sheet_name?: string;
         chapter_number: string;
         chapter_name: string;
+        chapter_comments?: string;
       }> = [];
 
       const itemsToInsert: Array<{
@@ -214,6 +219,9 @@ const MapaQuantidades = () => {
         descricao: string;
         un: string | null;
         qt: number | null;
+        preco_unitario: number | null;
+        item_comments?: string | null;
+        observacoes_empreiteiro: string | null;
       }> = [];
 
       // Process each sheet and create tabs
@@ -233,6 +241,8 @@ const MapaQuantidades = () => {
         let descricaoColumnIndex = -1;
         let unColumnIndex = -1;
         let qtColumnIndex = -1;
+        let precoUnitarioColumnIndex = -1;
+        let observacoesColumnIndex = -1;
         
         for (let i = 0; i < jsonData.length; i++) {
           const row = jsonData[i];
@@ -252,6 +262,15 @@ const MapaQuantidades = () => {
               if (cellValue === "QT" || cellValue.includes("QT")) {
                 qtColumnIndex = j;
               }
+              // Look for price column - could be "PREÇO UNITÁRIO", "PRECO UNITARIO", "PU", etc.
+              if (cellValue.includes("PRECO") || cellValue.includes("PREÇO") || 
+                  cellValue === "PU" || cellValue.includes("UNITARIO") || cellValue.includes("UNITÁRIO")) {
+                precoUnitarioColumnIndex = j;
+              }
+              // Look for observacoes column
+              if (cellValue.includes("OBSERVA") && cellValue.includes("EMPREITEIRO")) {
+                observacoesColumnIndex = j;
+              }
             }
             // If we found both required columns, stop searching
             if (artigoColumnIndex !== -1 && descricaoColumnIndex !== -1) {
@@ -264,44 +283,109 @@ const MapaQuantidades = () => {
         // A chapter is identified by a pure number (e.g., "1", "2") in the ARTIGO column
         // Sub-items with dots (e.g., "1.1", "2.3") are NOT considered chapters
         // Items are rows where ARTIGO contains a number with a dot
+        // Comments are handled as follows:
+        // - Chapter comments: rows without ARTIGO but with DESCRIÇÃO (accumulated after a chapter is found)
+        // - Item comments: rows with ARTIGO like "1.2" but without QT and UN (parent for items like "1.2.1")
         if (artigoColumnIndex !== -1 && descricaoColumnIndex !== -1) {
+          let currentChapterNumber: string | null = null;
+          let chapterComments: string[] = [];
+          const parentCommentsMap = new Map<string, string>();
+          
           jsonData.forEach((row: unknown) => {
-            if (Array.isArray(row) && row[artigoColumnIndex]) {
-              const artigoCell = String(row[artigoColumnIndex]).trim();
-              const descricaoCell = row[descricaoColumnIndex] ? String(row[descricaoColumnIndex]).trim() : "";
-              
-              // Check if it's a number without a dot (chapter identifier)
-              if (/^\d+$/.test(artigoCell) && descricaoCell) {
-                chaptersToInsert.push({
-                  sheet_name: sheetName, // Temporary, will be replaced with tab_id
-                  chapter_number: artigoCell,
-                  chapter_name: descricaoCell,
-                });
+            if (!Array.isArray(row)) return;
+            
+            const artigoCell = row[artigoColumnIndex] ? String(row[artigoColumnIndex]).trim() : "";
+            const descricaoCell = row[descricaoColumnIndex] ? String(row[descricaoColumnIndex]).trim() : "";
+            
+            // Skip empty rows
+            if (!artigoCell && !descricaoCell) return;
+            
+            // Case 1: Chapter (pure number in ARTIGO column)
+            if (/^\d+$/.test(artigoCell) && descricaoCell) {
+              // Save previous chapter with its comments
+              if (currentChapterNumber && chapterComments.length > 0) {
+                const lastChapter = chaptersToInsert[chaptersToInsert.length - 1];
+                if (lastChapter && lastChapter.chapter_number === currentChapterNumber) {
+                  lastChapter.chapter_comments = chapterComments.join('\n');
+                }
               }
-              // Check if it's a number with a dot (item identifier like "1.1", "2.3")
-              else if (/^\d+\.\d+/.test(artigoCell) && descricaoCell) {
-                // Extract the chapter number (the number before the dot)
+              
+              chaptersToInsert.push({
+                sheet_name: sheetName,
+                chapter_number: artigoCell,
+                chapter_name: descricaoCell,
+                chapter_comments: undefined,
+              });
+              currentChapterNumber = artigoCell;
+              chapterComments = [];
+            }
+            // Case 2: Chapter comment (no ARTIGO but has DESCRIÇÃO)
+            else if (!artigoCell && descricaoCell && currentChapterNumber) {
+              chapterComments.push(descricaoCell);
+            }
+            // Case 3: Item with full data (has ARTIGO with dot pattern AND has QT or UN)
+            else if (/^\d+\./.test(artigoCell) && descricaoCell) {
+              const hasQT = qtColumnIndex !== -1 && row[qtColumnIndex] && String(row[qtColumnIndex]).trim() !== "";
+              const hasUN = unColumnIndex !== -1 && row[unColumnIndex] && String(row[unColumnIndex]).trim() !== "";
+              
+              // If it has QT or UN, it's an actual item
+              if (hasQT || hasUN) {
                 const chapterNumber = artigoCell.split('.')[0];
                 
-                // Get UN and QT values if columns were found
+                // Get all values
                 const unValue = unColumnIndex !== -1 && row[unColumnIndex] 
                   ? String(row[unColumnIndex]).trim() 
                   : null;
                 const qtValue = qtColumnIndex !== -1 && row[qtColumnIndex] 
-                  ? parseFloat(String(row[qtColumnIndex]).trim())
+                  ? String(row[qtColumnIndex]).trim()
                   : null;
+                const parsedQt = qtValue ? parseFloat(qtValue) : null;
+                
+                const precoValue = precoUnitarioColumnIndex !== -1 && row[precoUnitarioColumnIndex]
+                  ? String(row[precoUnitarioColumnIndex]).trim()
+                  : null;
+                const parsedPreco = precoValue ? parseFloat(precoValue) : null;
+                
+                const observacoesValue = observacoesColumnIndex !== -1 && row[observacoesColumnIndex]
+                  ? String(row[observacoesColumnIndex]).trim()
+                  : null;
+                
+                // Look for parent comments (e.g., for "1.2.1", look for "1.2")
+                let itemComment: string | null = null;
+                const parts = artigoCell.split('.');
+                if (parts.length > 2) {
+                  // For items like "1.2.1", check for parent "1.2"
+                  const parentArtigo = parts.slice(0, -1).join('.');
+                  itemComment = parentCommentsMap.get(parentArtigo) || null;
+                }
                 
                 itemsToInsert.push({
                   sheet_name: sheetName,
                   chapter_number: chapterNumber,
                   artigo: artigoCell,
                   descricao: descricaoCell,
-                  un: unValue,
-                  qt: isNaN(qtValue as number) ? null : qtValue,
+                  un: unValue || null,
+                  qt: (parsedQt !== null && !isNaN(parsedQt)) ? parsedQt : null,
+                  preco_unitario: (parsedPreco !== null && !isNaN(parsedPreco)) ? parsedPreco : null,
+                  item_comments: itemComment,
+                  observacoes_empreiteiro: observacoesValue || null,
                 });
+              }
+              // If it has ARTIGO but no QT/UN, it's a comment for child items (e.g., "1.2" for "1.2.1")
+              else {
+                // This is a parent item comment - store it for future child items
+                parentCommentsMap.set(artigoCell, descricaoCell);
               }
             }
           });
+          
+          // Save comments for the last chapter
+          if (currentChapterNumber && chapterComments.length > 0) {
+            const lastChapter = chaptersToInsert[chaptersToInsert.length - 1];
+            if (lastChapter && lastChapter.chapter_number === currentChapterNumber) {
+              lastChapter.chapter_comments = chapterComments.join('\n');
+            }
+          }
         }
       });
 
@@ -324,6 +408,7 @@ const MapaQuantidades = () => {
         tab_id: sheetNameToTabId.get(chapter.sheet_name!),
         chapter_number: chapter.chapter_number,
         chapter_name: chapter.chapter_name,
+        chapter_comments: chapter.chapter_comments || null,
       }));
 
       // Insert chapters into database
@@ -355,6 +440,9 @@ const MapaQuantidades = () => {
             descricao: item.descricao,
             un: item.un,
             qt: item.qt,
+            preco_unitario: item.preco_unitario,
+            item_comments: item.item_comments,
+            observacoes_empreiteiro: item.observacoes_empreiteiro,
           };
         }).filter(item => item.chapter_id); // Only include items with valid chapter_id
         
@@ -572,29 +660,47 @@ const MapaQuantidades = () => {
                         <h3 className="text-lg font-semibold">
                           {chapter.chapter_number}. {chapter.chapter_name}
                         </h3>
+                        {chapter.chapter_comments && (
+                          <p className="text-sm text-muted-foreground mt-2 whitespace-pre-line">
+                            {chapter.chapter_comments}
+                          </p>
+                        )}
                       </div>
                       <Table>
                         <TableHeader>
                           <TableRow>
                             <TableHead>Artigo</TableHead>
                             <TableHead>Descrição</TableHead>
-                            <TableHead>UN</TableHead>
-                            <TableHead className="text-right">QT</TableHead>
+                            <TableHead>Unit</TableHead>
+                            <TableHead className="text-right">Quantity</TableHead>
+                            <TableHead className="text-right">Unit Price</TableHead>
+                            <TableHead>Observações Empreiteiro</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
                           {itemsByChapter[chapter.id] && itemsByChapter[chapter.id].length > 0 ? (
                             itemsByChapter[chapter.id].map((item) => (
-                              <TableRow key={item.id}>
-                                <TableCell>{item.artigo}</TableCell>
-                                <TableCell>{item.descricao}</TableCell>
-                                <TableCell>{item.un || '-'}</TableCell>
-                                <TableCell className="text-right">{item.qt !== null ? item.qt : '-'}</TableCell>
-                              </TableRow>
+                              <>
+                                {item.item_comments && (
+                                  <TableRow key={`${item.id}-comment`} className="bg-muted/30">
+                                    <TableCell colSpan={6} className="text-sm italic text-muted-foreground whitespace-pre-line">
+                                      {item.item_comments}
+                                    </TableCell>
+                                  </TableRow>
+                                )}
+                                <TableRow key={item.id}>
+                                  <TableCell>{item.artigo}</TableCell>
+                                  <TableCell>{item.descricao}</TableCell>
+                                  <TableCell>{item.un || '-'}</TableCell>
+                                  <TableCell className="text-right">{item.qt !== null ? item.qt : '-'}</TableCell>
+                                  <TableCell className="text-right">{item.preco_unitario !== null ? item.preco_unitario : '-'}</TableCell>
+                                  <TableCell className="text-sm">{item.observacoes_empreiteiro || '-'}</TableCell>
+                                </TableRow>
+                              </>
                             ))
                           ) : (
                             <TableRow>
-                              <TableCell colSpan={4} className="text-center text-muted-foreground">
+                              <TableCell colSpan={6} className="text-center text-muted-foreground">
                                 No items yet
                               </TableCell>
                             </TableRow>
