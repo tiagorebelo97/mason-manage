@@ -289,7 +289,7 @@ const MapaQuantidades = () => {
         if (artigoColumnIndex !== -1 && descricaoColumnIndex !== -1) {
           let currentChapterNumber: string | null = null;
           let chapterComments: string[] = [];
-          const itemCommentsMap = new Map<string, string[]>();
+          const parentCommentsMap = new Map<string, string>();
           
           jsonData.forEach((row: unknown) => {
             if (!Array.isArray(row)) return;
@@ -350,8 +350,14 @@ const MapaQuantidades = () => {
                   ? String(row[observacoesColumnIndex]).trim()
                   : null;
                 
-                // Get accumulated comments for this item's parent
-                const itemComments = itemCommentsMap.get(artigoCell) || [];
+                // Look for parent comments (e.g., for "1.2.1", look for "1.2")
+                let itemComment: string | null = null;
+                const parts = artigoCell.split('.');
+                if (parts.length > 2) {
+                  // For items like "1.2.1", check for parent "1.2"
+                  const parentArtigo = parts.slice(0, -1).join('.');
+                  itemComment = parentCommentsMap.get(parentArtigo) || null;
+                }
                 
                 itemsToInsert.push({
                   sheet_name: sheetName,
@@ -361,25 +367,14 @@ const MapaQuantidades = () => {
                   un: unValue || null,
                   qt: (parsedQt !== null && !isNaN(parsedQt)) ? parsedQt : null,
                   preco_unitario: (parsedPreco !== null && !isNaN(parsedPreco)) ? parsedPreco : null,
-                  item_comments: itemComments.length > 0 ? itemComments.join('\n') : null,
+                  item_comments: itemComment,
                   observacoes_empreiteiro: observacoesValue || null,
                 });
               }
               // If it has ARTIGO but no QT/UN, it's a comment for child items (e.g., "1.2" for "1.2.1")
               else {
                 // This is a parent item comment - store it for future child items
-                if (!itemCommentsMap.has(artigoCell)) {
-                  itemCommentsMap.set(artigoCell, []);
-                }
-                itemCommentsMap.get(artigoCell)!.push(descricaoCell);
-                
-                // Also apply this comment to all items that start with this prefix + "."
-                // This will be applied when we encounter those items
-                for (const [itemArtigo, comments] of itemCommentsMap.entries()) {
-                  if (itemArtigo.startsWith(artigoCell + '.')) {
-                    comments.push(descricaoCell);
-                  }
-                }
+                parentCommentsMap.set(artigoCell, descricaoCell);
               }
             }
           });

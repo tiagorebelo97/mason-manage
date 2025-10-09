@@ -72,7 +72,7 @@ Rows **without ARTIGO** but **with DESCRIÇÃO** that appear after a chapter are
 ```
 
 #### Item Comments
-Rows **with ARTIGO** pattern (e.g., "1.2") but **without QT and UN** are treated as parent item comments for child items (e.g., "1.2.1", "1.2.2").
+Rows **with ARTIGO** pattern (e.g., "1.2") but **without QT and UN** are treated as parent item comments for direct child items (e.g., "1.2.1", "1.2.2").
 
 **Example:**
 ```
@@ -83,7 +83,9 @@ Rows **with ARTIGO** pattern (e.g., "1.2") but **without QT and UN** are treated
 | 1.2.2  | Pavimentos             | m2 | 30 | <- ITEM (receives comment from 1.2)
 ```
 
-The comment from "1.2" is stored in the `item_comments` field of items "1.2.1" and "1.2.2".
+The comment from "1.2" ("Demolições gerais") is stored in the `item_comments` field of items "1.2.1" and "1.2.2".
+
+**Note**: The algorithm looks for the immediate parent. For example, for item "1.2.1", it looks for "1.2". For "1.2.3.4", it would look for "1.2.3".
 
 ### 5. Data Extraction Improvements
 
@@ -157,9 +159,10 @@ Previously, QT values were not being extracted correctly. Now:
 ### Comment Association Algorithm
 
 The algorithm uses a map to track parent item comments:
-1. When a row with ARTIGO pattern but no QT/UN is encountered, it's stored in a map
-2. When a child item is encountered (e.g., "1.2.1"), the algorithm looks for parent comments ("1.2")
-3. Multiple levels of nesting are supported
+1. When a row with ARTIGO pattern but no QT/UN is encountered, it's stored in a map with the ARTIGO as the key
+2. When a child item is encountered (e.g., "1.2.1"), the algorithm extracts the parent ARTIGO ("1.2") and looks for it in the map
+3. The parent's DESCRIÇÃO is stored as the child item's `item_comments`
+4. This works for any level of nesting: "1.2.3.4" will look for parent "1.2.3"
 
 ### Null Handling
 
