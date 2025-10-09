@@ -355,20 +355,28 @@ const MapaQuantidades = () => {
                 const chapterNumber = artigoCell.split('.')[0];
                 
                 // Get all values
-                const unValue = unColumnIndex !== -1 && row[unColumnIndex] 
+                const unValue = unColumnIndex !== -1 && 
+                  typeof row[unColumnIndex] !== 'undefined' && 
+                  row[unColumnIndex] !== null
                   ? String(row[unColumnIndex]).trim() 
                   : null;
-                const qtValue = qtColumnIndex !== -1 && row[qtColumnIndex] 
+                const qtValue = qtColumnIndex !== -1 && 
+                  typeof row[qtColumnIndex] !== 'undefined' && 
+                  row[qtColumnIndex] !== null
                   ? String(row[qtColumnIndex]).trim()
                   : null;
                 const parsedQt = qtValue ? parseFloat(qtValue) : null;
                 
-                const precoValue = precoUnitarioColumnIndex !== -1 && row[precoUnitarioColumnIndex]
+                const precoValue = precoUnitarioColumnIndex !== -1 && 
+                  typeof row[precoUnitarioColumnIndex] !== 'undefined' && 
+                  row[precoUnitarioColumnIndex] !== null
                   ? String(row[precoUnitarioColumnIndex]).trim()
                   : null;
                 const parsedPreco = precoValue ? parseFloat(precoValue) : null;
                 
-                const observacoesValue = observacoesColumnIndex !== -1 && row[observacoesColumnIndex]
+                const observacoesValue = observacoesColumnIndex !== -1 && 
+                  typeof row[observacoesColumnIndex] !== 'undefined' && 
+                  row[observacoesColumnIndex] !== null
                   ? String(row[observacoesColumnIndex]).trim()
                   : null;
                 
