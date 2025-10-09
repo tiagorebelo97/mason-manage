@@ -3,11 +3,14 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Upload, FileSpreadsheet, Loader2, Trash2, MessageSquare, ChevronDown, ImagePlus, ImageIcon, Download } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
+import { ArrowLeft, Upload, FileSpreadsheet, Loader2, Trash2, MessageSquare, ChevronDown, ImagePlus, ImageIcon, Download, Tag } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
 import ExcelJS from "exceljs";
+import { MultiSelect } from "@/components/ui/multi-select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Table,
@@ -92,10 +95,14 @@ type OrcamentoItem = {
 const MapaQuantidades = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [editingChapterSpecialities, setEditingChapterSpecialities] = useState<{ chapterId: string; chapterName: string } | null>(null);
+  const [editingItemSpecialities, setEditingItemSpecialities] = useState<{ itemId: string; itemName: string } | null>(null);
+  const [selectedSpecialities, setSelectedSpecialities] = useState<string[]>([]);
+  const [cascadeToItems, setCascadeToItems] = useState(false);
 
   const { data: orcamento } = useQuery({
     queryKey: ["orcamento", id, import.meta.env.VITE_SUPABASE_URL],
@@ -162,6 +169,47 @@ const MapaQuantidades = () => {
       return data as OrcamentoItem[];
     },
     enabled: !!id && chapters && chapters.length > 0,
+  });
+
+  const { data: specialities } = useQuery({
+    queryKey: ["specialities", import.meta.env.VITE_SUPABASE_URL],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("specialities")
+        .select("*");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const { data: chapterSpecialities } = useQuery({
+    queryKey: ["chapter_specialities", id, import.meta.env.VITE_SUPABASE_URL],
+    queryFn: async () => {
+      if (!chapters) return [];
+      const chapterIds = chapters.map(c => c.id);
+      const { data, error } = await supabase
+        .from("chapter_specialities")
+        .select("*")
+        .in("chapter_id", chapterIds);
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!chapters && chapters.length > 0,
+  });
+
+  const { data: itemSpecialities } = useQuery({
+    queryKey: ["item_specialities", id, import.meta.env.VITE_SUPABASE_URL],
+    queryFn: async () => {
+      if (!items) return [];
+      const itemIds = items.map(i => i.id);
+      const { data, error } = await supabase
+        .from("item_specialities")
+        .select("*")
+        .in("item_id", itemIds);
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!items && items.length > 0,
   });
 
   const uploadMutation = useMutation({
@@ -781,6 +829,92 @@ const MapaQuantidades = () => {
     },
   });
 
+  const updateChapterSpecialitiesMutation = useMutation({
+    mutationFn: async ({ chapterId, specialityIds, cascadeToItems }: { chapterId: string; specialityIds: string[]; cascadeToItems: boolean }) => {
+      // Delete existing chapter specialities
+      const { error: deleteError } = await supabase
+        .from("chapter_specialities")
+        .delete()
+        .eq("chapter_id", chapterId);
+      if (deleteError) throw deleteError;
+
+      // Insert new chapter specialities
+      if (specialityIds.length > 0) {
+        const specialityInserts = specialityIds.map(speciality_id => ({
+          chapter_id: chapterId,
+          speciality_id,
+        }));
+        const { error: insertError } = await supabase
+          .from("chapter_specialities")
+          .insert(specialityInserts);
+        if (insertError) throw insertError;
+      }
+
+      // If cascade is enabled, update all items in this chapter
+      if (cascadeToItems) {
+        const chapterItems = items?.filter(item => item.chapter_id === chapterId) || [];
+        for (const item of chapterItems) {
+          // Delete existing item specialities
+          const { error: deleteItemError } = await supabase
+            .from("item_specialities")
+            .delete()
+            .eq("item_id", item.id);
+          if (deleteItemError) throw deleteItemError;
+
+          // Insert new item specialities
+          if (specialityIds.length > 0) {
+            const itemSpecialityInserts = specialityIds.map(speciality_id => ({
+              item_id: item.id,
+              speciality_id,
+            }));
+            const { error: insertItemError } = await supabase
+              .from("item_specialities")
+              .insert(itemSpecialityInserts);
+            if (insertItemError) throw insertItemError;
+          }
+        }
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["chapter_specialities", id, import.meta.env.VITE_SUPABASE_URL] });
+      queryClient.invalidateQueries({ queryKey: ["item_specialities", id, import.meta.env.VITE_SUPABASE_URL] });
+      toast.success(t('orcamento.specialitiesUpdated') || 'Specialities updated successfully');
+    },
+    onError: () => {
+      toast.error(t('orcamento.specialitiesUpdateError') || 'Failed to update specialities');
+    },
+  });
+
+  const updateItemSpecialitiesMutation = useMutation({
+    mutationFn: async ({ itemId, specialityIds }: { itemId: string; specialityIds: string[] }) => {
+      // Delete existing item specialities
+      const { error: deleteError } = await supabase
+        .from("item_specialities")
+        .delete()
+        .eq("item_id", itemId);
+      if (deleteError) throw deleteError;
+
+      // Insert new item specialities
+      if (specialityIds.length > 0) {
+        const specialityInserts = specialityIds.map(speciality_id => ({
+          item_id: itemId,
+          speciality_id,
+        }));
+        const { error: insertError } = await supabase
+          .from("item_specialities")
+          .insert(specialityInserts);
+        if (insertError) throw insertError;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["item_specialities", id, import.meta.env.VITE_SUPABASE_URL] });
+      toast.success(t('orcamento.specialitiesUpdated') || 'Specialities updated successfully');
+    },
+    onError: () => {
+      toast.error(t('orcamento.specialitiesUpdateError') || 'Failed to update specialities');
+    },
+  });
+
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
@@ -885,6 +1019,67 @@ const MapaQuantidades = () => {
     // Write file
     XLSX.writeFile(workbook, fileName);
     toast.success(t('orcamento.exportSuccess') || 'File exported successfully');
+  };
+
+  const handleEditChapterSpecialities = (chapterId: string, chapterName: string) => {
+    const chapterSpec = chapterSpecialities?.filter(cs => cs.chapter_id === chapterId).map(cs => cs.speciality_id) || [];
+    setSelectedSpecialities(chapterSpec);
+    setCascadeToItems(false);
+    setEditingChapterSpecialities({ chapterId, chapterName });
+  };
+
+  const handleEditItemSpecialities = (itemId: string, itemName: string) => {
+    const itemSpec = itemSpecialities?.filter(is => is.item_id === itemId).map(is => is.speciality_id) || [];
+    setSelectedSpecialities(itemSpec);
+    setEditingItemSpecialities({ itemId, itemName });
+  };
+
+  const handleSaveChapterSpecialities = () => {
+    if (editingChapterSpecialities) {
+      updateChapterSpecialitiesMutation.mutate({
+        chapterId: editingChapterSpecialities.chapterId,
+        specialityIds: selectedSpecialities,
+        cascadeToItems,
+      });
+      setEditingChapterSpecialities(null);
+      setSelectedSpecialities([]);
+      setCascadeToItems(false);
+    }
+  };
+
+  const handleSaveItemSpecialities = () => {
+    if (editingItemSpecialities) {
+      updateItemSpecialitiesMutation.mutate({
+        itemId: editingItemSpecialities.itemId,
+        specialityIds: selectedSpecialities,
+      });
+      setEditingItemSpecialities(null);
+      setSelectedSpecialities([]);
+    }
+  };
+
+  const getChapterSpecialitiesDisplay = (chapterId: string) => {
+    const specs = chapterSpecialities?.filter(cs => cs.chapter_id === chapterId) || [];
+    if (specs.length === 0) return null;
+    const specNames = specs
+      .map(cs => {
+        const spec = specialities?.find(s => s.id === cs.speciality_id);
+        return spec ? (language === 'pt' ? spec.name_pt : spec.name_en) : null;
+      })
+      .filter(Boolean);
+    return specNames.join(', ');
+  };
+
+  const getItemSpecialitiesDisplay = (itemId: string) => {
+    const specs = itemSpecialities?.filter(is => is.item_id === itemId) || [];
+    if (specs.length === 0) return null;
+    const specNames = specs
+      .map(is => {
+        const spec = specialities?.find(s => s.id === is.speciality_id);
+        return spec ? (language === 'pt' ? spec.name_pt : spec.name_en) : null;
+      })
+      .filter(Boolean);
+    return specNames.join(', ');
   };
 
   const currentFile = files && files.length > 0 ? files[0] : null;
@@ -1079,6 +1274,26 @@ const MapaQuantidades = () => {
                               </Dialog>
                             </>
                           )}
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button 
+                                  variant="ghost" 
+                                  size="icon" 
+                                  className="h-8 w-8"
+                                  onClick={() => handleEditChapterSpecialities(chapter.id, `${chapter.chapter_number}. ${cleanChapterName(chapter.chapter_name)}`)}
+                                >
+                                  <Tag className="h-4 w-4 text-muted-foreground hover:text-foreground" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent side="top" className="max-w-xs">
+                                <div className="space-y-1">
+                                  <p className="text-xs font-semibold">Specialities</p>
+                                  <p className="text-xs">{getChapterSpecialitiesDisplay(chapter.id) || 'No specialities assigned'}</p>
+                                </div>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
                         </div>
                       </div>
                       <CollapsibleContent>
@@ -1090,6 +1305,7 @@ const MapaQuantidades = () => {
                               <TableHead>{t('orcamento.unit')}</TableHead>
                               <TableHead className="text-right">{t('orcamento.quantity')}</TableHead>
                               <TableHead>{t('orcamento.observacoesEmpreiteiro')}</TableHead>
+                              <TableHead className="w-12"></TableHead>
                               <TableHead className="w-12"></TableHead>
                             </TableRow>
                           </TableHeader>
@@ -1179,11 +1395,33 @@ const MapaQuantidades = () => {
                                       </Dialog>
                                     )}
                                   </TableCell>
+                                  <TableCell>
+                                    <TooltipProvider>
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <Button 
+                                            variant="ghost" 
+                                            size="icon" 
+                                            className="h-8 w-8"
+                                            onClick={() => handleEditItemSpecialities(item.id, `${item.artigo} - ${item.descricao}`)}
+                                          >
+                                            <Tag className="h-4 w-4 text-muted-foreground hover:text-foreground" />
+                                          </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent side="top" className="max-w-xs">
+                                          <div className="space-y-1">
+                                            <p className="text-xs font-semibold">Specialities</p>
+                                            <p className="text-xs">{getItemSpecialitiesDisplay(item.id) || 'No specialities assigned'}</p>
+                                          </div>
+                                        </TooltipContent>
+                                      </Tooltip>
+                                    </TooltipProvider>
+                                  </TableCell>
                                 </TableRow>
                               ))
                             ) : (
                               <TableRow>
-                                <TableCell colSpan={6} className="text-center text-muted-foreground">
+                                <TableCell colSpan={7} className="text-center text-muted-foreground">
                                   No items yet
                                 </TableCell>
                               </TableRow>
@@ -1200,6 +1438,104 @@ const MapaQuantidades = () => {
           )}
         </div>
       )}
+
+      {/* Chapter Specialities Dialog */}
+      <Dialog open={!!editingChapterSpecialities} onOpenChange={(open) => !open && setEditingChapterSpecialities(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit Chapter Specialities</DialogTitle>
+            <DialogDescription>
+              {editingChapterSpecialities?.chapterName}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Specialities</Label>
+              <MultiSelect
+                options={
+                  specialities?.map((speciality) => ({
+                    label: language === 'pt' ? speciality.name_pt : speciality.name_en,
+                    value: speciality.id,
+                  })) || []
+                }
+                selected={selectedSpecialities}
+                onChange={setSelectedSpecialities}
+                placeholder="Select specialities..."
+                emptyText="No specialities found."
+              />
+            </div>
+            <div className="flex items-center space-x-2">
+              <Checkbox 
+                id="cascade" 
+                checked={cascadeToItems}
+                onCheckedChange={(checked) => setCascadeToItems(checked === true)}
+              />
+              <Label htmlFor="cascade" className="text-sm font-normal cursor-pointer">
+                Apply to all items in this chapter
+              </Label>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setEditingChapterSpecialities(null)}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleSaveChapterSpecialities}
+                disabled={updateChapterSpecialitiesMutation.isPending}
+              >
+                {updateChapterSpecialitiesMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Save
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Item Specialities Dialog */}
+      <Dialog open={!!editingItemSpecialities} onOpenChange={(open) => !open && setEditingItemSpecialities(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit Item Specialities</DialogTitle>
+            <DialogDescription>
+              {editingItemSpecialities?.itemName}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Specialities</Label>
+              <MultiSelect
+                options={
+                  specialities?.map((speciality) => ({
+                    label: language === 'pt' ? speciality.name_pt : speciality.name_en,
+                    value: speciality.id,
+                  })) || []
+                }
+                selected={selectedSpecialities}
+                onChange={setSelectedSpecialities}
+                placeholder="Select specialities..."
+                emptyText="No specialities found."
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setEditingItemSpecialities(null)}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleSaveItemSpecialities}
+                disabled={updateItemSpecialitiesMutation.isPending}
+              >
+                {updateItemSpecialitiesMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Save
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
