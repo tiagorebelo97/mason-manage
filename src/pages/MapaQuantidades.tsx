@@ -90,6 +90,7 @@ type OrcamentoItem = {
   item_comments: string | null;
   observacoes_empreiteiro: string | null;
   observacoes_image_url: string | null;
+  specialities_explicitly_set?: boolean;
 };
 
 type Speciality = {
@@ -950,9 +951,18 @@ const MapaQuantidades = () => {
         
         if (insertError) throw insertError;
       }
+      
+      // Update the flag to indicate specialities were explicitly set
+      const { error: updateError } = await supabase
+        .from('orcamento_items')
+        .update({ specialities_explicitly_set: true })
+        .eq('id', itemId);
+      
+      if (updateError) throw updateError;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["item_specialities", id, import.meta.env.VITE_SUPABASE_URL] });
+      queryClient.invalidateQueries({ queryKey: ["orcamento_items", id, import.meta.env.VITE_SUPABASE_URL] });
       toast.success('Item specialities updated successfully');
     },
     onError: () => {
@@ -1020,9 +1030,18 @@ const MapaQuantidades = () => {
     if (!itemSpecialities) return [];
     const itemSpecs = itemSpecialities.filter(is => is.item_id === itemId);
     
+    // Check if specialities were explicitly set for this item
+    const item = items?.find(i => i.id === itemId);
+    const explicitlySet = item?.specialities_explicitly_set === true;
+    
     // If item has its own specialities, return them
     if (itemSpecs.length > 0) {
       return itemSpecs.map(is => is.speciality_id);
+    }
+    
+    // If specialities were explicitly set to empty, return empty (don't inherit)
+    if (explicitlySet) {
+      return [];
     }
     
     // Otherwise, inherit from chapter if chapterId is provided
