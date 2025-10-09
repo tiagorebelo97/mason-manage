@@ -1,9 +1,24 @@
-# Specialities Display and Selection Fixes
+# Specialities Display and Selection - Implementation History
 
-## Overview
-This document describes the fixes applied to the specialities feature for items in the MapaQuantidades page.
+## Latest Changes (Current)
+See [SPECIALITIES_UI_CHANGES.md](SPECIALITIES_UI_CHANGES.md) for the current implementation.
 
-## Issues Fixed
+**Summary of Latest Updates:**
+- Removed differentiation between chapter and item specialities
+- Dialog now shows all specialities (including inherited) as selected
+- Added X buttons to badges for inline removal
+- Changed edit button to outlined style with "Edit" text
+
+---
+
+## Previous Implementation (Historical)
+
+This document describes the previous implementation that has now been superseded.
+
+## Overview (Previous Version)
+This document describes the fixes that were previously applied to the specialities feature for items in the MapaQuantidades page.
+
+## Issues Fixed (Previous Version)
 
 ### Issue 1: Display Specialities as Tags
 **Problem**: Items were showing only a count button (e.g., "2 (inherited)") instead of displaying the actual speciality names as tags.
