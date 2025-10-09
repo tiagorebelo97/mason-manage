@@ -58,7 +58,6 @@ const personContactSchema = z.object({
   // Contact fields
   email: z.string().email("Invalid email").optional().or(z.literal("")),
   country_code: z.string().max(10).optional(),
-  website: z.string().max(500).optional(),
   mobile: z.string().max(50).optional(),
   fax: z.string().max(50).optional(),
 });
@@ -87,7 +86,6 @@ export const PersonContactDialog = ({ open, onOpenChange, person, preselectedCom
       company_id: preselectedCompanyId || "none",
       email: "",
       country_code: "+351",
-      website: "",
       mobile: "",
       fax: "",
     },
@@ -120,7 +118,6 @@ export const PersonContactDialog = ({ open, onOpenChange, person, preselectedCom
         company_id: person.company_id || "none",
         email: contact?.email || "",
         country_code: contact?.country_code || "+351",
-        website: contact?.website || "",
         mobile: contact?.mobile || "",
         fax: contact?.fax || "",
       });
@@ -134,7 +131,6 @@ export const PersonContactDialog = ({ open, onOpenChange, person, preselectedCom
         company_id: preselectedCompanyId || "none",
         email: "",
         country_code: "+351",
-        website: "",
         mobile: "",
         fax: "",
       });
@@ -161,7 +157,6 @@ export const PersonContactDialog = ({ open, onOpenChange, person, preselectedCom
           person_id: person.id,
           email: emails.filter(e => e.trim()).join(', ') || null,
           country_code: data.country_code || null,
-          website: data.website || null,
           mobile: mobiles.filter(m => m.trim()).join(', ') || null,
           fax: faxes.filter(f => f.trim()).join(', ') || null,
         };
@@ -201,7 +196,6 @@ export const PersonContactDialog = ({ open, onOpenChange, person, preselectedCom
           person_id: newPerson.id,
           email: emails.filter(e => e.trim()).join(', ') || null,
           country_code: data.country_code || null,
-          website: data.website || null,
           mobile: mobiles.filter(m => m.trim()).join(', ') || null,
           fax: faxes.filter(f => f.trim()).join(', ') || null,
         };
@@ -369,7 +363,7 @@ export const PersonContactDialog = ({ open, onOpenChange, person, preselectedCom
                     <div className="space-y-2">
                       {mobiles.map((mobile, index) => (
                         <div key={index} className="flex gap-2">
-                          <div className={index === 0 ? "grid grid-cols-[1fr_150px] gap-2 flex-1" : "flex-1"}>
+                          <div className="grid grid-cols-[1fr_150px] gap-2 flex-1">
                             <Input
                               value={mobile}
                               onChange={(e) => {
@@ -379,37 +373,35 @@ export const PersonContactDialog = ({ open, onOpenChange, person, preselectedCom
                               }}
                               placeholder={t('contact.mobile') || 'Mobile'}
                             />
-                            {index === 0 && (
-                              <FormField
-                                control={form.control}
-                                name="country_code"
-                                render={({ field }) => (
-                                  <Select 
-                                    onValueChange={field.onChange} 
-                                    value={field.value}
-                                  >
-                                    <FormControl>
-                                      <SelectTrigger>
-                                        <SelectValue placeholder="+351" />
-                                      </SelectTrigger>
-                                    </FormControl>
-                                    <SelectContent className="max-h-[300px]">
-                                      {countryCodes.map((country) => (
-                                        <SelectItem key={country.code} value={country.code}>
-                                          <div className="flex items-center gap-2">
-                                            <span className="text-lg">{country.flag}</span>
-                                            <span>{country.code}</span>
-                                            <span className="text-xs text-muted-foreground">
-                                              {language === 'pt' ? country.countryPt : country.country}
-                                            </span>
-                                          </div>
-                                        </SelectItem>
-                                      ))}
-                                    </SelectContent>
-                                  </Select>
-                                )}
-                              />
-                            )}
+                            <FormField
+                              control={form.control}
+                              name="country_code"
+                              render={({ field }) => (
+                                <Select 
+                                  onValueChange={field.onChange} 
+                                  value={field.value}
+                                >
+                                  <FormControl>
+                                    <SelectTrigger>
+                                      <SelectValue placeholder="+351" />
+                                    </SelectTrigger>
+                                  </FormControl>
+                                  <SelectContent className="max-h-[300px]">
+                                    {countryCodes.map((country) => (
+                                      <SelectItem key={country.code} value={country.code}>
+                                        <div className="flex items-center gap-2">
+                                          <span className="text-lg">{country.flag}</span>
+                                          <span>{country.code}</span>
+                                          <span className="text-xs text-muted-foreground">
+                                            {language === 'pt' ? country.countryPt : country.country}
+                                          </span>
+                                        </div>
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              )}
+                            />
                           </div>
                           {mobiles.length > 1 && (
                             <Button
@@ -486,20 +478,6 @@ export const PersonContactDialog = ({ open, onOpenChange, person, preselectedCom
                         {t('contact.addFax') || 'Add Fax'}
                       </Button>
                     </div>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="website"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>{t('contact.website') || 'Website'}</FormLabel>
-                    <FormControl>
-                      <Input {...field} />
-                    </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
