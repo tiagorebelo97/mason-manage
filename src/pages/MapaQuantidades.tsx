@@ -39,6 +39,15 @@ type OrcamentoChapter = {
   chapter_name: string;
 };
 
+type OrcamentoItem = {
+  id: string;
+  chapter_id: string;
+  artigo: string;
+  descricao: string;
+  un: string | null;
+  qt: number | null;
+};
+
 const MapaQuantidades = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -99,6 +108,19 @@ const MapaQuantidades = () => {
       return data as OrcamentoChapter[];
     },
     enabled: !!id && tabs && tabs.length > 0,
+  });
+
+  const { data: items } = useQuery({
+    queryKey: ["orcamento_items", id, import.meta.env.VITE_SUPABASE_URL],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("orcamento_items")
+        .select("*")
+        .order("artigo");
+      if (error) throw error;
+      return data as OrcamentoItem[];
+    },
+    enabled: !!id && chapters && chapters.length > 0,
   });
 
   const uploadMutation = useMutation({
@@ -185,6 +207,15 @@ const MapaQuantidades = () => {
         chapter_name: string;
       }> = [];
 
+      const itemsToInsert: Array<{
+        sheet_name?: string;
+        chapter_number?: string;
+        artigo: string;
+        descricao: string;
+        un: string | null;
+        qt: number | null;
+      }> = [];
+
       // Process each sheet and create tabs
       workbook.SheetNames.forEach((sheetName, index) => {
         tabsToInsert.push({
@@ -200,6 +231,8 @@ const MapaQuantidades = () => {
         // This searches dynamically for these columns regardless of their position in the Excel sheet
         let artigoColumnIndex = -1;
         let descricaoColumnIndex = -1;
+        let unColumnIndex = -1;
+        let qtColumnIndex = -1;
         
         for (let i = 0; i < jsonData.length; i++) {
           const row = jsonData[i];
@@ -213,8 +246,14 @@ const MapaQuantidades = () => {
                   cellValue === "DESCRICAO" || cellValue.includes("DESCRICAO")) {
                 descricaoColumnIndex = j;
               }
+              if (cellValue === "UN" || cellValue.includes("UN")) {
+                unColumnIndex = j;
+              }
+              if (cellValue === "QT" || cellValue.includes("QT")) {
+                qtColumnIndex = j;
+              }
             }
-            // If we found both columns, stop searching
+            // If we found both required columns, stop searching
             if (artigoColumnIndex !== -1 && descricaoColumnIndex !== -1) {
               break;
             }
@@ -224,16 +263,41 @@ const MapaQuantidades = () => {
         // Find chapters (rows where ARTIGO column has a number without a dot)
         // A chapter is identified by a pure number (e.g., "1", "2") in the ARTIGO column
         // Sub-items with dots (e.g., "1.1", "2.3") are NOT considered chapters
+        // Items are rows where ARTIGO contains a number with a dot
         if (artigoColumnIndex !== -1 && descricaoColumnIndex !== -1) {
           jsonData.forEach((row: unknown) => {
             if (Array.isArray(row) && row[artigoColumnIndex]) {
               const artigoCell = String(row[artigoColumnIndex]).trim();
+              const descricaoCell = row[descricaoColumnIndex] ? String(row[descricaoColumnIndex]).trim() : "";
+              
               // Check if it's a number without a dot (chapter identifier)
-              if (/^\d+$/.test(artigoCell) && row[descricaoColumnIndex]) {
+              if (/^\d+$/.test(artigoCell) && descricaoCell) {
                 chaptersToInsert.push({
                   sheet_name: sheetName, // Temporary, will be replaced with tab_id
                   chapter_number: artigoCell,
-                  chapter_name: String(row[descricaoColumnIndex]),
+                  chapter_name: descricaoCell,
+                });
+              }
+              // Check if it's a number with a dot (item identifier like "1.1", "2.3")
+              else if (/^\d+\.\d+/.test(artigoCell) && descricaoCell) {
+                // Extract the chapter number (the number before the dot)
+                const chapterNumber = artigoCell.split('.')[0];
+                
+                // Get UN and QT values if columns were found
+                const unValue = unColumnIndex !== -1 && row[unColumnIndex] 
+                  ? String(row[unColumnIndex]).trim() 
+                  : null;
+                const qtValue = qtColumnIndex !== -1 && row[qtColumnIndex] 
+                  ? parseFloat(String(row[qtColumnIndex]).trim())
+                  : null;
+                
+                itemsToInsert.push({
+                  sheet_name: sheetName,
+                  chapter_number: chapterNumber,
+                  artigo: artigoCell,
+                  descricao: descricaoCell,
+                  un: unValue,
+                  qt: isNaN(qtValue as number) ? null : qtValue,
                 });
               }
             }
@@ -264,10 +328,43 @@ const MapaQuantidades = () => {
 
       // Insert chapters into database
       if (chaptersWithTabIds.length > 0) {
-        const { error: chapterError } = await supabase
+        const { data: insertedChapters, error: chapterError } = await supabase
           .from("orcamento_chapters")
-          .insert(chaptersWithTabIds);
+          .insert(chaptersWithTabIds)
+          .select();
         if (chapterError) throw chapterError;
+        
+        // Create a map of (sheet_name + chapter_number) to chapter IDs
+        const chapterMap = new Map<string, string>();
+        insertedChapters.forEach(chapter => {
+          // Find the corresponding tab to get sheet name
+          const tab = insertedTabs.find(t => t.id === chapter.tab_id);
+          if (tab) {
+            const key = `${tab.name}_${chapter.chapter_number}`;
+            chapterMap.set(key, chapter.id);
+          }
+        });
+        
+        // Update items with chapter IDs
+        const itemsWithChapterIds = itemsToInsert.map(item => {
+          const key = `${item.sheet_name}_${item.chapter_number}`;
+          const chapterId = chapterMap.get(key);
+          return {
+            chapter_id: chapterId,
+            artigo: item.artigo,
+            descricao: item.descricao,
+            un: item.un,
+            qt: item.qt,
+          };
+        }).filter(item => item.chapter_id); // Only include items with valid chapter_id
+        
+        // Insert items into database
+        if (itemsWithChapterIds.length > 0) {
+          const { error: itemError } = await supabase
+            .from("orcamento_items")
+            .insert(itemsWithChapterIds);
+          if (itemError) throw itemError;
+        }
       }
 
       // Mark file as analyzed
@@ -282,6 +379,7 @@ const MapaQuantidades = () => {
       queryClient.invalidateQueries({ queryKey: ["orcamento_files", id, import.meta.env.VITE_SUPABASE_URL] });
       queryClient.invalidateQueries({ queryKey: ["orcamento_tabs", id, import.meta.env.VITE_SUPABASE_URL] });
       queryClient.invalidateQueries({ queryKey: ["orcamento_chapters", id, import.meta.env.VITE_SUPABASE_URL] });
+      queryClient.invalidateQueries({ queryKey: ["orcamento_items", id, import.meta.env.VITE_SUPABASE_URL] });
       toast.success(t('orcamento.analyzeSuccess'));
     },
     onError: () => {
@@ -336,6 +434,7 @@ const MapaQuantidades = () => {
       queryClient.invalidateQueries({ queryKey: ["orcamento_files", id, import.meta.env.VITE_SUPABASE_URL] });
       queryClient.invalidateQueries({ queryKey: ["orcamento_tabs", id, import.meta.env.VITE_SUPABASE_URL] });
       queryClient.invalidateQueries({ queryKey: ["orcamento_chapters", id, import.meta.env.VITE_SUPABASE_URL] });
+      queryClient.invalidateQueries({ queryKey: ["orcamento_items", id, import.meta.env.VITE_SUPABASE_URL] });
       toast.success(t('orcamento.deleteSuccess') || 'File deleted successfully');
     },
     onError: () => {
@@ -375,6 +474,15 @@ const MapaQuantidades = () => {
     acc[chapter.tab_id].push(chapter);
     return acc;
   }, {} as Record<string, OrcamentoChapter[]>) || {};
+
+  // Group items by chapter
+  const itemsByChapter = items?.reduce((acc, item) => {
+    if (!acc[item.chapter_id]) {
+      acc[item.chapter_id] = [];
+    }
+    acc[item.chapter_id].push(item);
+    return acc;
+  }, {} as Record<string, OrcamentoItem[]>) || {};
 
   return (
     <div className="container mx-auto py-8">
@@ -468,19 +576,29 @@ const MapaQuantidades = () => {
                       <Table>
                         <TableHeader>
                           <TableRow>
-                            <TableHead>Item</TableHead>
-                            <TableHead>Description</TableHead>
-                            <TableHead className="text-right">Quantity</TableHead>
-                            <TableHead className="text-right">Unit Price</TableHead>
-                            <TableHead className="text-right">Total</TableHead>
+                            <TableHead>Artigo</TableHead>
+                            <TableHead>Descrição</TableHead>
+                            <TableHead>UN</TableHead>
+                            <TableHead className="text-right">QT</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          <TableRow>
-                            <TableCell colSpan={5} className="text-center text-muted-foreground">
-                              No items yet
-                            </TableCell>
-                          </TableRow>
+                          {itemsByChapter[chapter.id] && itemsByChapter[chapter.id].length > 0 ? (
+                            itemsByChapter[chapter.id].map((item) => (
+                              <TableRow key={item.id}>
+                                <TableCell>{item.artigo}</TableCell>
+                                <TableCell>{item.descricao}</TableCell>
+                                <TableCell>{item.un || '-'}</TableCell>
+                                <TableCell className="text-right">{item.qt !== null ? item.qt : '-'}</TableCell>
+                              </TableRow>
+                            ))
+                          ) : (
+                            <TableRow>
+                              <TableCell colSpan={4} className="text-center text-muted-foreground">
+                                No items yet
+                              </TableCell>
+                            </TableRow>
+                          )}
                         </TableBody>
                       </Table>
                     </div>
