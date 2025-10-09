@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Upload, FileSpreadsheet, Loader2 } from "lucide-react";
+import { ArrowLeft, Upload, FileSpreadsheet, Loader2, Trash2 } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
@@ -86,15 +86,32 @@ const MapaQuantidades = () => {
 
   const uploadMutation = useMutation({
     mutationFn: async (file: File) => {
-      // In a real application, you would upload the file to storage
-      // For now, we'll just store the file name and a placeholder URL
+      // Upload file to Supabase storage
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${id}/${Date.now()}.${fileExt}`;
+      
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('orcamento-files')
+        .upload(fileName, file, {
+          cacheControl: '3600',
+          upsert: false
+        });
+
+      if (uploadError) throw uploadError;
+
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('orcamento-files')
+        .getPublicUrl(fileName);
+
+      // Store file metadata in database
       const { data, error } = await supabase
         .from("orcamento_files")
         .insert([
           {
             orcamento_id: id,
             file_name: file.name,
-            file_url: `placeholder_url_${file.name}`, // This should be replaced with actual storage URL
+            file_url: publicUrl,
             analyzed: false,
           },
         ])
@@ -176,6 +193,59 @@ const MapaQuantidades = () => {
     },
   });
 
+  const deleteMutation = useMutation({
+    mutationFn: async (fileId: string) => {
+      // Get file info first to delete from storage
+      const { data: fileData, error: fileQueryError } = await supabase
+        .from("orcamento_files")
+        .select("file_url")
+        .eq("id", fileId)
+        .single();
+      if (fileQueryError) throw fileQueryError;
+
+      // Extract file path from URL if it's not a placeholder
+      if (fileData.file_url && !fileData.file_url.startsWith('placeholder_')) {
+        try {
+          // Extract the path from the public URL
+          const urlParts = fileData.file_url.split('/orcamento-files/');
+          if (urlParts.length > 1) {
+            const filePath = urlParts[1];
+            const { error: storageError } = await supabase.storage
+              .from('orcamento-files')
+              .remove([filePath]);
+            // Don't throw on storage error, just log it
+            if (storageError) console.error('Storage deletion error:', storageError);
+          }
+        } catch (e) {
+          console.error('Error deleting from storage:', e);
+        }
+      }
+
+      // Delete associated chapters first
+      const { error: chaptersError } = await supabase
+        .from("orcamento_chapters")
+        .delete()
+        .eq("orcamento_id", id);
+      if (chaptersError) throw chaptersError;
+
+      // Delete the file record
+      const { error: fileError } = await supabase
+        .from("orcamento_files")
+        .delete()
+        .eq("id", fileId);
+      if (fileError) throw fileError;
+    },
+    onSuccess: () => {
+      setUploadedFile(null);
+      queryClient.invalidateQueries({ queryKey: ["orcamento_files", id, import.meta.env.VITE_SUPABASE_URL] });
+      queryClient.invalidateQueries({ queryKey: ["orcamento_chapters", id, import.meta.env.VITE_SUPABASE_URL] });
+      toast.success(t('orcamento.deleteSuccess') || 'File deleted successfully');
+    },
+    onError: () => {
+      toast.error(t('orcamento.deleteError') || 'Failed to delete file');
+    },
+  });
+
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
@@ -187,6 +257,12 @@ const MapaQuantidades = () => {
     if (uploadedFile) {
       setIsAnalyzing(true);
       analyzeMutation.mutate(uploadedFile);
+    }
+  };
+
+  const handleDeleteFile = () => {
+    if (currentFile) {
+      deleteMutation.mutate(currentFile.id);
     }
   };
 
@@ -253,15 +329,25 @@ const MapaQuantidades = () => {
                 </p>
               </div>
             </div>
-            {!isAnalyzed && (
+            <div className="flex gap-2">
+              {!isAnalyzed && (
+                <Button
+                  onClick={handleAnalyze}
+                  disabled={isAnalyzing}
+                >
+                  {isAnalyzing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  {isAnalyzing ? t('orcamento.analyzing') : t('orcamento.analyze')}
+                </Button>
+              )}
               <Button
-                onClick={handleAnalyze}
-                disabled={isAnalyzing}
+                variant="destructive"
+                size="icon"
+                onClick={handleDeleteFile}
+                disabled={deleteMutation.isPending}
               >
-                {isAnalyzing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {isAnalyzing ? t('orcamento.analyzing') : t('orcamento.analyze')}
+                <Trash2 className="h-4 w-4" />
               </Button>
-            )}
+            </div>
           </div>
 
           {isAnalyzed && chapters && chapters.length > 0 && (

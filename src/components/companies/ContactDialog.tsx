@@ -401,6 +401,16 @@ export const ContactDialog = ({ open, onOpenChange, contact, readOnly = false }:
                     </FormItem>
                   )}
                 />
+                {contact && readOnly && contact.people?.companies?.name && (
+                  <div className="space-y-2">
+                    <FormLabel>{t('person.company') || 'Company'}</FormLabel>
+                    <div>
+                      <Badge variant="secondary" className="text-xs">
+                        {contact.people.companies.name}
+                      </Badge>
+                    </div>
+                  </div>
+                )}
                 {contact && !readOnly && (
                   <FormField
                     control={form.control}

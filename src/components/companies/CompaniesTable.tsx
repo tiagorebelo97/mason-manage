@@ -57,7 +57,7 @@ export const CompaniesTable = () => {
   const queryClient = useQueryClient();
   const { t, language } = useLanguage();
 
-  const { data: companies, isLoading } = useQuery({
+  const { data: companies, isLoading, isFetching } = useQuery({
     queryKey: ["companies", import.meta.env.VITE_SUPABASE_URL],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -72,6 +72,7 @@ export const CompaniesTable = () => {
       if (error) throw error;
       return data;
     },
+    staleTime: 30000, // Consider data fresh for 30 seconds
   });
 
   // Filter and sort companies
@@ -409,7 +410,7 @@ export const CompaniesTable = () => {
     toast.success(t('company.exportSuccess'));
   };
 
-  if (isLoading) {
+  if (isLoading && !companies) {
     return <div className="text-center py-8">{t('common.loading')}</div>;
   }
 
