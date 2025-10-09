@@ -278,8 +278,10 @@ const MapaQuantidades = () => {
         let descricaoColumnIndex = -1;
         let unColumnIndex = -1;
         let qtColumnIndex = -1;
+        const qtColumnCandidates: number[] = []; // Track all potential QT columns
         let precoUnitarioColumnIndex = -1;
         let observacoesColumnIndex = -1;
+        let headerRowIndex = -1;
         
         for (let i = 0; i < jsonData.length; i++) {
           const row = jsonData[i];
@@ -298,7 +300,7 @@ const MapaQuantidades = () => {
               }
               if (cellValue === "QT" || cellValue === "QUANTIDADE" || 
                   (cellValue.includes("QUANT") && !cellValue.includes("MAPA"))) {
-                qtColumnIndex = j;
+                qtColumnCandidates.push(j); // Track all QT column candidates
               }
               // Look for price column - could be "PREÇO UNITÁRIO", "PRECO UNITARIO", "PU", etc.
               if (cellValue.includes("PRECO") || cellValue.includes("PREÇO") || 
@@ -313,9 +315,39 @@ const MapaQuantidades = () => {
             }
             // If we found both required columns, stop searching
             if (artigoColumnIndex !== -1 && descricaoColumnIndex !== -1) {
+              headerRowIndex = i;
               break;
             }
           }
+        }
+        
+        // If multiple QT columns were found, choose the one with the most non-empty values
+        if (qtColumnCandidates.length > 1 && headerRowIndex !== -1) {
+          let maxValueCount = -1;
+          let bestQtColumn = qtColumnCandidates[0];
+          
+          for (const colIndex of qtColumnCandidates) {
+            let valueCount = 0;
+            // Check the next 50 rows after the header to find which column has more values
+            for (let i = headerRowIndex + 1; i < Math.min(headerRowIndex + 51, jsonData.length); i++) {
+              const row = jsonData[i];
+              if (Array.isArray(row) && row[colIndex]) {
+                const cellValue = String(row[colIndex]).trim();
+                if (cellValue !== "" && cellValue !== "0" && cellValue !== "-") {
+                  valueCount++;
+                }
+              }
+            }
+            
+            if (valueCount > maxValueCount) {
+              maxValueCount = valueCount;
+              bestQtColumn = colIndex;
+            }
+          }
+          
+          qtColumnIndex = bestQtColumn;
+        } else if (qtColumnCandidates.length === 1) {
+          qtColumnIndex = qtColumnCandidates[0];
         }
         
         // Find chapters (rows where ARTIGO column has a number without a dot)
@@ -776,9 +808,9 @@ const MapaQuantidades = () => {
                           </CollapsibleTrigger>
                           {chapter.chapter_comments && (
                             <>
-                              <TooltipProvider>
-                                <Tooltip>
-                                  <Dialog>
+                              <Dialog>
+                                <TooltipProvider>
+                                  <Tooltip>
                                     <TooltipTrigger asChild>
                                       <DialogTrigger asChild>
                                         <Button variant="ghost" size="icon" className="h-8 w-8">
@@ -792,17 +824,17 @@ const MapaQuantidades = () => {
                                         <p className="text-xs whitespace-pre-line line-clamp-3">{chapter.chapter_comments}</p>
                                       </div>
                                     </TooltipContent>
-                                    <DialogContent>
-                                      <DialogHeader>
-                                        <DialogTitle>Chapter Comments</DialogTitle>
-                                        <DialogDescription className="whitespace-pre-line text-left">
-                                          {chapter.chapter_comments}
-                                        </DialogDescription>
-                                      </DialogHeader>
-                                    </DialogContent>
-                                  </Dialog>
-                                </Tooltip>
-                              </TooltipProvider>
+                                  </Tooltip>
+                                </TooltipProvider>
+                                <DialogContent>
+                                  <DialogHeader>
+                                    <DialogTitle>Chapter Comments</DialogTitle>
+                                    <DialogDescription className="whitespace-pre-line text-left">
+                                      {chapter.chapter_comments}
+                                    </DialogDescription>
+                                  </DialogHeader>
+                                </DialogContent>
+                              </Dialog>
                             </>
                           )}
                         </div>
@@ -860,9 +892,9 @@ const MapaQuantidades = () => {
                                   </TableCell>
                                   <TableCell>
                                     {item.item_comments && (
-                                      <TooltipProvider>
-                                        <Tooltip>
-                                          <Dialog>
+                                      <Dialog>
+                                        <TooltipProvider>
+                                          <Tooltip>
                                             <TooltipTrigger asChild>
                                               <DialogTrigger asChild>
                                                 <Button variant="ghost" size="icon" className="h-8 w-8">
@@ -876,17 +908,17 @@ const MapaQuantidades = () => {
                                                 <p className="text-xs whitespace-pre-line line-clamp-3">{item.item_comments}</p>
                                               </div>
                                             </TooltipContent>
-                                            <DialogContent>
-                                              <DialogHeader>
-                                                <DialogTitle>Item Comments</DialogTitle>
-                                                <DialogDescription className="whitespace-pre-line text-left">
-                                                  {item.item_comments}
-                                                </DialogDescription>
-                                              </DialogHeader>
-                                            </DialogContent>
-                                          </Dialog>
-                                        </Tooltip>
-                                      </TooltipProvider>
+                                          </Tooltip>
+                                        </TooltipProvider>
+                                        <DialogContent>
+                                          <DialogHeader>
+                                            <DialogTitle>Item Comments</DialogTitle>
+                                            <DialogDescription className="whitespace-pre-line text-left">
+                                              {item.item_comments}
+                                            </DialogDescription>
+                                          </DialogHeader>
+                                        </DialogContent>
+                                      </Dialog>
                                     )}
                                   </TableCell>
                                 </TableRow>
