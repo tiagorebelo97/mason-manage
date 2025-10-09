@@ -267,8 +267,6 @@ export const ContactDialog = ({ open, onOpenChange, contact, readOnly = false }:
         setEmails([""]);
         setMobiles([""]);
         setFaxes([""]);
-        // Invalidate queries to refresh table data
-        queryClient.invalidateQueries({ queryKey: ["contacts", import.meta.env.VITE_SUPABASE_URL] });
       }
       onOpenChange(isOpen);
     }}>
