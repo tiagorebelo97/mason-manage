@@ -266,6 +266,8 @@ export const ContactDialog = ({ open, onOpenChange, contact, readOnly = false }:
         setEmails([""]);
         setMobiles([""]);
         setFaxes([""]);
+        // Invalidate queries to refresh table data
+        queryClient.invalidateQueries({ queryKey: ["contacts", import.meta.env.VITE_SUPABASE_URL] });
       }
       onOpenChange(isOpen);
     }}>
@@ -527,7 +529,7 @@ export const ContactDialog = ({ open, onOpenChange, contact, readOnly = false }:
                   <div className="space-y-2">
                     {mobiles.map((mobile, index) => (
                       <div key={index} className="flex gap-2">
-                        <div className={index === 0 ? "grid grid-cols-[1fr_150px] gap-2 flex-1" : "flex-1"}>
+                        <div className="grid grid-cols-[1fr_150px] gap-2 flex-1">
                           <Input
                             value={mobile}
                             onChange={(e) => {
@@ -538,38 +540,36 @@ export const ContactDialog = ({ open, onOpenChange, contact, readOnly = false }:
                             disabled={readOnly}
                             placeholder={t('contact.mobile') || 'Mobile'}
                           />
-                          {index === 0 && (
-                            <FormField
-                              control={form.control}
-                              name="country_code"
-                              render={({ field }) => (
-                                <Select 
-                                  onValueChange={field.onChange} 
-                                  value={field.value}
-                                  disabled={readOnly}
-                                >
-                                  <FormControl>
-                                    <SelectTrigger>
-                                      <SelectValue placeholder="+351" />
-                                    </SelectTrigger>
-                                  </FormControl>
-                                  <SelectContent className="max-h-[300px]">
-                                    {countryCodes.map((country) => (
-                                      <SelectItem key={country.code} value={country.code}>
-                                        <div className="flex items-center gap-2">
-                                          <span className="text-lg">{country.flag}</span>
-                                          <span>{country.code}</span>
-                                          <span className="text-xs text-muted-foreground">
-                                            {language === 'pt' ? country.countryPt : country.country}
-                                          </span>
-                                        </div>
-                                      </SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
-                              )}
-                            />
-                          )}
+                          <FormField
+                            control={form.control}
+                            name="country_code"
+                            render={({ field }) => (
+                              <Select 
+                                onValueChange={field.onChange} 
+                                value={field.value}
+                                disabled={readOnly}
+                              >
+                                <FormControl>
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="+351" />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent className="max-h-[300px]">
+                                  {countryCodes.map((country) => (
+                                    <SelectItem key={country.code} value={country.code}>
+                                      <div className="flex items-center gap-2">
+                                        <span className="text-lg">{country.flag}</span>
+                                        <span>{country.code}</span>
+                                        <span className="text-xs text-muted-foreground">
+                                          {language === 'pt' ? country.countryPt : country.country}
+                                        </span>
+                                      </div>
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            )}
+                          />
                         </div>
                         {!readOnly && mobiles.length > 1 && (
                           <Button
@@ -657,19 +657,34 @@ export const ContactDialog = ({ open, onOpenChange, contact, readOnly = false }:
             />
 
             {ownerType === "company" && (
-              <FormField
-                control={form.control}
-                name="address"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>{t('contact.address') || 'Address'}</FormLabel>
-                    <FormControl>
-                      <Input {...field} disabled={readOnly} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              <>
+                <FormField
+                  control={form.control}
+                  name="website"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t('contact.website') || 'Website'}</FormLabel>
+                      <FormControl>
+                        <Input {...field} disabled={readOnly} placeholder="https://example.com" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="address"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t('contact.address') || 'Address'}</FormLabel>
+                      <FormControl>
+                        <Input {...field} disabled={readOnly} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </>
             )}
 
             {!readOnly && (
