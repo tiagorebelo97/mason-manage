@@ -1,4 +1,5 @@
 import { useState, useRef } from "react";
+import * as React from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -1031,11 +1032,43 @@ const MapaQuantidades = () => {
     return [];
   };
 
-  // Convert specialities to multiselect options
-  const specialityOptions = specialities?.map(s => ({
-    label: language === 'pt' ? s.name_pt : s.name_en,
-    value: s.id,
-  })) || [];
+  // Convert specialities to grouped multiselect options by main specialty
+  const groupedSpecialityOptions = React.useMemo(() => {
+    if (!specialities) return {};
+    
+    const grouped: Record<string, { label: string; value: string; group?: string }[]> = {};
+    
+    specialities.forEach(s => {
+      const mainSpecialtyName = s.main_specialties 
+        ? (language === 'pt' ? s.main_specialties.main_specialty_pt : s.main_specialties.main_specialty_en)
+        : 'Other';
+      
+      if (!grouped[mainSpecialtyName]) {
+        grouped[mainSpecialtyName] = [];
+      }
+      
+      grouped[mainSpecialtyName].push({
+        label: language === 'pt' ? s.name_pt : s.name_en,
+        value: s.id,
+        group: mainSpecialtyName,
+      });
+    });
+    
+    // Sort groups alphabetically, but put "Other" at the end
+    const sortedGrouped: Record<string, { label: string; value: string; group?: string }[]> = {};
+    const sortedKeys = Object.keys(grouped).sort((a, b) => {
+      if (a === 'Other') return 1;
+      if (b === 'Other') return -1;
+      return a.localeCompare(b);
+    });
+    
+    sortedKeys.forEach(key => {
+      // Sort specialities within each group alphabetically
+      sortedGrouped[key] = grouped[key].sort((a, b) => a.label.localeCompare(b.label));
+    });
+    
+    return sortedGrouped;
+  }, [specialities, language]);
 
   // Group chapters by tab
   const chaptersByTab = chapters?.reduce((acc, chapter) => {
@@ -1229,7 +1262,7 @@ const MapaQuantidades = () => {
                               </DialogHeader>
                               <div className="space-y-4 py-4">
                                 <MultiSelect
-                                  options={specialityOptions}
+                                  groupedOptions={groupedSpecialityOptions}
                                   selected={getChapterSpecialityIds(chapter.id)}
                                   onChange={(selected) => {
                                     updateChapterSpecialitiesMutation.mutate({
@@ -1291,7 +1324,7 @@ const MapaQuantidades = () => {
                                         </DialogHeader>
                                         <div className="space-y-4 py-4">
                                           <MultiSelect
-                                            options={specialityOptions}
+                                            groupedOptions={groupedSpecialityOptions}
                                             selected={getItemSpecialityIds(item.id)}
                                             onChange={(selected) => {
                                               updateItemSpecialitiesMutation.mutate({
