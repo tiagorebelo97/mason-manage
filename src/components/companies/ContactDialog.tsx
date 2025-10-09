@@ -473,36 +473,47 @@ export const ContactDialog = ({ open, onOpenChange, contact, readOnly = false }:
               render={() => (
                 <FormItem>
                   <FormLabel>{t('contact.email') || 'Email'}</FormLabel>
-                  <div className="space-y-2">
-                    {emails.map((email, index) => (
-                      <div key={index} className="flex gap-2">
-                        <Input
-                          type="email"
-                          value={email}
-                          onChange={(e) => {
-                            const newEmails = [...emails];
-                            newEmails[index] = e.target.value;
-                            setEmails(newEmails);
-                          }}
-                          disabled={readOnly}
-                          placeholder={t('contact.email') || 'Email'}
-                        />
-                        {!readOnly && emails.length > 1 && (
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="icon"
-                            onClick={() => {
-                              const newEmails = emails.filter((_, i) => i !== index);
+                  {readOnly ? (
+                    <div className="flex flex-wrap gap-2">
+                      {emails.filter(e => e.trim()).length > 0 ? (
+                        emails.filter(e => e.trim()).map((email, index) => (
+                          <Badge key={index} variant="secondary" className="text-xs">
+                            {email}
+                          </Badge>
+                        ))
+                      ) : (
+                        <span className="text-sm text-muted-foreground">—</span>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {emails.map((email, index) => (
+                        <div key={index} className="flex gap-2">
+                          <Input
+                            type="email"
+                            value={email}
+                            onChange={(e) => {
+                              const newEmails = [...emails];
+                              newEmails[index] = e.target.value;
                               setEmails(newEmails);
                             }}
-                          >
-                            <X className="h-4 w-4" />
-                          </Button>
-                        )}
-                      </div>
-                    ))}
-                    {!readOnly && (
+                            placeholder={t('contact.email') || 'Email'}
+                          />
+                          {emails.length > 1 && (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="icon"
+                              onClick={() => {
+                                const newEmails = emails.filter((_, i) => i !== index);
+                                setEmails(newEmails);
+                              }}
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
+                      ))}
                       <Button
                         type="button"
                         variant="outline"
@@ -513,8 +524,8 @@ export const ContactDialog = ({ open, onOpenChange, contact, readOnly = false }:
                         <Plus className="h-4 w-4 mr-2" />
                         {t('contact.addEmail') || 'Add Email'}
                       </Button>
-                    )}
-                  </div>
+                    </div>
+                  )}
                   <FormMessage />
                 </FormItem>
               )}
@@ -526,67 +537,77 @@ export const ContactDialog = ({ open, onOpenChange, contact, readOnly = false }:
               render={() => (
                 <FormItem>
                   <FormLabel>{t('contact.mobile') || 'Mobile'}</FormLabel>
-                  <div className="space-y-2">
-                    {mobiles.map((mobile, index) => (
-                      <div key={index} className="flex gap-2">
-                        <div className="grid grid-cols-[1fr_150px] gap-2 flex-1">
-                          <Input
-                            value={mobile}
-                            onChange={(e) => {
-                              const newMobiles = [...mobiles];
-                              newMobiles[index] = e.target.value;
-                              setMobiles(newMobiles);
-                            }}
-                            disabled={readOnly}
-                            placeholder={t('contact.mobile') || 'Mobile'}
-                          />
-                          <FormField
-                            control={form.control}
-                            name="country_code"
-                            render={({ field }) => (
-                              <Select 
-                                onValueChange={field.onChange} 
-                                value={field.value}
-                                disabled={readOnly}
-                              >
-                                <FormControl>
-                                  <SelectTrigger>
-                                    <SelectValue placeholder="+351" />
-                                  </SelectTrigger>
-                                </FormControl>
-                                <SelectContent className="max-h-[300px]">
-                                  {countryCodes.map((country) => (
-                                    <SelectItem key={country.code} value={country.code}>
-                                      <div className="flex items-center gap-2">
-                                        <span className="text-lg">{country.flag}</span>
-                                        <span>{country.code}</span>
-                                        <span className="text-xs text-muted-foreground">
-                                          {language === 'pt' ? country.countryPt : country.country}
-                                        </span>
-                                      </div>
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            )}
-                          />
+                  {readOnly ? (
+                    <div className="flex flex-wrap gap-2">
+                      {mobiles.filter(m => m.trim()).length > 0 ? (
+                        mobiles.filter(m => m.trim()).map((mobile, index) => (
+                          <Badge key={index} variant="secondary" className="text-xs">
+                            {form.getValues('country_code') || '+351'} {mobile}
+                          </Badge>
+                        ))
+                      ) : (
+                        <span className="text-sm text-muted-foreground">—</span>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {mobiles.map((mobile, index) => (
+                        <div key={index} className="flex gap-2">
+                          <div className="grid grid-cols-[1fr_150px] gap-2 flex-1">
+                            <Input
+                              value={mobile}
+                              onChange={(e) => {
+                                const newMobiles = [...mobiles];
+                                newMobiles[index] = e.target.value;
+                                setMobiles(newMobiles);
+                              }}
+                              placeholder={t('contact.mobile') || 'Mobile'}
+                            />
+                            <FormField
+                              control={form.control}
+                              name="country_code"
+                              render={({ field }) => (
+                                <Select 
+                                  onValueChange={field.onChange} 
+                                  value={field.value}
+                                >
+                                  <FormControl>
+                                    <SelectTrigger>
+                                      <SelectValue placeholder="+351" />
+                                    </SelectTrigger>
+                                  </FormControl>
+                                  <SelectContent className="max-h-[300px]">
+                                    {countryCodes.map((country) => (
+                                      <SelectItem key={country.code} value={country.code}>
+                                        <div className="flex items-center gap-2">
+                                          <span className="text-lg">{country.flag}</span>
+                                          <span>{country.code}</span>
+                                          <span className="text-xs text-muted-foreground">
+                                            {language === 'pt' ? country.countryPt : country.country}
+                                          </span>
+                                        </div>
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              )}
+                            />
+                          </div>
+                          {mobiles.length > 1 && (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="icon"
+                              onClick={() => {
+                                const newMobiles = mobiles.filter((_, i) => i !== index);
+                                setMobiles(newMobiles);
+                              }}
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          )}
                         </div>
-                        {!readOnly && mobiles.length > 1 && (
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="icon"
-                            onClick={() => {
-                              const newMobiles = mobiles.filter((_, i) => i !== index);
-                              setMobiles(newMobiles);
-                            }}
-                          >
-                            <X className="h-4 w-4" />
-                          </Button>
-                        )}
-                      </div>
-                    ))}
-                    {!readOnly && (
+                      ))}
                       <Button
                         type="button"
                         variant="outline"
@@ -597,8 +618,8 @@ export const ContactDialog = ({ open, onOpenChange, contact, readOnly = false }:
                         <Plus className="h-4 w-4 mr-2" />
                         {t('contact.addMobile') || 'Add Mobile'}
                       </Button>
-                    )}
-                  </div>
+                    </div>
+                  )}
                   <FormMessage />
                 </FormItem>
               )}
@@ -610,35 +631,46 @@ export const ContactDialog = ({ open, onOpenChange, contact, readOnly = false }:
               render={() => (
                 <FormItem>
                   <FormLabel>{t('contact.fax') || 'Fax'}</FormLabel>
-                  <div className="space-y-2">
-                    {faxes.map((fax, index) => (
-                      <div key={index} className="flex gap-2">
-                        <Input
-                          value={fax}
-                          onChange={(e) => {
-                            const newFaxes = [...faxes];
-                            newFaxes[index] = e.target.value;
-                            setFaxes(newFaxes);
-                          }}
-                          disabled={readOnly}
-                          placeholder={t('contact.fax') || 'Fax'}
-                        />
-                        {!readOnly && faxes.length > 1 && (
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="icon"
-                            onClick={() => {
-                              const newFaxes = faxes.filter((_, i) => i !== index);
+                  {readOnly ? (
+                    <div className="flex flex-wrap gap-2">
+                      {faxes.filter(f => f.trim()).length > 0 ? (
+                        faxes.filter(f => f.trim()).map((fax, index) => (
+                          <Badge key={index} variant="secondary" className="text-xs">
+                            {fax}
+                          </Badge>
+                        ))
+                      ) : (
+                        <span className="text-sm text-muted-foreground">—</span>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {faxes.map((fax, index) => (
+                        <div key={index} className="flex gap-2">
+                          <Input
+                            value={fax}
+                            onChange={(e) => {
+                              const newFaxes = [...faxes];
+                              newFaxes[index] = e.target.value;
                               setFaxes(newFaxes);
                             }}
-                          >
-                            <X className="h-4 w-4" />
-                          </Button>
-                        )}
-                      </div>
-                    ))}
-                    {!readOnly && (
+                            placeholder={t('contact.fax') || 'Fax'}
+                          />
+                          {faxes.length > 1 && (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="icon"
+                              onClick={() => {
+                                const newFaxes = faxes.filter((_, i) => i !== index);
+                                setFaxes(newFaxes);
+                              }}
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
+                      ))}
                       <Button
                         type="button"
                         variant="outline"
@@ -649,8 +681,8 @@ export const ContactDialog = ({ open, onOpenChange, contact, readOnly = false }:
                         <Plus className="h-4 w-4 mr-2" />
                         {t('contact.addFax') || 'Add Fax'}
                       </Button>
-                    )}
-                  </div>
+                    </div>
+                  )}
                   <FormMessage />
                 </FormItem>
               )}
@@ -664,9 +696,21 @@ export const ContactDialog = ({ open, onOpenChange, contact, readOnly = false }:
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>{t('contact.website') || 'Website'}</FormLabel>
-                      <FormControl>
-                        <Input {...field} disabled={readOnly} placeholder="https://example.com" />
-                      </FormControl>
+                      {readOnly ? (
+                        <div>
+                          {field.value ? (
+                            <Badge variant="secondary" className="text-xs">
+                              {field.value}
+                            </Badge>
+                          ) : (
+                            <span className="text-sm text-muted-foreground">—</span>
+                          )}
+                        </div>
+                      ) : (
+                        <FormControl>
+                          <Input {...field} placeholder="https://example.com" />
+                        </FormControl>
+                      )}
                       <FormMessage />
                     </FormItem>
                   )}
@@ -677,9 +721,21 @@ export const ContactDialog = ({ open, onOpenChange, contact, readOnly = false }:
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>{t('contact.address') || 'Address'}</FormLabel>
-                      <FormControl>
-                        <Input {...field} disabled={readOnly} />
-                      </FormControl>
+                      {readOnly ? (
+                        <div>
+                          {field.value ? (
+                            <Badge variant="secondary" className="text-xs">
+                              {field.value}
+                            </Badge>
+                          ) : (
+                            <span className="text-sm text-muted-foreground">—</span>
+                          )}
+                        </div>
+                      ) : (
+                        <FormControl>
+                          <Input {...field} />
+                        </FormControl>
+                      )}
                       <FormMessage />
                     </FormItem>
                   )}
