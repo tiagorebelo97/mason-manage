@@ -25,10 +25,16 @@ type OrcamentoFile = {
   analyzed: boolean;
 };
 
-type OrcamentoChapter = {
+type OrcamentoTab = {
   id: string;
   orcamento_id: string;
-  sheet_name: string;
+  name: string;
+  display_order: number;
+};
+
+type OrcamentoChapter = {
+  id: string;
+  tab_id: string;
   chapter_number: string;
   chapter_name: string;
 };
@@ -40,7 +46,6 @@ const MapaQuantidades = () => {
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
 
   const { data: orcamento } = useQuery({
     queryKey: ["orcamento", id, import.meta.env.VITE_SUPABASE_URL],
@@ -69,19 +74,31 @@ const MapaQuantidades = () => {
     enabled: !!id,
   });
 
+  const { data: tabs } = useQuery({
+    queryKey: ["orcamento_tabs", id, import.meta.env.VITE_SUPABASE_URL],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("orcamento_tabs")
+        .select("*")
+        .eq("orcamento_id", id)
+        .order("display_order");
+      if (error) throw error;
+      return data as OrcamentoTab[];
+    },
+    enabled: !!id && files && files.length > 0 && files[0]?.analyzed,
+  });
+
   const { data: chapters } = useQuery({
     queryKey: ["orcamento_chapters", id, import.meta.env.VITE_SUPABASE_URL],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("orcamento_chapters")
         .select("*")
-        .eq("orcamento_id", id)
-        .order("sheet_name")
         .order("chapter_number");
       if (error) throw error;
       return data as OrcamentoChapter[];
     },
-    enabled: !!id && files && files.length > 0 && files[0]?.analyzed,
+    enabled: !!id && tabs && tabs.length > 0,
   });
 
   const uploadMutation = useMutation({
@@ -118,10 +135,9 @@ const MapaQuantidades = () => {
         .select()
         .single();
       if (error) throw error;
-      return { data, file };
+      return data;
     },
-    onSuccess: (result) => {
-      setUploadedFile(result.file);
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["orcamento_files", id, import.meta.env.VITE_SUPABASE_URL] });
       toast.success(t('orcamento.uploadSuccess'));
     },
@@ -131,32 +147,63 @@ const MapaQuantidades = () => {
   });
 
   const analyzeMutation = useMutation({
-    mutationFn: async (file: File) => {
-      // Read the Excel file
-      const arrayBuffer = await file.arrayBuffer();
+    mutationFn: async (fileId: string) => {
+      // Get file info from database
+      const { data: fileData, error: fileQueryError } = await supabase
+        .from("orcamento_files")
+        .select("*")
+        .eq("id", fileId)
+        .single();
+      
+      if (fileQueryError) throw fileQueryError;
+      
+      // Download file from storage
+      const urlParts = fileData.file_url.split('/orcamento-files/');
+      if (urlParts.length < 2) throw new Error("Invalid file URL");
+      
+      const filePath = urlParts[1];
+      const { data: fileBlob, error: downloadError } = await supabase.storage
+        .from('orcamento-files')
+        .download(filePath);
+      
+      if (downloadError) throw downloadError;
+      
+      // Read the Excel file from the downloaded blob
+      const arrayBuffer = await fileBlob.arrayBuffer();
       const workbook = XLSX.read(arrayBuffer, { type: 'array' });
       
-      const chaptersToInsert: Array<{
+      const tabsToInsert: Array<{
         orcamento_id: string;
-        sheet_name: string;
+        name: string;
+        display_order: number;
+      }> = [];
+      
+      const chaptersToInsert: Array<{
+        tab_id?: string;
+        sheet_name?: string;
         chapter_number: string;
         chapter_name: string;
       }> = [];
 
-      // Process each sheet
-      workbook.SheetNames.forEach((sheetName) => {
+      // Process each sheet and create tabs
+      workbook.SheetNames.forEach((sheetName, index) => {
+        tabsToInsert.push({
+          orcamento_id: id!,
+          name: sheetName,
+          display_order: index,
+        });
+        
         const worksheet = workbook.Sheets[sheetName];
-        const jsonData = XLSX.utils.sheet_to_json<any[]>(worksheet, { header: 1 });
+        const jsonData = XLSX.utils.sheet_to_json<unknown[]>(worksheet, { header: 1 });
         
         // Find chapters (rows where first column has a number without a dot)
-        jsonData.forEach((row: any[]) => {
-          if (row && row[0]) {
+        jsonData.forEach((row: unknown) => {
+          if (Array.isArray(row) && row[0]) {
             const firstCell = String(row[0]).trim();
             // Check if it's a number without a dot (chapter identifier)
             if (/^\d+$/.test(firstCell) && row[1]) {
               chaptersToInsert.push({
-                orcamento_id: id!,
-                sheet_name: sheetName,
+                sheet_name: sheetName, // Temporary, will be replaced with tab_id
                 chapter_number: firstCell,
                 chapter_name: String(row[1]),
               });
@@ -165,11 +212,32 @@ const MapaQuantidades = () => {
         });
       });
 
+      // Insert tabs into database
+      const { data: insertedTabs, error: tabError } = await supabase
+        .from("orcamento_tabs")
+        .insert(tabsToInsert)
+        .select();
+      
+      if (tabError) throw tabError;
+      
+      // Create a map of sheet names to tab IDs
+      const sheetNameToTabId = new Map<string, string>();
+      insertedTabs.forEach(tab => {
+        sheetNameToTabId.set(tab.name, tab.id);
+      });
+      
+      // Update chapters with tab IDs
+      const chaptersWithTabIds = chaptersToInsert.map(chapter => ({
+        tab_id: sheetNameToTabId.get(chapter.sheet_name!),
+        chapter_number: chapter.chapter_number,
+        chapter_name: chapter.chapter_name,
+      }));
+
       // Insert chapters into database
-      if (chaptersToInsert.length > 0) {
+      if (chaptersWithTabIds.length > 0) {
         const { error: chapterError } = await supabase
           .from("orcamento_chapters")
-          .insert(chaptersToInsert);
+          .insert(chaptersWithTabIds);
         if (chapterError) throw chapterError;
       }
 
@@ -177,13 +245,13 @@ const MapaQuantidades = () => {
       const { error: fileError } = await supabase
         .from("orcamento_files")
         .update({ analyzed: true })
-        .eq("orcamento_id", id)
-        .eq("file_name", file.name);
+        .eq("id", fileId);
       if (fileError) throw fileError;
     },
     onSuccess: () => {
       setIsAnalyzing(false);
       queryClient.invalidateQueries({ queryKey: ["orcamento_files", id, import.meta.env.VITE_SUPABASE_URL] });
+      queryClient.invalidateQueries({ queryKey: ["orcamento_tabs", id, import.meta.env.VITE_SUPABASE_URL] });
       queryClient.invalidateQueries({ queryKey: ["orcamento_chapters", id, import.meta.env.VITE_SUPABASE_URL] });
       toast.success(t('orcamento.analyzeSuccess'));
     },
@@ -221,12 +289,12 @@ const MapaQuantidades = () => {
         }
       }
 
-      // Delete associated chapters first
-      const { error: chaptersError } = await supabase
-        .from("orcamento_chapters")
+      // Delete associated tabs (which will cascade delete chapters)
+      const { error: tabsError } = await supabase
+        .from("orcamento_tabs")
         .delete()
         .eq("orcamento_id", id);
-      if (chaptersError) throw chaptersError;
+      if (tabsError) throw tabsError;
 
       // Delete the file record
       const { error: fileError } = await supabase
@@ -236,8 +304,8 @@ const MapaQuantidades = () => {
       if (fileError) throw fileError;
     },
     onSuccess: () => {
-      setUploadedFile(null);
       queryClient.invalidateQueries({ queryKey: ["orcamento_files", id, import.meta.env.VITE_SUPABASE_URL] });
+      queryClient.invalidateQueries({ queryKey: ["orcamento_tabs", id, import.meta.env.VITE_SUPABASE_URL] });
       queryClient.invalidateQueries({ queryKey: ["orcamento_chapters", id, import.meta.env.VITE_SUPABASE_URL] });
       toast.success(t('orcamento.deleteSuccess') || 'File deleted successfully');
     },
@@ -254,9 +322,9 @@ const MapaQuantidades = () => {
   };
 
   const handleAnalyze = () => {
-    if (uploadedFile) {
+    if (currentFile) {
       setIsAnalyzing(true);
-      analyzeMutation.mutate(uploadedFile);
+      analyzeMutation.mutate(currentFile.id);
     }
   };
 
@@ -270,12 +338,12 @@ const MapaQuantidades = () => {
   const hasFile = !!currentFile;
   const isAnalyzed = currentFile?.analyzed || false;
 
-  // Group chapters by sheet
-  const chaptersBySheet = chapters?.reduce((acc, chapter) => {
-    if (!acc[chapter.sheet_name]) {
-      acc[chapter.sheet_name] = [];
+  // Group chapters by tab
+  const chaptersByTab = chapters?.reduce((acc, chapter) => {
+    if (!acc[chapter.tab_id]) {
+      acc[chapter.tab_id] = [];
     }
-    acc[chapter.sheet_name].push(chapter);
+    acc[chapter.tab_id].push(chapter);
     return acc;
   }, {} as Record<string, OrcamentoChapter[]>) || {};
 
@@ -291,9 +359,9 @@ const MapaQuantidades = () => {
           {t('orcamento.backToOrcamentos')}
         </Button>
         <h1 className="text-4xl font-bold text-foreground mb-2">
-          {t('orcamento.mapaQuantidades')}
+          {orcamento?.name}
         </h1>
-        <p className="text-muted-foreground">{orcamento?.name}</p>
+        <p className="text-muted-foreground">{t('orcamento.mapaQuantidades')}</p>
       </div>
 
       {!hasFile ? (
@@ -350,18 +418,18 @@ const MapaQuantidades = () => {
             </div>
           </div>
 
-          {isAnalyzed && chapters && chapters.length > 0 && (
-            <Tabs defaultValue={Object.keys(chaptersBySheet)[0]} className="w-full">
+          {isAnalyzed && tabs && tabs.length > 0 && (
+            <Tabs defaultValue={tabs[0]?.id} className="w-full">
               <TabsList className="w-full justify-start overflow-x-auto flex-wrap h-auto">
-                {Object.keys(chaptersBySheet).map((sheetName) => (
-                  <TabsTrigger key={sheetName} value={sheetName}>
-                    {sheetName}
+                {tabs.map((tab) => (
+                  <TabsTrigger key={tab.id} value={tab.id}>
+                    {tab.name}
                   </TabsTrigger>
                 ))}
               </TabsList>
-              {Object.entries(chaptersBySheet).map(([sheetName, sheetChapters]) => (
-                <TabsContent key={sheetName} value={sheetName} className="space-y-6">
-                  {sheetChapters.map((chapter) => (
+              {tabs.map((tab) => (
+                <TabsContent key={tab.id} value={tab.id} className="space-y-6">
+                  {chaptersByTab[tab.id]?.map((chapter) => (
                     <div key={chapter.id} className="border rounded-lg overflow-hidden">
                       <div className="bg-muted p-4">
                         <h3 className="text-lg font-semibold">
