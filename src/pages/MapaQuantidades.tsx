@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Upload, FileSpreadsheet, Loader2, Trash2, MessageSquare } from "lucide-react";
+import { ArrowLeft, Upload, FileSpreadsheet, Loader2, Trash2, MessageSquare, ChevronDown } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
@@ -30,6 +30,16 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import {
+  HoverCard,
+  HoverCardContent,
+  HoverCardTrigger,
+} from "@/components/ui/hover-card";
 
 type OrcamentoFile = {
   id: string;
@@ -339,8 +349,11 @@ const MapaQuantidades = () => {
             else if (!artigoCell && descricaoCell && currentChapterNumber) {
               chapterComments.push(descricaoCell);
             }
-            // Case 3: Item with full data (has ARTIGO with dot pattern AND has QT or UN)
+            // Case 3: Item with full data (has ARTIGO with dot pattern)
             else if (/^\d+\./.test(artigoCell) && descricaoCell) {
+              const chapterNumber = artigoCell.split('.')[0];
+              
+              // Check if this row has QT or UN to determine if it's a full item or just a parent comment
               const hasQT = qtColumnIndex !== -1 && 
                 typeof row[qtColumnIndex] !== 'undefined' && 
                 row[qtColumnIndex] !== null && 
@@ -351,34 +364,46 @@ const MapaQuantidades = () => {
                 String(row[unColumnIndex]).trim() !== "";
               
               // If it has QT or UN, it's an actual item
+              // Otherwise, it's a parent comment (e.g., "1.2" for items like "1.2.1")
               if (hasQT || hasUN) {
-                const chapterNumber = artigoCell.split('.')[0];
-                
-                // Get all values
+                // Get all values - extract even if empty to ensure proper data flow
                 const unValue = unColumnIndex !== -1 && 
                   typeof row[unColumnIndex] !== 'undefined' && 
                   row[unColumnIndex] !== null
                   ? String(row[unColumnIndex]).trim() 
                   : null;
+                
                 const qtValue = qtColumnIndex !== -1 && 
                   typeof row[qtColumnIndex] !== 'undefined' && 
                   row[qtColumnIndex] !== null
                   ? String(row[qtColumnIndex]).trim()
                   : null;
-                const parsedQt = qtValue ? parseFloat(qtValue) : null;
+                const parsedQt = qtValue ? parseFloat(qtValue.replace(',', '.')) : null;
                 
                 const precoValue = precoUnitarioColumnIndex !== -1 && 
                   typeof row[precoUnitarioColumnIndex] !== 'undefined' && 
                   row[precoUnitarioColumnIndex] !== null
                   ? String(row[precoUnitarioColumnIndex]).trim()
                   : null;
-                const parsedPreco = precoValue ? parseFloat(precoValue) : null;
+                const parsedPreco = precoValue ? parseFloat(precoValue.replace(',', '.')) : null;
                 
-                const observacoesValue = observacoesColumnIndex !== -1 && 
-                  typeof row[observacoesColumnIndex] !== 'undefined' && 
-                  row[observacoesColumnIndex] !== null
-                  ? String(row[observacoesColumnIndex]).trim()
-                  : null;
+                // Handle observacoes_empreiteiro - can be text or potentially an image reference
+                let observacoesValue: string | null = null;
+                if (observacoesColumnIndex !== -1 && 
+                    typeof row[observacoesColumnIndex] !== 'undefined' && 
+                    row[observacoesColumnIndex] !== null) {
+                  const cellValue = row[observacoesColumnIndex];
+                  // Handle different types of cell values
+                  if (typeof cellValue === 'string') {
+                    observacoesValue = cellValue.trim() || null;
+                  } else if (typeof cellValue === 'number') {
+                    observacoesValue = String(cellValue);
+                  } else if (cellValue && typeof cellValue === 'object') {
+                    // Handle potential image or complex cell content
+                    // For now, convert to string representation
+                    observacoesValue = JSON.stringify(cellValue);
+                  }
+                }
                 
                 // Look for parent comments (e.g., for "1.2.1", look for "1.2")
                 let itemComment: string | null = null;
@@ -694,65 +719,71 @@ const MapaQuantidades = () => {
               {tabs.map((tab) => (
                 <TabsContent key={tab.id} value={tab.id} className="space-y-6">
                   {chaptersByTab[tab.id]?.map((chapter) => (
-                    <div key={chapter.id} className="border rounded-lg overflow-hidden">
-                      <div className="bg-muted p-4">
-                        <div className="flex items-center gap-2">
-                          <h3 className="text-lg font-semibold">
-                            {chapter.chapter_number}. {cleanChapterName(chapter.chapter_name)}
-                          </h3>
+                    <Collapsible key={chapter.id} defaultOpen={false} className="border rounded-lg overflow-hidden">
+                      <div className="bg-muted">
+                        <div className="flex items-center gap-2 p-4">
+                          <CollapsibleTrigger asChild>
+                            <Button variant="ghost" size="sm" className="flex items-center gap-2 hover:bg-transparent p-0 h-auto">
+                              <ChevronDown className="h-5 w-5 transition-transform duration-200 data-[state=open]:rotate-180" />
+                              <h3 className="text-lg font-semibold">
+                                {chapter.chapter_number}. {cleanChapterName(chapter.chapter_name)}
+                              </h3>
+                            </Button>
+                          </CollapsibleTrigger>
                           {chapter.chapter_comments && (
-                            <TooltipProvider>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Dialog>
-                                    <DialogTrigger asChild>
-                                      <Button variant="ghost" size="icon" className="h-8 w-8">
-                                        <MessageSquare className="h-4 w-4 text-muted-foreground hover:text-foreground" />
-                                      </Button>
-                                    </DialogTrigger>
-                                    <DialogContent>
-                                      <DialogHeader>
-                                        <DialogTitle>Chapter Comments</DialogTitle>
-                                        <DialogDescription className="whitespace-pre-line text-left">
-                                          {chapter.chapter_comments}
-                                        </DialogDescription>
-                                      </DialogHeader>
-                                    </DialogContent>
-                                  </Dialog>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  <p>View chapter comments</p>
-                                </TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
+                            <HoverCard openDelay={200}>
+                              <HoverCardTrigger asChild>
+                                <Dialog>
+                                  <DialogTrigger asChild>
+                                    <Button variant="ghost" size="icon" className="h-8 w-8">
+                                      <MessageSquare className="h-4 w-4 text-muted-foreground hover:text-foreground" />
+                                    </Button>
+                                  </DialogTrigger>
+                                  <DialogContent>
+                                    <DialogHeader>
+                                      <DialogTitle>Chapter Comments</DialogTitle>
+                                      <DialogDescription className="whitespace-pre-line text-left">
+                                        {chapter.chapter_comments}
+                                      </DialogDescription>
+                                    </DialogHeader>
+                                  </DialogContent>
+                                </Dialog>
+                              </HoverCardTrigger>
+                              <HoverCardContent className="w-80" side="top">
+                                <div className="space-y-2">
+                                  <h4 className="text-sm font-semibold">Chapter Comments</h4>
+                                  <p className="text-sm whitespace-pre-line">{chapter.chapter_comments}</p>
+                                </div>
+                              </HoverCardContent>
+                            </HoverCard>
                           )}
                         </div>
                       </div>
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>{t('orcamento.artigo')}</TableHead>
-                            <TableHead>{t('orcamento.descricao')}</TableHead>
-                            <TableHead>{t('orcamento.unit')}</TableHead>
-                            <TableHead className="text-right">{t('orcamento.quantity')}</TableHead>
-                            <TableHead>{t('orcamento.observacoesEmpreiteiro')}</TableHead>
-                            <TableHead className="w-12"></TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {itemsByChapter[chapter.id] && itemsByChapter[chapter.id].length > 0 ? (
-                            itemsByChapter[chapter.id].map((item) => (
-                              <TableRow key={item.id}>
-                                <TableCell>{item.artigo}</TableCell>
-                                <TableCell>{item.descricao}</TableCell>
-                                <TableCell>{item.un || '-'}</TableCell>
-                                <TableCell className="text-right">{item.qt !== null ? item.qt : '-'}</TableCell>
-                                <TableCell className="text-sm">{item.observacoes_empreiteiro || '-'}</TableCell>
-                                <TableCell>
-                                  {item.item_comments && (
-                                    <TooltipProvider>
-                                      <Tooltip>
-                                        <TooltipTrigger asChild>
+                      <CollapsibleContent>
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>{t('orcamento.artigo')}</TableHead>
+                              <TableHead>{t('orcamento.descricao')}</TableHead>
+                              <TableHead>{t('orcamento.unit')}</TableHead>
+                              <TableHead className="text-right">{t('orcamento.quantity')}</TableHead>
+                              <TableHead>{t('orcamento.observacoesEmpreiteiro')}</TableHead>
+                              <TableHead className="w-12"></TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {itemsByChapter[chapter.id] && itemsByChapter[chapter.id].length > 0 ? (
+                              itemsByChapter[chapter.id].map((item) => (
+                                <TableRow key={item.id}>
+                                  <TableCell>{item.artigo}</TableCell>
+                                  <TableCell>{item.descricao}</TableCell>
+                                  <TableCell>{item.un || '-'}</TableCell>
+                                  <TableCell className="text-right">{item.qt !== null ? item.qt : '-'}</TableCell>
+                                  <TableCell className="text-sm">{item.observacoes_empreiteiro || '-'}</TableCell>
+                                  <TableCell>
+                                    {item.item_comments && (
+                                      <HoverCard openDelay={200}>
+                                        <HoverCardTrigger asChild>
                                           <Dialog>
                                             <DialogTrigger asChild>
                                               <Button variant="ghost" size="icon" className="h-8 w-8">
@@ -768,26 +799,29 @@ const MapaQuantidades = () => {
                                               </DialogHeader>
                                             </DialogContent>
                                           </Dialog>
-                                        </TooltipTrigger>
-                                        <TooltipContent>
-                                          <p>View item comments</p>
-                                        </TooltipContent>
-                                      </Tooltip>
-                                    </TooltipProvider>
-                                  )}
+                                        </HoverCardTrigger>
+                                        <HoverCardContent className="w-80" side="top">
+                                          <div className="space-y-2">
+                                            <h4 className="text-sm font-semibold">Item Comments</h4>
+                                            <p className="text-sm whitespace-pre-line">{item.item_comments}</p>
+                                          </div>
+                                        </HoverCardContent>
+                                      </HoverCard>
+                                    )}
+                                  </TableCell>
+                                </TableRow>
+                              ))
+                            ) : (
+                              <TableRow>
+                                <TableCell colSpan={6} className="text-center text-muted-foreground">
+                                  No items yet
                                 </TableCell>
                               </TableRow>
-                            ))
-                          ) : (
-                            <TableRow>
-                              <TableCell colSpan={6} className="text-center text-muted-foreground">
-                                No items yet
-                              </TableCell>
-                            </TableRow>
-                          )}
-                        </TableBody>
-                      </Table>
-                    </div>
+                            )}
+                          </TableBody>
+                        </Table>
+                      </CollapsibleContent>
+                    </Collapsible>
                   ))}
                 </TabsContent>
               ))}
