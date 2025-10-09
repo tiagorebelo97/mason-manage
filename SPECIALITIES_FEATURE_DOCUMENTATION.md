@@ -4,22 +4,32 @@
 
 This feature allows users to assign specialities to both chapters and individual items in orçamentos (budget/quantity maps). This is useful for categorizing construction work by trade or specialty (e.g., electrical, plumbing, masonry, etc.).
 
+**NEW in this update:** Specialities are now **grouped by main specialties** in the dropdown, making it easier to find and select related specialities.
+
 ## Key Features
 
 ### 1. **Chapter-Level Specialities**
 - Assign multiple specialities to a chapter
 - All items in that chapter automatically inherit these specialities
 - Easy bulk assignment for organizing work by specialty
+- **NEW:** Specialities organized by main specialty in dropdown
 
 ### 2. **Item-Level Specialities**
 - Override chapter specialities for individual items
 - Assign specific specialities that differ from the chapter
 - Items can have their own unique set of specialities
+- **NEW:** Same grouped organization for consistency
 
 ### 3. **Inheritance System**
 - Items inherit specialities from their parent chapter by default
 - The UI clearly indicates when specialities are inherited vs. custom
 - Deleting item-specific specialities reverts to chapter inheritance
+
+### 4. **Grouped Selection (NEW)**
+- Specialities are organized by main specialty categories
+- Easy navigation through related specialities
+- Alphabetically sorted groups and specialities
+- "Other" category for uncategorized specialities
 
 ## User Interface
 
@@ -35,10 +45,33 @@ Each chapter header now includes a **Tag icon** button (🏷️) next to the com
 
 **To manage chapter specialities:**
 1. Click the Tag icon button in the chapter header
-2. A dialog opens showing a multi-select dropdown
-3. Select one or more specialities from the list
-4. Changes are saved automatically
-5. All items in the chapter inherit these specialities
+2. A dialog opens showing a **grouped multi-select dropdown**
+3. Specialities are organized by main specialty (e.g., Electrical, Plumbing, HVAC, etc.)
+4. Select one or more specialities from any group
+5. Changes are saved automatically
+6. All items in the chapter inherit these specialities
+
+**Grouping in dropdown:**
+The specialities dropdown is organized hierarchically:
+```
+▾ Electrical
+  ├─ Electrical Installation
+  ├─ Lighting Systems
+  └─ Power Distribution
+
+▾ HVAC
+  ├─ Air Conditioning
+  ├─ Ventilation
+  └─ Heating
+
+▾ Plumbing
+  ├─ Water Supply
+  ├─ Drainage
+  └─ Sanitary Fixtures
+
+▾ Other
+  └─ (Specialities without main specialty)
+```
 
 ### Item Specialities
 
@@ -63,9 +96,11 @@ Each item now has a "Specialities" column with a button showing the current stat
 
 **To manage item specialities:**
 1. Click the speciality button in the item row
-2. A dialog opens with a multi-select dropdown
+2. A dialog opens with a **grouped multi-select dropdown** organized by main specialties
 3. Select specialities (leave empty to inherit from chapter)
 4. Changes are saved automatically
+
+The item specialities dropdown has the same grouped organization as the chapter specialities dropdown.
 
 ## Database Schema
 
@@ -112,6 +147,8 @@ orcamento_items (1) ──→ (*) item_specialities (*) ──→ (1) specialiti
    - Provides the multi-select dropdown interface
    - Shows selected specialities as badges
    - Supports search and filtering
+   - **NEW:** Supports grouped options organized by main specialties
+   - Can accept either `options` (flat list) or `groupedOptions` (organized by groups)
 
 2. **Queries**
    - `specialities` - Fetches all available specialities with main specialties
@@ -130,6 +167,9 @@ getChapterSpecialityIds(chapterId: string): string[]
 
 // Get specialities for an item (with inheritance)
 getItemSpecialityIds(itemId: string, chapterId?: string): string[]
+
+// NEW: Group specialities by main specialty
+groupedSpecialityOptions: Record<string, MultiSelectOption[]>
 ```
 
 ## Usage Examples
@@ -187,7 +227,25 @@ This creates:
 ### Step 2: Deploy Code Changes
 
 The code changes are in:
-- `src/pages/MapaQuantidades.tsx` - Main implementation
+- `src/pages/MapaQuantidades.tsx` - Main implementation with grouped options
+- `src/components/ui/multi-select.tsx` - Enhanced to support grouping
+
+**Key Implementation Changes:**
+
+1. **MultiSelect Component Enhancement:**
+   - Added `groupedOptions` prop to accept grouped data
+   - Maintains backward compatibility with `options` prop
+   - Renders `CommandGroup` for each main specialty
+   - Alphabetically sorts groups and items within groups
+
+2. **Grouped Options Generation:**
+   ```typescript
+   const groupedSpecialityOptions = React.useMemo(() => {
+     // Groups specialities by main_specialties
+     // Sorts groups alphabetically (with "Other" at end)
+     // Sorts specialities within each group
+   }, [specialities, language]);
+   ```
 
 No additional configuration is required.
 

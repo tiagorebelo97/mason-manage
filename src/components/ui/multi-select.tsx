@@ -21,10 +21,16 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 export interface MultiSelectOption {
   label: string;
   value: string;
+  group?: string;
+}
+
+export interface GroupedMultiSelectOptions {
+  [groupName: string]: MultiSelectOption[];
 }
 
 interface MultiSelectProps {
-  options: MultiSelectOption[];
+  options?: MultiSelectOption[];
+  groupedOptions?: GroupedMultiSelectOptions;
   selected: string[];
   onChange: (selected: string[]) => void;
   placeholder?: string;
@@ -35,6 +41,7 @@ interface MultiSelectProps {
 
 export function MultiSelect({
   options,
+  groupedOptions,
   selected,
   onChange,
   placeholder = "Select items...",
@@ -60,7 +67,15 @@ export function MultiSelect({
     }
   };
 
-  const selectedOptions = options.filter((option) =>
+  // Flatten grouped options or use regular options
+  const allOptions = React.useMemo(() => {
+    if (groupedOptions) {
+      return Object.values(groupedOptions).flat();
+    }
+    return options || [];
+  }, [options, groupedOptions]);
+
+  const selectedOptions = allOptions.filter((option) =>
     selected.includes(option.value)
   );
 
@@ -129,28 +144,57 @@ export function MultiSelect({
           <CommandInput placeholder={`Search...`} />
           <CommandList>
             <CommandEmpty>{emptyText}</CommandEmpty>
-            <CommandGroup>
-              <ScrollArea className="max-h-64">
-                {options.map((option) => (
-                  <CommandItem
-                    key={option.value}
-                    onSelect={() => handleSelect(option.value)}
-                  >
-                    <div
-                      className={cn(
-                        "mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary",
-                        selected.includes(option.value)
-                          ? "bg-primary text-primary-foreground"
-                          : "opacity-50 [&_svg]:invisible"
-                      )}
+            {groupedOptions ? (
+              // Render grouped options
+              Object.entries(groupedOptions).map(([groupName, groupOptions]) => (
+                <CommandGroup key={groupName} heading={groupName}>
+                  <ScrollArea className="max-h-64">
+                    {groupOptions.map((option) => (
+                      <CommandItem
+                        key={option.value}
+                        onSelect={() => handleSelect(option.value)}
+                      >
+                        <div
+                          className={cn(
+                            "mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary",
+                            selected.includes(option.value)
+                              ? "bg-primary text-primary-foreground"
+                              : "opacity-50 [&_svg]:invisible"
+                          )}
+                        >
+                          <Check className={cn("h-4 w-4")} />
+                        </div>
+                        <span>{option.label}</span>
+                      </CommandItem>
+                    ))}
+                  </ScrollArea>
+                </CommandGroup>
+              ))
+            ) : (
+              // Render flat options
+              <CommandGroup>
+                <ScrollArea className="max-h-64">
+                  {allOptions.map((option) => (
+                    <CommandItem
+                      key={option.value}
+                      onSelect={() => handleSelect(option.value)}
                     >
-                      <Check className={cn("h-4 w-4")} />
-                    </div>
-                    <span>{option.label}</span>
-                  </CommandItem>
-                ))}
-              </ScrollArea>
-            </CommandGroup>
+                      <div
+                        className={cn(
+                          "mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary",
+                          selected.includes(option.value)
+                            ? "bg-primary text-primary-foreground"
+                            : "opacity-50 [&_svg]:invisible"
+                        )}
+                      >
+                        <Check className={cn("h-4 w-4")} />
+                      </div>
+                      <span>{option.label}</span>
+                    </CommandItem>
+                  ))}
+                </ScrollArea>
+              </CommandGroup>
+            )}
           </CommandList>
         </Command>
       </PopoverContent>
