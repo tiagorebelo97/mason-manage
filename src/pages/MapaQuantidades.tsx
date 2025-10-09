@@ -196,20 +196,49 @@ const MapaQuantidades = () => {
         const worksheet = workbook.Sheets[sheetName];
         const jsonData = XLSX.utils.sheet_to_json<unknown[]>(worksheet, { header: 1 });
         
-        // Find chapters (rows where first column has a number without a dot)
-        jsonData.forEach((row: unknown) => {
-          if (Array.isArray(row) && row[0]) {
-            const firstCell = String(row[0]).trim();
-            // Check if it's a number without a dot (chapter identifier)
-            if (/^\d+$/.test(firstCell) && row[1]) {
-              chaptersToInsert.push({
-                sheet_name: sheetName, // Temporary, will be replaced with tab_id
-                chapter_number: firstCell,
-                chapter_name: String(row[1]),
-              });
+        // Find the header row with "ARTIGO" and "DESCRIÇÃO" columns
+        // This searches dynamically for these columns regardless of their position in the Excel sheet
+        let artigoColumnIndex = -1;
+        let descricaoColumnIndex = -1;
+        
+        for (let i = 0; i < jsonData.length; i++) {
+          const row = jsonData[i];
+          if (Array.isArray(row)) {
+            for (let j = 0; j < row.length; j++) {
+              const cellValue = String(row[j] || "").trim().toUpperCase();
+              if (cellValue === "ARTIGO" || cellValue.includes("ARTIGO")) {
+                artigoColumnIndex = j;
+              }
+              if (cellValue === "DESCRIÇÃO" || cellValue.includes("DESCRIÇÃO") || 
+                  cellValue === "DESCRICAO" || cellValue.includes("DESCRICAO")) {
+                descricaoColumnIndex = j;
+              }
+            }
+            // If we found both columns, stop searching
+            if (artigoColumnIndex !== -1 && descricaoColumnIndex !== -1) {
+              break;
             }
           }
-        });
+        }
+        
+        // Find chapters (rows where ARTIGO column has a number without a dot)
+        // A chapter is identified by a pure number (e.g., "1", "2") in the ARTIGO column
+        // Sub-items with dots (e.g., "1.1", "2.3") are NOT considered chapters
+        if (artigoColumnIndex !== -1 && descricaoColumnIndex !== -1) {
+          jsonData.forEach((row: unknown) => {
+            if (Array.isArray(row) && row[artigoColumnIndex]) {
+              const artigoCell = String(row[artigoColumnIndex]).trim();
+              // Check if it's a number without a dot (chapter identifier)
+              if (/^\d+$/.test(artigoCell) && row[descricaoColumnIndex]) {
+                chaptersToInsert.push({
+                  sheet_name: sheetName, // Temporary, will be replaced with tab_id
+                  chapter_number: artigoCell,
+                  chapter_name: String(row[descricaoColumnIndex]),
+                });
+              }
+            }
+          });
+        }
       });
 
       // Insert tabs into database
