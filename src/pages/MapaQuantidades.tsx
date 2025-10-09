@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Upload, FileSpreadsheet, Loader2, Trash2, MessageSquare, ChevronDown, ImagePlus } from "lucide-react";
+import { ArrowLeft, Upload, FileSpreadsheet, Loader2, Trash2, MessageSquare, ChevronDown, ImagePlus, ImageIcon } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
@@ -289,6 +289,7 @@ const MapaQuantidades = () => {
         item_comments?: string | null;
         observacoes_empreiteiro: string | null;
         observacoes_image_url: string | null;
+        excel_row_index?: number; // Track the Excel row for image matching
       }> = [];
 
       // Process each sheet and create tabs
@@ -329,13 +330,14 @@ const MapaQuantidades = () => {
               if (cellValue === "UN" || cellValue === "UNIDADE" || cellValue === "UNI") {
                 unColumnIndex = j;
               }
+              // Prioritize TOTAIS columns for quantity
+              if (cellValue === "TOTAIS" || cellValue.includes("TOTAIS") || cellValue === "TOTAL") {
+                totaisColumnCandidates.push(j);
+              }
+              // Also track QT columns as backup
               if (cellValue === "QT" || cellValue === "QUANTIDADE" || 
                   (cellValue.includes("QUANT") && !cellValue.includes("MAPA"))) {
                 qtColumnCandidates.push(j); // Track all QT column candidates
-              }
-              // Look for TOTAIS columns as fallback for QT
-              if (cellValue === "TOTAIS" || cellValue.includes("TOTAIS") || cellValue === "TOTAL") {
-                totaisColumnCandidates.push(j);
               }
               // Look for price column - could be "PREÇO UNITÁRIO", "PRECO UNITARIO", "PU", etc.
               if (cellValue.includes("PRECO") || cellValue.includes("PREÇO") || 
@@ -356,8 +358,12 @@ const MapaQuantidades = () => {
           }
         }
         
-        // If multiple QT columns were found, choose the one with the most non-empty values
-        if (qtColumnCandidates.length > 1 && headerRowIndex !== -1) {
+        // Prioritize TOTAIS column over QT column
+        // If TOTAIS columns exist, use them first
+        if (totaisColumnCandidates.length > 0) {
+          qtColumnIndex = totaisColumnCandidates[0];
+        } else if (qtColumnCandidates.length > 1 && headerRowIndex !== -1) {
+          // If multiple QT columns were found, choose the one with the most non-empty values
           let maxValueCount = -1;
           let bestQtColumn = qtColumnCandidates[0];
           
@@ -385,30 +391,6 @@ const MapaQuantidades = () => {
           qtColumnIndex = qtColumnCandidates[0];
         }
         
-        // If QT column is empty or not found, try TOTAIS as fallback
-        if (qtColumnIndex === -1 && totaisColumnCandidates.length > 0) {
-          // Use the first TOTAIS column found
-          qtColumnIndex = totaisColumnCandidates[0];
-        } else if (qtColumnIndex !== -1 && headerRowIndex !== -1) {
-          // Check if QT column is empty, then try TOTAIS
-          let qtHasValues = false;
-          for (let i = headerRowIndex + 1; i < Math.min(headerRowIndex + 51, jsonData.length); i++) {
-            const row = jsonData[i];
-            if (Array.isArray(row) && row[qtColumnIndex]) {
-              const cellValue = String(row[qtColumnIndex]).trim();
-              if (cellValue !== "" && cellValue !== "-") {
-                qtHasValues = true;
-                break;
-              }
-            }
-          }
-          
-          // If QT column has no values, try TOTAIS
-          if (!qtHasValues && totaisColumnCandidates.length > 0) {
-            qtColumnIndex = totaisColumnCandidates[0];
-          }
-        }
-        
         // Find chapters (rows where ARTIGO column has a number without a dot)
         // A chapter is identified by a pure number (e.g., "1", "2") in the ARTIGO column
         // Sub-items with dots (e.g., "1.1", "2.3") are NOT considered chapters
@@ -421,7 +403,7 @@ const MapaQuantidades = () => {
           let chapterComments: string[] = [];
           const parentCommentsMap = new Map<string, string>();
           
-          jsonData.forEach((row: unknown) => {
+          jsonData.forEach((row: unknown, rowIndex: number) => {
             if (!Array.isArray(row)) return;
             
             const artigoCell = row[artigoColumnIndex] ? String(row[artigoColumnIndex]).trim() : "";
@@ -533,6 +515,7 @@ const MapaQuantidades = () => {
                   item_comments: itemComment,
                   observacoes_empreiteiro: observacoesValue || null,
                   observacoes_image_url: null, // Future enhancement: extract images from Excel
+                  excel_row_index: rowIndex, // Store the Excel row index for image matching
                 });
               }
               // If it has ARTIGO but no QT/UN, it's a comment for child items (e.g., "1.2" for "1.2.1")
@@ -634,8 +617,26 @@ const MapaQuantidades = () => {
                 });
                 
                 if (matchingItems.length > 0) {
-                  // Use the first matching item (we could improve this by checking row numbers)
-                  const targetItem = matchingItems[0];
+                  // If we have row info from the image, use it to find the best match
+                  let targetItem = matchingItems[0];
+                  
+                  if (image.row !== undefined && image.row !== null) {
+                    // Find the item with the closest row index to the image row
+                    let minDistance = Infinity;
+                    for (const item of matchingItems) {
+                      const itemData = itemsToInsert.find(i => 
+                        i.artigo === item.artigo && 
+                        i.sheet_name === image.sheetName
+                      );
+                      if (itemData?.excel_row_index !== undefined) {
+                        const distance = Math.abs(itemData.excel_row_index - image.row);
+                        if (distance < minDistance) {
+                          minDistance = distance;
+                          targetItem = item;
+                        }
+                      }
+                    }
+                  }
                   
                   // Upload image to Supabase storage
                   const fileName = `${id}/${Date.now()}_${image.imageId}.${image.extension}`;
@@ -1046,16 +1047,18 @@ const MapaQuantidades = () => {
                                         </Dialog>
                                       )}
                                       {!item.observacoes_image_url && (
-                                        <Button
-                                          variant="outline"
-                                          size="sm"
-                                          onClick={() => handleImageUpload(item.id)}
-                                          disabled={uploadImageMutation.isPending}
-                                          className="mt-1"
-                                        >
-                                          <ImagePlus className="h-4 w-4 mr-2" />
-                                          {t('orcamento.uploadImage') || 'Upload Image'}
-                                        </Button>
+                                        <div className="inline-flex">
+                                          <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() => handleImageUpload(item.id)}
+                                            disabled={uploadImageMutation.isPending}
+                                            className="h-auto py-2 px-3 gap-2 text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+                                          >
+                                            <ImageIcon className="h-5 w-5" />
+                                            <span className="text-sm">{t('orcamento.uploadImage') || 'Upload Image'}</span>
+                                          </Button>
+                                        </div>
                                       )}
                                       {!item.observacoes_empreiteiro && !item.observacoes_image_url && (
                                         <span className="text-muted-foreground">-</span>
