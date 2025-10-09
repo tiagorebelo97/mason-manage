@@ -15,6 +15,8 @@ import Brands from "./pages/Brands";
 import Locations from "./pages/Locations";
 import People from "./pages/People";
 import Contacts from "./pages/Contacts";
+import Orcamentos from "./pages/Orcamentos";
+import MapaQuantidades from "./pages/MapaQuantidades";
 import NotFound from "./pages/NotFound";
 
 // Configure QueryClient with cache settings
@@ -49,6 +51,8 @@ const AppLayout = () => (
             <Route path="/locations" element={<Locations />} />
             <Route path="/people" element={<People />} />
             <Route path="/contacts" element={<Contacts />} />
+            <Route path="/orcamentos" element={<Orcamentos />} />
+            <Route path="/orcamentos/:id/mapa-quantidades" element={<MapaQuantidades />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </main>
