@@ -278,7 +278,7 @@ const MapaQuantidades = () => {
         let descricaoColumnIndex = -1;
         let unColumnIndex = -1;
         let qtColumnIndex = -1;
-        let qtColumnCandidates: number[] = []; // Track all potential QT columns
+        const qtColumnCandidates: number[] = []; // Track all potential QT columns
         let precoUnitarioColumnIndex = -1;
         let observacoesColumnIndex = -1;
         let headerRowIndex = -1;
