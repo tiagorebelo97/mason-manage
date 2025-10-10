@@ -1070,7 +1070,8 @@ const MapaQuantidades = () => {
       setEditingItemId(null);
       setPendingItemSpecialities([]);
     },
-    onError: () => {
+    onError: (error) => {
+      console.error('Failed to update item specialities:', error);
       toast.error('Failed to update item specialities');
       // Clean up state even on error
       setEditingItemId(null);
@@ -1551,7 +1552,13 @@ const MapaQuantidades = () => {
                                                   <span className="text-xs">Edit</span>
                                                 </Button>
                                               </DialogTrigger>
-                                              <DialogContent>
+                                              <DialogContent onInteractOutside={(e) => {
+                                                // Prevent dialog from closing when clicking inside Popover
+                                                const target = e.target as Element;
+                                                if (target.closest('[data-radix-popover-content]')) {
+                                                  e.preventDefault();
+                                                }
+                                              }}>
                                                 <DialogHeader>
                                                   <DialogTitle>Item Specialities</DialogTitle>
                                                   <DialogDescription>
@@ -1847,7 +1854,13 @@ const MapaQuantidades = () => {
                                               <span className="text-xs">Edit</span>
                                             </Button>
                                           </DialogTrigger>
-                                          <DialogContent>
+                                          <DialogContent onInteractOutside={(e) => {
+                                            // Prevent dialog from closing when clicking inside Popover
+                                            const target = e.target as Element;
+                                            if (target.closest('[data-radix-popover-content]')) {
+                                              e.preventDefault();
+                                            }
+                                          }}>
                                             <DialogHeader>
                                               <DialogTitle>Item Specialities</DialogTitle>
                                               <DialogDescription>
