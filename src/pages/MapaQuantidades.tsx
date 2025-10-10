@@ -1568,7 +1568,7 @@ const MapaQuantidades = () => {
                                                 <div className="space-y-4 py-4">
                                                   <MultiSelect
                                                     groupedOptions={groupedSpecialityOptions}
-                                                    selected={editingItemId === item.id ? pendingItemSpecialities : getItemSpecialityIds(item.id, item.chapter_id)}
+                                                    selected={editingItemId === item.id ? pendingItemSpecialities : getItemOwnSpecialityIds(item.id)}
                                                     onChange={(selected) => {
                                                       if (editingItemId === item.id) {
                                                         setPendingItemSpecialities(selected);
@@ -1870,7 +1870,7 @@ const MapaQuantidades = () => {
                                             <div className="space-y-4 py-4">
                                               <MultiSelect
                                                 groupedOptions={groupedSpecialityOptions}
-                                                selected={editingItemId === item.id ? pendingItemSpecialities : getItemSpecialityIds(item.id, item.chapter_id)}
+                                                selected={editingItemId === item.id ? pendingItemSpecialities : getItemOwnSpecialityIds(item.id)}
                                                 onChange={(selected) => {
                                                   if (editingItemId === item.id) {
                                                     setPendingItemSpecialities(selected);
