@@ -4,7 +4,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Upload, FileSpreadsheet, Loader2, Trash2, MessageSquare, ChevronDown, ImagePlus, ImageIcon } from "lucide-react";
+import { ArrowLeft, Upload, FileSpreadsheet, Loader2, Trash2, MessageSquare, ChevronDown, ImagePlus, ImageIcon, Tag, X } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
@@ -55,6 +55,7 @@ import {
 } from "@/components/ui/hover-card";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 
 type OrcamentoFile = {
   id: string;
@@ -110,6 +111,11 @@ type ChapterSpeciality = {
   speciality_id: string;
 };
 
+type ItemSpeciality = {
+  item_id: string;
+  speciality_id: string;
+};
+
 const MapaQuantidades = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -120,6 +126,8 @@ const MapaQuantidades = () => {
   const [treatAsSingleSheet, setTreatAsSingleSheet] = useState(false);
   const [editingChapterId, setEditingChapterId] = useState<string | null>(null);
   const [pendingChapterSpecialities, setPendingChapterSpecialities] = useState<string[]>([]);
+  const [editingItemId, setEditingItemId] = useState<string | null>(null);
+  const [pendingItemSpecialities, setPendingItemSpecialities] = useState<string[]>([]);
 
   const { data: orcamento } = useQuery({
     queryKey: ["orcamento", id, import.meta.env.VITE_SUPABASE_URL],
@@ -230,6 +238,28 @@ const MapaQuantidades = () => {
       return data as ChapterSpeciality[];
     },
     enabled: !!id && chapters && chapters.length > 0,
+  });
+
+  const { data: itemSpecialities } = useQuery({
+    queryKey: ["item_specialities", id, import.meta.env.VITE_SUPABASE_URL],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("item_specialities")
+        .select(`
+          *,
+          orcamento_items!inner(
+            chapter_id,
+            orcamento_chapters!inner(
+              tab_id,
+              orcamento_tabs!inner(orcamento_id)
+            )
+          )
+        `)
+        .eq("orcamento_items.orcamento_chapters.orcamento_tabs.orcamento_id", id);
+      if (error) throw error;
+      return data as ItemSpeciality[];
+    },
+    enabled: !!id && items && items.length > 0,
   });
 
 
@@ -1083,6 +1113,45 @@ const MapaQuantidades = () => {
     },
   });
 
+  const updateItemSpecialitiesMutation = useMutation({
+    mutationFn: async ({ itemId, specialityIds }: { itemId: string; specialityIds: string[] }) => {
+      // Delete existing item specialities
+      const { error: deleteError } = await supabase
+        .from('item_specialities')
+        .delete()
+        .eq('item_id', itemId);
+      
+      if (deleteError) throw deleteError;
+      
+      // Insert new item specialities
+      if (specialityIds.length > 0) {
+        const { error: insertError } = await supabase
+          .from('item_specialities')
+          .insert(
+            specialityIds.map(specialityId => ({
+              item_id: itemId,
+              speciality_id: specialityId,
+            }))
+          );
+        
+        if (insertError) throw insertError;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["item_specialities", id, import.meta.env.VITE_SUPABASE_URL] });
+      toast.success('Item specialities updated successfully');
+      // Clean up state after successful mutation
+      setEditingItemId(null);
+      setPendingItemSpecialities([]);
+    },
+    onError: () => {
+      toast.error('Failed to update item specialities');
+      // Clean up state even on error
+      setEditingItemId(null);
+      setPendingItemSpecialities([]);
+    },
+  });
+
 
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -1140,6 +1209,31 @@ const MapaQuantidades = () => {
       .map(cs => cs.speciality_id);
   };
 
+  // Get specialities explicitly set for an item
+  const getItemOwnSpecialityIds = (itemId: string): string[] => {
+    if (!itemSpecialities) return [];
+    return itemSpecialities
+      .filter(is => is.item_id === itemId)
+      .map(is => is.speciality_id);
+  };
+
+  // Get all specialities for an item (own + inherited from chapter)
+  const getItemSpecialityIds = (itemId: string, chapterId: string): string[] => {
+    const ownSpecialities = getItemOwnSpecialityIds(itemId);
+    // If item has its own specialities set, return only those
+    if (ownSpecialities.length > 0) {
+      return ownSpecialities;
+    }
+    // Otherwise, inherit from chapter
+    return getChapterSpecialityIds(chapterId);
+  };
+
+  // Get speciality objects by IDs
+  const getSpecialitiesByIds = (ids: string[]): Speciality[] => {
+    if (!specialities) return [];
+    return specialities.filter(s => ids.includes(s.id));
+  };
+
 
 
 
@@ -1156,6 +1250,24 @@ const MapaQuantidades = () => {
       updateChapterSpecialitiesMutation.mutate({
         chapterId: editingChapterId,
         specialityIds: pendingChapterSpecialities,
+      });
+      // Note: State cleanup moved to mutation onSuccess for better UX
+    }
+  };
+
+  // Handlers for item specialities dialog
+  const handleOpenItemDialog = (itemId: string, chapterId: string) => {
+    setEditingItemId(itemId);
+    // Initialize with item's own specialities or empty array
+    setPendingItemSpecialities(getItemOwnSpecialityIds(itemId));
+  };
+
+  const handleCloseItemDialog = (open: boolean) => {
+    if (!open && editingItemId) {
+      // Save changes when closing
+      updateItemSpecialitiesMutation.mutate({
+        itemId: editingItemId,
+        specialityIds: pendingItemSpecialities,
       });
       // Note: State cleanup moved to mutation onSuccess for better UX
     }
@@ -1364,7 +1476,6 @@ const MapaQuantidades = () => {
                                   <TableCell>{item.artigo}</TableCell>
                                   <TableCell>{item.descricao}</TableCell>
                                   <TableCell>{item.un || '-'}</TableCell>
-                                  <TableCell className="text-right">{item.qt !== null ? item.qt : '-'}</TableCell>
                                   <TableCell className="text-right">{item.qt !== null ? Number(item.qt).toFixed(2).replace(/\.?0+$/, '') : '-'}</TableCell>
                                   <TableCell>
                                     <div className="flex flex-wrap gap-1 items-center">
@@ -1637,7 +1748,6 @@ const MapaQuantidades = () => {
                               <TableCell>{item.artigo}</TableCell>
                               <TableCell>{item.descricao}</TableCell>
                               <TableCell>{item.un || '-'}</TableCell>
-                              <TableCell className="text-right">{item.qt !== null ? item.qt : '-'}</TableCell>
                               <TableCell className="text-right">{item.qt !== null ? Number(item.qt).toFixed(2).replace(/\.?0+$/, '') : '-'}</TableCell>
                               <TableCell>
                                 <div className="flex flex-wrap gap-1 items-center">
