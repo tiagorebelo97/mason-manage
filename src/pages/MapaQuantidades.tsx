@@ -4,7 +4,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Upload, FileSpreadsheet, Loader2, Trash2, MessageSquare, ChevronDown, ImagePlus, ImageIcon, Tag, X } from "lucide-react";
+import { ArrowLeft, Upload, FileSpreadsheet, Loader2, Trash2, MessageSquare, ChevronDown, ImagePlus, ImageIcon } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
@@ -53,8 +53,6 @@ import {
   HoverCardContent,
   HoverCardTrigger,
 } from "@/components/ui/hover-card";
-import { MultiSelect } from "@/components/ui/multi-select";
-import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 
@@ -112,11 +110,6 @@ type ChapterSpeciality = {
   speciality_id: string;
 };
 
-type ItemSpeciality = {
-  item_id: string;
-  speciality_id: string;
-};
-
 const MapaQuantidades = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -126,9 +119,7 @@ const MapaQuantidades = () => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [treatAsSingleSheet, setTreatAsSingleSheet] = useState(false);
   const [editingChapterId, setEditingChapterId] = useState<string | null>(null);
-  const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [pendingChapterSpecialities, setPendingChapterSpecialities] = useState<string[]>([]);
-  const [pendingItemSpecialities, setPendingItemSpecialities] = useState<string[]>([]);
 
   const { data: orcamento } = useQuery({
     queryKey: ["orcamento", id, import.meta.env.VITE_SUPABASE_URL],
@@ -223,17 +214,7 @@ const MapaQuantidades = () => {
     enabled: !!id && chapters && chapters.length > 0,
   });
 
-  const { data: itemSpecialities } = useQuery({
-    queryKey: ["item_specialities", id, import.meta.env.VITE_SUPABASE_URL],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("item_specialities")
-        .select("*");
-      if (error) throw error;
-      return data as ItemSpeciality[];
-    },
-    enabled: !!id && items && items.length > 0,
-  });
+
 
   const uploadMutation = useMutation({
     mutationFn: async (file: File) => {
@@ -498,12 +479,14 @@ const MapaQuantidades = () => {
         // - Chapter comments: rows without ARTIGO, UN, and QT but with DESCRIÇÃO (accumulated between chapter and first item)
         // - Item comments: rows with ARTIGO but without BOTH QT and UN (parent for child items)
         // - Multi-line comments: rows without ARTIGO, UN, QT after a comment row are part of that comment
+        // - Duplicate chapter numbers: In single-sheet files, if a chapter number appears again, treat it as a comment for the next item
         if (artigoColumnIndex !== -1 && descricaoColumnIndex !== -1) {
           let currentChapterNumber: string | null = null;
           let chapterComments: string[] = [];
           const parentCommentsMap = new Map<string, string[]>();
           let lastCommentArtigo: string | null = null;
           let firstItemFoundInChapter = false;
+          const seenChapterNumbers = new Set<string>(); // Track seen chapter numbers to detect duplicates
           
           jsonData.forEach((row: unknown, rowIndex: number) => {
             if (!Array.isArray(row)) return;
@@ -526,24 +509,38 @@ const MapaQuantidades = () => {
             
             // Case 1: Chapter (pure number in ARTIGO column)
             if (/^\d+$/.test(artigoCell) && descricaoCell) {
-              // Save previous chapter with its comments
-              if (currentChapterNumber && chapterComments.length > 0) {
-                const lastChapter = chaptersToInsert[chaptersToInsert.length - 1];
-                if (lastChapter && lastChapter.chapter_number === currentChapterNumber) {
-                  lastChapter.chapter_comments = chapterComments.join('\n');
+              // Check if this chapter number was already seen (duplicate chapter)
+              // In single-sheet files, treat duplicate chapter numbers as item comments
+              if (seenChapterNumbers.has(artigoCell)) {
+                // This is a duplicate chapter number - treat it as a comment for the next item
+                // Use the ARTIGO as the key for the comment (will be looked up by items)
+                if (!parentCommentsMap.has(artigoCell)) {
+                  parentCommentsMap.set(artigoCell, []);
                 }
+                parentCommentsMap.get(artigoCell)!.push(descricaoCell);
+                lastCommentArtigo = artigoCell;
+              } else {
+                // This is a new chapter - process normally
+                // Save previous chapter with its comments
+                if (currentChapterNumber && chapterComments.length > 0) {
+                  const lastChapter = chaptersToInsert[chaptersToInsert.length - 1];
+                  if (lastChapter && lastChapter.chapter_number === currentChapterNumber) {
+                    lastChapter.chapter_comments = chapterComments.join('\n');
+                  }
+                }
+                
+                chaptersToInsert.push({
+                  sheet_name: sheetName,
+                  chapter_number: artigoCell,
+                  chapter_name: descricaoCell,
+                  chapter_comments: undefined,
+                });
+                currentChapterNumber = artigoCell;
+                seenChapterNumbers.add(artigoCell); // Mark this chapter number as seen
+                chapterComments = [];
+                firstItemFoundInChapter = false;
+                lastCommentArtigo = null;
               }
-              
-              chaptersToInsert.push({
-                sheet_name: sheetName,
-                chapter_number: artigoCell,
-                chapter_name: descricaoCell,
-                chapter_comments: undefined,
-              });
-              currentChapterNumber = artigoCell;
-              chapterComments = [];
-              firstItemFoundInChapter = false;
-              lastCommentArtigo = null;
             }
             // Case 2: Row with ARTIGO but no UN and QT (comment parent)
             else if (artigoCell && /^\d+\./.test(artigoCell) && !hasUN && !hasQT && descricaoCell) {
@@ -1037,55 +1034,7 @@ const MapaQuantidades = () => {
     },
   });
 
-  const updateItemSpecialitiesMutation = useMutation({
-    mutationFn: async ({ itemId, specialityIds }: { itemId: string; specialityIds: string[] }) => {
-      // Delete existing item specialities
-      const { error: deleteError } = await supabase
-        .from('item_specialities')
-        .delete()
-        .eq('item_id', itemId);
-      
-      if (deleteError) throw deleteError;
-      
-      // Insert new item specialities
-      if (specialityIds.length > 0) {
-        const { error: insertError } = await supabase
-          .from('item_specialities')
-          .insert(
-            specialityIds.map(specialityId => ({
-              item_id: itemId,
-              speciality_id: specialityId,
-            }))
-          );
-        
-        if (insertError) throw insertError;
-      }
-      
-      // Update the flag based on whether specialities were set
-      // If empty, allow inheritance from chapter; if not empty, use explicit specialities
-      const { error: updateError } = await supabase
-        .from('orcamento_items')
-        .update({ specialities_explicitly_set: specialityIds.length > 0 })
-        .eq('id', itemId);
-      
-      if (updateError) throw updateError;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["item_specialities", id, import.meta.env.VITE_SUPABASE_URL] });
-      queryClient.invalidateQueries({ queryKey: ["orcamento_items", id, import.meta.env.VITE_SUPABASE_URL] });
-      toast.success('Item specialities updated successfully');
-      // Clean up state after successful mutation
-      setEditingItemId(null);
-      setPendingItemSpecialities([]);
-    },
-    onError: (error) => {
-      console.error('Failed to update item specialities:', error);
-      toast.error('Failed to update item specialities');
-      // Clean up state even on error
-      setEditingItemId(null);
-      setPendingItemSpecialities([]);
-    },
-  });
+
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -1142,83 +1091,9 @@ const MapaQuantidades = () => {
       .map(cs => cs.speciality_id);
   };
 
-  // Get specialities for an item (with inheritance for display)
-  const getItemSpecialityIds = (itemId: string, chapterId?: string): string[] => {
-    if (!itemSpecialities) return [];
-    const itemSpecs = itemSpecialities.filter(is => is.item_id === itemId);
-    
-    // Check if specialities were explicitly set for this item
-    const item = items?.find(i => i.id === itemId);
-    const explicitlySet = item?.specialities_explicitly_set === true;
-    
-    // If item has its own specialities, return them
-    if (itemSpecs.length > 0) {
-      return itemSpecs.map(is => is.speciality_id);
-    }
-    
-    // If specialities were explicitly set to empty, return empty (don't inherit)
-    if (explicitlySet) {
-      return [];
-    }
-    
-    // Otherwise, inherit from chapter if chapterId is provided
-    if (chapterId) {
-      return getChapterSpecialityIds(chapterId);
-    }
-    
-    return [];
-  };
 
-  // Get only item-specific specialities (no inheritance) for editing
-  const getItemOwnSpecialityIds = (itemId: string): string[] => {
-    if (!itemSpecialities) return [];
-    const itemSpecs = itemSpecialities.filter(is => is.item_id === itemId);
-    return itemSpecs.map(is => is.speciality_id);
-  };
 
-  // Get speciality objects for display
-  const getSpecialitiesByIds = (ids: string[]): Speciality[] => {
-    if (!specialities) return [];
-    return specialities.filter(s => ids.includes(s.id));
-  };
 
-  // Convert specialities to grouped multiselect options by main specialty
-  const groupedSpecialityOptions = React.useMemo(() => {
-    if (!specialities) return {};
-    
-    const grouped: Record<string, { label: string; value: string; group?: string }[]> = {};
-    
-    specialities.forEach(s => {
-      const mainSpecialtyName = s.main_specialties 
-        ? (language === 'pt' ? s.main_specialties.main_specialty_pt : s.main_specialties.main_specialty_en)
-        : 'Other';
-      
-      if (!grouped[mainSpecialtyName]) {
-        grouped[mainSpecialtyName] = [];
-      }
-      
-      grouped[mainSpecialtyName].push({
-        label: language === 'pt' ? s.name_pt : s.name_en,
-        value: s.id,
-        group: mainSpecialtyName,
-      });
-    });
-    
-    // Sort groups alphabetically, but put "Other" at the end
-    const sortedGrouped: Record<string, { label: string; value: string; group?: string }[]> = {};
-    const sortedKeys = Object.keys(grouped).sort((a, b) => {
-      if (a === 'Other') return 1;
-      if (b === 'Other') return -1;
-      return a.localeCompare(b);
-    });
-    
-    sortedKeys.forEach(key => {
-      // Sort specialities within each group alphabetically
-      sortedGrouped[key] = grouped[key].sort((a, b) => a.label.localeCompare(b.label));
-    });
-    
-    return sortedGrouped;
-  }, [specialities, language]);
 
   // Handlers for chapter specialities dialog
   const handleOpenChapterDialog = (chapterId: string) => {
@@ -1237,28 +1112,7 @@ const MapaQuantidades = () => {
     }
   };
 
-  // Handlers for item specialities dialog
-  const handleOpenItemDialog = (itemId: string, chapterId?: string) => {
-    setEditingItemId(itemId);
-    setPendingItemSpecialities(getItemOwnSpecialityIds(itemId));
-  };
 
-  const handleCloseItemDialog = (open: boolean) => {
-    if (!open) {
-      // Just clean up state without saving
-      setEditingItemId(null);
-      setPendingItemSpecialities([]);
-    }
-  };
-
-  const handleApplyItemSpecialities = () => {
-    if (editingItemId) {
-      updateItemSpecialitiesMutation.mutate({
-        itemId: editingItemId,
-        specialityIds: pendingItemSpecialities,
-      });
-    }
-  };
 
   // Group chapters by tab
   const chaptersByTab = chapters?.reduce((acc, chapter) => {
@@ -1450,7 +1304,6 @@ const MapaQuantidades = () => {
                               <TableHead>{t('orcamento.descricao')}</TableHead>
                               <TableHead>{t('orcamento.unit')}</TableHead>
                               <TableHead className="text-right">{t('orcamento.quantity')}</TableHead>
-                              <TableHead>{t('orcamento.specialities')}</TableHead>
                               <TableHead>{t('orcamento.observacoesEmpreiteiro')}</TableHead>
                               <TableHead className="w-12"></TableHead>
                             </TableRow>
@@ -1463,113 +1316,6 @@ const MapaQuantidades = () => {
                                   <TableCell>{item.descricao}</TableCell>
                                   <TableCell>{item.un || '-'}</TableCell>
                                   <TableCell className="text-right">{item.qt !== null ? item.qt : '-'}</TableCell>
-                                  <TableCell>
-                                    <div className="flex flex-wrap gap-1 items-center">
-                                      {(() => {
-                                        const itemSpecs = getItemSpecialityIds(item.id, item.chapter_id);
-                                        const specs = getSpecialitiesByIds(itemSpecs);
-                                        
-                                        const handleRemoveSpeciality = (specialityId: string) => {
-                                          const currentSpecs = getItemOwnSpecialityIds(item.id);
-                                          const updatedSpecs = currentSpecs.filter(id => id !== specialityId);
-                                          updateItemSpecialitiesMutation.mutate({
-                                            itemId: item.id,
-                                            specialityIds: updatedSpecs,
-                                          });
-                                        };
-                                        
-                                        return (
-                                          <>
-                                            {specs.map(spec => (
-                                              <Badge 
-                                                key={spec.id} 
-                                                variant="secondary"
-                                                className="text-xs flex items-center gap-1"
-                                              >
-                                                {language === 'pt' ? spec.name_pt : spec.name_en}
-                                                <button
-                                                  className="ml-1 ring-offset-background rounded-full outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
-                                                  onClick={(e) => {
-                                                    e.preventDefault();
-                                                    e.stopPropagation();
-                                                    handleRemoveSpeciality(spec.id);
-                                                  }}
-                                                >
-                                                  <X className="h-3 w-3 text-muted-foreground hover:text-foreground" />
-                                                </button>
-                                              </Badge>
-                                            ))}
-                                            {specs.length === 0 && (
-                                              <span className="text-xs text-muted-foreground">None</span>
-                                            )}
-                                            <Dialog open={editingItemId === item.id} onOpenChange={(open) => {
-                                              if (open) {
-                                                handleOpenItemDialog(item.id, item.chapter_id);
-                                              } else {
-                                                handleCloseItemDialog(false);
-                                              }
-                                            }}>
-                                              <DialogTrigger asChild>
-                                                <Button 
-                                                  variant="outline" 
-                                                  size="sm" 
-                                                  className="h-7 px-2 ml-1 gap-1"
-                                                >
-                                                  <Tag className="h-3 w-3" />
-                                                  <span className="text-xs">Edit</span>
-                                                </Button>
-                                              </DialogTrigger>
-                                              <DialogContent onInteractOutside={(e) => {
-                                                // Prevent dialog from closing when clicking inside Popover
-                                                const target = e.target as Element;
-                                                if (target.closest('[data-radix-popover-content]')) {
-                                                  e.preventDefault();
-                                                }
-                                              }}>
-                                                <DialogHeader>
-                                                  <DialogTitle>Item Specialities</DialogTitle>
-                                                  <DialogDescription>
-                                                    Select specialities for this item.
-                                                  </DialogDescription>
-                                                </DialogHeader>
-                                                <div className="space-y-4 py-4">
-                                                  <MultiSelect
-                                                    groupedOptions={groupedSpecialityOptions}
-                                                    selected={editingItemId === item.id ? pendingItemSpecialities : getItemOwnSpecialityIds(item.id)}
-                                                    onChange={(selected) => {
-                                                      if (editingItemId === item.id) {
-                                                        setPendingItemSpecialities(selected);
-                                                      }
-                                                    }}
-                                                    placeholder="Select specialities..."
-                                                    emptyText="No specialities found"
-                                                  />
-                                                </div>
-                                                <div className="flex justify-end gap-2">
-                                                  <Button 
-                                                    variant="outline" 
-                                                    onClick={() => {
-                                                      setEditingItemId(null);
-                                                      setPendingItemSpecialities([]);
-                                                    }}
-                                                    disabled={updateItemSpecialitiesMutation.isPending}
-                                                  >
-                                                    Cancel
-                                                  </Button>
-                                                  <Button 
-                                                    onClick={handleApplyItemSpecialities}
-                                                    disabled={updateItemSpecialitiesMutation.isPending}
-                                                  >
-                                                    {updateItemSpecialitiesMutation.isPending ? "Applying..." : "Apply"}
-                                                  </Button>
-                                                </div>
-                                              </DialogContent>
-                                            </Dialog>
-                                          </>
-                                        );
-                                      })()}
-                                    </div>
-                                  </TableCell>
                                   <TableCell className="text-sm">
                                     <div className="space-y-2">
                                       {item.observacoes_empreiteiro && (
@@ -1723,7 +1469,6 @@ const MapaQuantidades = () => {
                           <TableHead>{t('orcamento.descricao')}</TableHead>
                           <TableHead>{t('orcamento.unit')}</TableHead>
                           <TableHead className="text-right">{t('orcamento.quantity')}</TableHead>
-                          <TableHead>{t('orcamento.specialities')}</TableHead>
                           <TableHead>{t('orcamento.observacoesEmpreiteiro')}</TableHead>
                           <TableHead className="w-12"></TableHead>
                         </TableRow>
@@ -1736,113 +1481,6 @@ const MapaQuantidades = () => {
                               <TableCell>{item.descricao}</TableCell>
                               <TableCell>{item.un || '-'}</TableCell>
                               <TableCell className="text-right">{item.qt !== null ? item.qt : '-'}</TableCell>
-                              <TableCell>
-                                <div className="flex flex-wrap gap-1 items-center">
-                                  {(() => {
-                                    const itemSpecs = getItemSpecialityIds(item.id, item.chapter_id);
-                                    const specs = getSpecialitiesByIds(itemSpecs);
-                                    
-                                    const handleRemoveSpeciality = (specialityId: string) => {
-                                      const currentSpecs = getItemOwnSpecialityIds(item.id);
-                                      const updatedSpecs = currentSpecs.filter(id => id !== specialityId);
-                                      updateItemSpecialitiesMutation.mutate({
-                                        itemId: item.id,
-                                        specialityIds: updatedSpecs,
-                                      });
-                                    };
-                                    
-                                    return (
-                                      <>
-                                        {specs.map(spec => (
-                                          <Badge 
-                                            key={spec.id} 
-                                            variant="secondary"
-                                            className="text-xs flex items-center gap-1"
-                                          >
-                                            {language === 'pt' ? spec.name_pt : spec.name_en}
-                                            <button
-                                              className="ml-1 ring-offset-background rounded-full outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
-                                              onClick={(e) => {
-                                                e.preventDefault();
-                                                e.stopPropagation();
-                                                handleRemoveSpeciality(spec.id);
-                                              }}
-                                            >
-                                              <X className="h-3 w-3 text-muted-foreground hover:text-foreground" />
-                                            </button>
-                                          </Badge>
-                                        ))}
-                                        {specs.length === 0 && (
-                                          <span className="text-xs text-muted-foreground">None</span>
-                                        )}
-                                        <Dialog open={editingItemId === item.id} onOpenChange={(open) => {
-                                          if (open) {
-                                            handleOpenItemDialog(item.id, item.chapter_id);
-                                          } else {
-                                            handleCloseItemDialog(false);
-                                          }
-                                        }}>
-                                          <DialogTrigger asChild>
-                                            <Button 
-                                              variant="outline" 
-                                              size="sm" 
-                                              className="h-7 px-2 ml-1 gap-1"
-                                            >
-                                              <Tag className="h-3 w-3" />
-                                              <span className="text-xs">Edit</span>
-                                            </Button>
-                                          </DialogTrigger>
-                                          <DialogContent onInteractOutside={(e) => {
-                                            // Prevent dialog from closing when clicking inside Popover
-                                            const target = e.target as Element;
-                                            if (target.closest('[data-radix-popover-content]')) {
-                                              e.preventDefault();
-                                            }
-                                          }}>
-                                            <DialogHeader>
-                                              <DialogTitle>Item Specialities</DialogTitle>
-                                              <DialogDescription>
-                                                Select specialities for this item.
-                                              </DialogDescription>
-                                            </DialogHeader>
-                                            <div className="space-y-4 py-4">
-                                              <MultiSelect
-                                                groupedOptions={groupedSpecialityOptions}
-                                                selected={editingItemId === item.id ? pendingItemSpecialities : getItemOwnSpecialityIds(item.id)}
-                                                onChange={(selected) => {
-                                                  if (editingItemId === item.id) {
-                                                    setPendingItemSpecialities(selected);
-                                                  }
-                                                }}
-                                                placeholder="Select specialities..."
-                                                emptyText="No specialities found"
-                                              />
-                                            </div>
-                                            <div className="flex justify-end gap-2">
-                                              <Button 
-                                                variant="outline" 
-                                                onClick={() => {
-                                                  setEditingItemId(null);
-                                                  setPendingItemSpecialities([]);
-                                                }}
-                                                disabled={updateItemSpecialitiesMutation.isPending}
-                                              >
-                                                Cancel
-                                              </Button>
-                                              <Button 
-                                                onClick={handleApplyItemSpecialities}
-                                                disabled={updateItemSpecialitiesMutation.isPending}
-                                              >
-                                                {updateItemSpecialitiesMutation.isPending ? "Applying..." : "Apply"}
-                                              </Button>
-                                            </div>
-                                          </DialogContent>
-                                        </Dialog>
-                                      </>
-                                    );
-                                  })()}
-                                </div>
-                              </TableCell>
                               <TableCell className="text-sm">
                                 <div className="space-y-2">
                                   {item.observacoes_empreiteiro && (
