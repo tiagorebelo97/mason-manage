@@ -557,9 +557,10 @@ const MapaQuantidades = () => {
             // Case 3: Multi-line comment (no ARTIGO, UN, QT after a comment row)
             else if (!artigoCell && !hasUN && !hasQT && descricaoCell && lastCommentArtigo) {
               // This is part of the previous comment
-              if (parentCommentsMap.has(lastCommentArtigo)) {
-                parentCommentsMap.get(lastCommentArtigo)!.push(descricaoCell);
+              if (!parentCommentsMap.has(lastCommentArtigo)) {
+                parentCommentsMap.set(lastCommentArtigo, []);
               }
+              parentCommentsMap.get(lastCommentArtigo)!.push(descricaoCell);
             }
             // Case 4: Chapter comment (no ARTIGO, UN, QT but has DESCRIÇÃO - only before first item)
             else if (!artigoCell && !hasUN && !hasQT && descricaoCell && currentChapterNumber && !firstItemFoundInChapter) {
@@ -1243,13 +1244,19 @@ const MapaQuantidades = () => {
   };
 
   const handleCloseItemDialog = (open: boolean) => {
-    if (!open && editingItemId) {
-      // Save changes when closing
+    if (!open) {
+      // Just clean up state without saving
+      setEditingItemId(null);
+      setPendingItemSpecialities([]);
+    }
+  };
+
+  const handleApplyItemSpecialities = () => {
+    if (editingItemId) {
       updateItemSpecialitiesMutation.mutate({
         itemId: editingItemId,
         specialityIds: pendingItemSpecialities,
       });
-      // Note: State cleanup moved to mutation onSuccess for better UX
     }
   };
 
@@ -1538,6 +1545,24 @@ const MapaQuantidades = () => {
                                                     emptyText="No specialities found"
                                                   />
                                                 </div>
+                                                <div className="flex justify-end gap-2">
+                                                  <Button 
+                                                    variant="outline" 
+                                                    onClick={() => {
+                                                      setEditingItemId(null);
+                                                      setPendingItemSpecialities([]);
+                                                    }}
+                                                    disabled={updateItemSpecialitiesMutation.isPending}
+                                                  >
+                                                    Cancel
+                                                  </Button>
+                                                  <Button 
+                                                    onClick={handleApplyItemSpecialities}
+                                                    disabled={updateItemSpecialitiesMutation.isPending}
+                                                  >
+                                                    {updateItemSpecialitiesMutation.isPending ? "Applying..." : "Apply"}
+                                                  </Button>
+                                                </div>
                                               </DialogContent>
                                             </Dialog>
                                           </>
@@ -1792,6 +1817,24 @@ const MapaQuantidades = () => {
                                                 placeholder="Select specialities..."
                                                 emptyText="No specialities found"
                                               />
+                                            </div>
+                                            <div className="flex justify-end gap-2">
+                                              <Button 
+                                                variant="outline" 
+                                                onClick={() => {
+                                                  setEditingItemId(null);
+                                                  setPendingItemSpecialities([]);
+                                                }}
+                                                disabled={updateItemSpecialitiesMutation.isPending}
+                                              >
+                                                Cancel
+                                              </Button>
+                                              <Button 
+                                                onClick={handleApplyItemSpecialities}
+                                                disabled={updateItemSpecialitiesMutation.isPending}
+                                              >
+                                                {updateItemSpecialitiesMutation.isPending ? "Applying..." : "Apply"}
+                                              </Button>
                                             </div>
                                           </DialogContent>
                                         </Dialog>
