@@ -56,6 +56,7 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { MultiSelect } from "@/components/ui/multi-select";
 
 type OrcamentoFile = {
   id: string;
@@ -1234,6 +1235,44 @@ const MapaQuantidades = () => {
     return specialities.filter(s => ids.includes(s.id));
   };
 
+  // Group specialities by main specialty for dropdown
+  const groupedSpecialityOptions = React.useMemo(() => {
+    if (!specialities) return {};
+    
+    const grouped: Record<string, { label: string; value: string; group?: string }[]> = {};
+    
+    specialities.forEach(s => {
+      const mainSpecialtyName = s.main_specialties 
+        ? (language === 'pt' ? s.main_specialties.main_specialty_pt : s.main_specialties.main_specialty_en)
+        : 'Other';
+      
+      if (!grouped[mainSpecialtyName]) {
+        grouped[mainSpecialtyName] = [];
+      }
+      
+      grouped[mainSpecialtyName].push({
+        label: language === 'pt' ? s.name_pt : s.name_en,
+        value: s.id,
+        group: mainSpecialtyName,
+      });
+    });
+    
+    // Sort groups alphabetically, but put "Other" at the end
+    const sortedGrouped: Record<string, { label: string; value: string; group?: string }[]> = {};
+    const sortedKeys = Object.keys(grouped).sort((a, b) => {
+      if (a === 'Other') return 1;
+      if (b === 'Other') return -1;
+      return a.localeCompare(b);
+    });
+    
+    sortedKeys.forEach(key => {
+      // Sort specialities within each group alphabetically
+      sortedGrouped[key] = grouped[key].sort((a, b) => a.label.localeCompare(b.label));
+    });
+    
+    return sortedGrouped;
+  }, [specialities, language]);
+
 
 
 
@@ -1270,6 +1309,15 @@ const MapaQuantidades = () => {
         specialityIds: pendingItemSpecialities,
       });
       // Note: State cleanup moved to mutation onSuccess for better UX
+    }
+  };
+
+  const handleApplyItemSpecialities = () => {
+    if (editingItemId) {
+      updateItemSpecialitiesMutation.mutate({
+        itemId: editingItemId,
+        specialityIds: pendingItemSpecialities,
+      });
     }
   };
 
