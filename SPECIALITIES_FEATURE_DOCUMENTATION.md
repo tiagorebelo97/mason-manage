@@ -1,31 +1,19 @@
-# Specialities Feature for Chapters and Items
+# Specialities Feature for Items
 
 ## Overview
 
-This feature allows users to assign specialities to both chapters and individual items in orçamentos (budget/quantity maps). This is useful for categorizing construction work by trade or specialty (e.g., electrical, plumbing, masonry, etc.).
+This feature allows users to assign specialities to individual items in orçamentos (budget/quantity maps). This is useful for categorizing construction work by trade or specialty (e.g., electrical, plumbing, masonry, etc.).
 
-**NEW in this update:** Specialities are now **grouped by main specialties** in the dropdown, making it easier to find and select related specialities.
+**Specialities are now grouped by main specialties** in the dropdown, making it easier to find and select related specialities.
 
 ## Key Features
 
-### 1. **Chapter-Level Specialities**
-- Assign multiple specialities to a chapter
-- All items in that chapter automatically inherit these specialities
-- Easy bulk assignment for organizing work by specialty
-- **NEW:** Specialities organized by main specialty in dropdown
-
-### 2. **Item-Level Specialities**
-- Override chapter specialities for individual items
-- Assign specific specialities that differ from the chapter
+### 1. **Item-Level Specialities**
+- Assign specific specialities to individual items
 - Items can have their own unique set of specialities
-- **NEW:** Same grouped organization for consistency
+- Specialities organized by main specialty in dropdown
 
-### 3. **Inheritance System**
-- Items inherit specialities from their parent chapter by default
-- The UI clearly indicates when specialities are inherited vs. custom
-- Deleting item-specific specialities reverts to chapter inheritance
-
-### 4. **Grouped Selection (NEW)**
+### 2. **Grouped Selection**
 - Specialities are organized by main specialty categories
 - Easy navigation through related specialities
 - Alphabetically sorted groups and specialities
@@ -33,23 +21,31 @@ This feature allows users to assign specialities to both chapters and individual
 
 ## User Interface
 
-### Chapter Specialities
+### Item Specialities
 
-Each chapter header now includes a **Tag icon** button (🏷️) next to the comments button:
+Each item now has a "Specialities" column with a button showing the current state:
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│  ▼  Chapter 1. Trabalhos Preliminares  💬  🏷️          │
-└─────────────────────────────────────────────────────────┘
+┌────────┬─────────────┬────┬────┬─────────────────┬────────────┐
+│ Artigo │ Descrição   │ UN │ QT │ Specialities    │ Observações│
+├────────┼─────────────┼────┼────┼─────────────────┼────────────┤
+│ 1.1    │ Item desc   │ m² │ 10 │ 🏷️ 2            │ ...        │
+│ 1.2    │ Another     │ m  │ 5  │ 🏷️ 1            │ ...        │
+│ 1.3    │ Third item  │ un │ 2  │ 🏷️ None         │ ...        │
+└────────┴─────────────┴────┴────┴─────────────────┴────────────┘
 ```
 
-**To manage chapter specialities:**
-1. Click the Tag icon button in the chapter header
-2. A dialog opens showing a **grouped multi-select dropdown**
-3. Specialities are organized by main specialty (e.g., Electrical, Plumbing, HVAC, etc.)
-4. Select one or more specialities from any group
-5. Changes are saved automatically
-6. All items in the chapter inherit these specialities
+**Button indicators:**
+- `None` - No specialities assigned
+- `1` - One speciality assigned to this item
+- `2` - Two specialities assigned to this item
+- `3` - Three specialities assigned to this item
+
+**To manage item specialities:**
+1. Click the speciality button in the item row
+2. A dialog opens with a **grouped multi-select dropdown** organized by main specialties
+3. Select specialities for the item
+4. Changes are saved automatically
 
 **Grouping in dropdown:**
 The specialities dropdown is organized hierarchically:
@@ -73,51 +69,9 @@ The specialities dropdown is organized hierarchically:
   └─ (Specialities without main specialty)
 ```
 
-### Item Specialities
-
-Each item now has a "Specialities" column with a button showing the current state:
-
-```
-┌────────┬─────────────┬────┬────┬─────────────────┬────────────┐
-│ Artigo │ Descrição   │ UN │ QT │ Specialities    │ Observações│
-├────────┼─────────────┼────┼────┼─────────────────┼────────────┤
-│ 1.1    │ Item desc   │ m² │ 10 │ 🏷️ 2 (inherited)│ ...        │
-│ 1.2    │ Another     │ m  │ 5  │ 🏷️ 1            │ ...        │
-│ 1.3    │ Third item  │ un │ 2  │ 🏷️ None         │ ...        │
-└────────┴─────────────┴────┴────┴─────────────────┴────────────┘
-```
-
-**Button indicators:**
-- `None` - No specialities assigned
-- `1 (inherited)` - One speciality inherited from chapter
-- `2 (inherited)` - Two specialities inherited from chapter
-- `1` - One custom speciality assigned to this item
-- `3` - Three custom specialities assigned to this item
-
-**To manage item specialities:**
-1. Click the speciality button in the item row
-2. A dialog opens with a **grouped multi-select dropdown** organized by main specialties
-3. Select specialities (leave empty to inherit from chapter)
-4. Changes are saved automatically
-
-The item specialities dropdown has the same grouped organization as the chapter specialities dropdown.
-
 ## Database Schema
 
-### New Tables
-
-#### `chapter_specialities`
-Junction table linking chapters to specialities.
-
-```sql
-CREATE TABLE chapter_specialities (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  chapter_id UUID NOT NULL REFERENCES orcamento_chapters(id) ON DELETE CASCADE,
-  speciality_id UUID NOT NULL REFERENCES specialities(id) ON DELETE CASCADE,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  UNIQUE(chapter_id, speciality_id)
-);
-```
+### Tables
 
 #### `item_specialities`
 Junction table linking items to specialities.
@@ -135,7 +89,6 @@ CREATE TABLE item_specialities (
 ### Relationships
 
 ```
-orcamento_chapters (1) ──→ (*) chapter_specialities (*) ──→ (1) specialities
 orcamento_items (1) ──→ (*) item_specialities (*) ──→ (1) specialities
 ```
 
@@ -152,61 +105,55 @@ orcamento_items (1) ──→ (*) item_specialities (*) ──→ (1) specialiti
 
 2. **Queries**
    - `specialities` - Fetches all available specialities with main specialties
-   - `chapter_specialities` - Fetches chapter-speciality mappings
    - `item_specialities` - Fetches item-speciality mappings
 
 3. **Mutations**
-   - `updateChapterSpecialitiesMutation` - Updates chapter specialities
    - `updateItemSpecialitiesMutation` - Updates item specialities
 
 ### Helper Functions
 
 ```typescript
-// Get specialities for a chapter
-getChapterSpecialityIds(chapterId: string): string[]
-
-// Get specialities for an item (with inheritance)
+// Get specialities for an item
 getItemSpecialityIds(itemId: string, chapterId?: string): string[]
 
-// NEW: Group specialities by main specialty
+// Group specialities by main specialty
 groupedSpecialityOptions: Record<string, MultiSelectOption[]>
 ```
 
 ## Usage Examples
 
-### Example 1: Setting Chapter Specialities
+### Example 1: Assigning Item Speciality
 
-**Scenario:** You want all items in "Chapter 2. Electrical Work" to be tagged as "Electrical" specialty.
-
-**Steps:**
-1. Navigate to the orçamento
-2. Find Chapter 2 in the tabs
-3. Click the Tag icon (🏷️) in the chapter header
-4. Select "Electrical" from the dropdown
-5. Click outside the dialog to close
-6. All items in Chapter 2 now show "1 (inherited)" in their Specialities column
-
-### Example 2: Overriding Item Speciality
-
-**Scenario:** Item 2.5 in the electrical chapter actually requires both "Electrical" and "HVAC" specialities.
+**Scenario:** Item 2.5 requires "Electrical" and "HVAC" specialities.
 
 **Steps:**
 1. Navigate to Chapter 2
 2. Find Item 2.5 in the table
-3. Click the speciality button (currently showing "1 (inherited)")
-4. In the dialog, select both "Electrical" and "HVAC"
+3. Click the speciality button (shows "None" if no specialities assigned)
+4. In the dialog, select both "Electrical" and "HVAC" from the grouped dropdown
 5. Click outside to close
-6. Item 2.5 now shows "2" (not inherited) in its Specialities column
+6. Item 2.5 now shows "2" in its Specialities column
 
-### Example 3: Removing Custom Specialities
+### Example 2: Modifying Item Specialities
 
-**Scenario:** You want Item 2.5 to go back to inheriting from the chapter.
+**Scenario:** You want to change Item 2.5's speciality from "Electrical" to "Plumbing".
+
+**Steps:**
+1. Click the speciality button for Item 2.5
+2. Remove the "Electrical" speciality (click the X on the badge)
+3. Select "Plumbing" from the dropdown
+4. Click outside to close
+5. Item 2.5 now shows "1" in its Specialities column
+
+### Example 3: Removing All Specialities
+
+**Scenario:** You want to remove all specialities from Item 2.5.
 
 **Steps:**
 1. Click the speciality button for Item 2.5
 2. Remove all selected specialities (click the X on each badge)
 3. Click outside to close
-4. Item 2.5 now shows "1 (inherited)" again
+4. Item 2.5 now shows "None" in its Specialities column
 
 ## Migration Instructions
 
@@ -252,10 +199,9 @@ No additional configuration is required.
 ### Step 3: Test the Feature
 
 1. Navigate to an existing orçamento with analyzed data
-2. Test assigning specialities to a chapter
-3. Verify items inherit the specialities
-4. Test overriding item specialities
-5. Test removing item specialities to revert to inheritance
+2. Test assigning specialities to individual items
+3. Test modifying item specialities
+4. Test removing item specialities
 
 ## Additional Features Included
 
@@ -285,12 +231,12 @@ const { data: specialities } = useQuery({
   },
 });
 
-// Get chapter specialities
-const { data: chapterSpecialities } = useQuery({
-  queryKey: ["chapter_specialities", orcamentoId],
+// Get item specialities
+const { data: itemSpecialities } = useQuery({
+  queryKey: ["item_specialities", orcamentoId],
   queryFn: async () => {
     const { data, error } = await supabase
-      .from("chapter_specialities")
+      .from("item_specialities")
       .select("*");
     return data;
   },
@@ -300,12 +246,6 @@ const { data: chapterSpecialities } = useQuery({
 ### Mutations
 
 ```typescript
-// Update chapter specialities
-updateChapterSpecialitiesMutation.mutate({
-  chapterId: "uuid",
-  specialityIds: ["uuid1", "uuid2"]
-});
-
 // Update item specialities
 updateItemSpecialitiesMutation.mutate({
   itemId: "uuid",
@@ -322,10 +262,6 @@ updateItemSpecialitiesMutation.mutate({
 ### Issue: Changes not saving
 
 **Solution:** Check browser console for errors. Verify database tables were created correctly and RLS policies are in place.
-
-### Issue: Items not inheriting from chapter
-
-**Solution:** Verify the item doesn't have custom specialities set. Delete all item specialities to enable inheritance.
 
 ## Future Enhancements
 
