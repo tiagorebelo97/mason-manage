@@ -604,7 +604,7 @@ const MapaQuantidades = () => {
                     ? row[qtColumnIndex].toString() 
                     : String(row[qtColumnIndex]).trim())
                 : null;
-              const parsedQt = qtValue ? parseFloat(qtValue.replace(',', '.')) : null;
+              const parsedQt = qtValue ? Math.round(parseFloat(qtValue.replace(',', '.')) * 100) / 100 : null;
               
               const precoValue = precoUnitarioColumnIndex !== -1 && 
                 typeof row[precoUnitarioColumnIndex] !== 'undefined' && 
@@ -1316,6 +1316,114 @@ const MapaQuantidades = () => {
                                   <TableCell>{item.descricao}</TableCell>
                                   <TableCell>{item.un || '-'}</TableCell>
                                   <TableCell className="text-right">{item.qt !== null ? item.qt : '-'}</TableCell>
+                                  <TableCell className="text-right">{item.qt !== null ? Number(item.qt).toFixed(2).replace(/\.?0+$/, '') : '-'}</TableCell>
+                                  <TableCell>
+                                    <div className="flex flex-wrap gap-1 items-center">
+                                      {(() => {
+                                        const itemSpecs = getItemSpecialityIds(item.id, item.chapter_id);
+                                        const specs = getSpecialitiesByIds(itemSpecs);
+                                        
+                                        const handleRemoveSpeciality = (specialityId: string) => {
+                                          const currentSpecs = getItemOwnSpecialityIds(item.id);
+                                          const updatedSpecs = currentSpecs.filter(id => id !== specialityId);
+                                          updateItemSpecialitiesMutation.mutate({
+                                            itemId: item.id,
+                                            specialityIds: updatedSpecs,
+                                          });
+                                        };
+                                        
+                                        return (
+                                          <>
+                                            {specs.map(spec => (
+                                              <Badge 
+                                                key={spec.id} 
+                                                variant="secondary"
+                                                className="text-xs flex items-center gap-1"
+                                              >
+                                                {language === 'pt' ? spec.name_pt : spec.name_en}
+                                                <button
+                                                  className="ml-1 ring-offset-background rounded-full outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                                                  onClick={(e) => {
+                                                    e.preventDefault();
+                                                    e.stopPropagation();
+                                                    handleRemoveSpeciality(spec.id);
+                                                  }}
+                                                >
+                                                  <X className="h-3 w-3 text-muted-foreground hover:text-foreground" />
+                                                </button>
+                                              </Badge>
+                                            ))}
+                                            {specs.length === 0 && (
+                                              <span className="text-xs text-muted-foreground">None</span>
+                                            )}
+                                            <Dialog open={editingItemId === item.id} onOpenChange={(open) => {
+                                              if (open) {
+                                                handleOpenItemDialog(item.id, item.chapter_id);
+                                              } else {
+                                                handleCloseItemDialog(false);
+                                              }
+                                            }}>
+                                              <DialogTrigger asChild>
+                                                <Button 
+                                                  variant="outline" 
+                                                  size="sm" 
+                                                  className="h-7 px-2 ml-1 gap-1"
+                                                >
+                                                  <Tag className="h-3 w-3" />
+                                                  <span className="text-xs">Edit</span>
+                                                </Button>
+                                              </DialogTrigger>
+                                              <DialogContent onInteractOutside={(e) => {
+                                                // Prevent dialog from closing when clicking inside Popover
+                                                const target = e.target as Element;
+                                                if (target.closest('[data-radix-popover-content]')) {
+                                                  e.preventDefault();
+                                                }
+                                              }}>
+                                                <DialogHeader>
+                                                  <DialogTitle>Item Specialities</DialogTitle>
+                                                  <DialogDescription>
+                                                    Select specialities for this item.
+                                                  </DialogDescription>
+                                                </DialogHeader>
+                                                <div className="space-y-4 py-4">
+                                                  <MultiSelect
+                                                    groupedOptions={groupedSpecialityOptions}
+                                                    selected={editingItemId === item.id ? pendingItemSpecialities : getItemOwnSpecialityIds(item.id)}
+                                                    onChange={(selected) => {
+                                                      if (editingItemId === item.id) {
+                                                        setPendingItemSpecialities(selected);
+                                                      }
+                                                    }}
+                                                    placeholder="Select specialities..."
+                                                    emptyText="No specialities found"
+                                                  />
+                                                </div>
+                                                <div className="flex justify-end gap-2">
+                                                  <Button 
+                                                    variant="outline" 
+                                                    onClick={() => {
+                                                      setEditingItemId(null);
+                                                      setPendingItemSpecialities([]);
+                                                    }}
+                                                    disabled={updateItemSpecialitiesMutation.isPending}
+                                                  >
+                                                    Cancel
+                                                  </Button>
+                                                  <Button 
+                                                    onClick={handleApplyItemSpecialities}
+                                                    disabled={updateItemSpecialitiesMutation.isPending}
+                                                  >
+                                                    {updateItemSpecialitiesMutation.isPending ? "Applying..." : "Apply"}
+                                                  </Button>
+                                                </div>
+                                              </DialogContent>
+                                            </Dialog>
+                                          </>
+                                        );
+                                      })()}
+                                    </div>
+                                  </TableCell>
                                   <TableCell className="text-sm">
                                     <div className="space-y-2">
                                       {item.observacoes_empreiteiro && (
@@ -1481,6 +1589,114 @@ const MapaQuantidades = () => {
                               <TableCell>{item.descricao}</TableCell>
                               <TableCell>{item.un || '-'}</TableCell>
                               <TableCell className="text-right">{item.qt !== null ? item.qt : '-'}</TableCell>
+                              <TableCell className="text-right">{item.qt !== null ? Number(item.qt).toFixed(2).replace(/\.?0+$/, '') : '-'}</TableCell>
+                              <TableCell>
+                                <div className="flex flex-wrap gap-1 items-center">
+                                  {(() => {
+                                    const itemSpecs = getItemSpecialityIds(item.id, item.chapter_id);
+                                    const specs = getSpecialitiesByIds(itemSpecs);
+                                    
+                                    const handleRemoveSpeciality = (specialityId: string) => {
+                                      const currentSpecs = getItemOwnSpecialityIds(item.id);
+                                      const updatedSpecs = currentSpecs.filter(id => id !== specialityId);
+                                      updateItemSpecialitiesMutation.mutate({
+                                        itemId: item.id,
+                                        specialityIds: updatedSpecs,
+                                      });
+                                    };
+                                    
+                                    return (
+                                      <>
+                                        {specs.map(spec => (
+                                          <Badge 
+                                            key={spec.id} 
+                                            variant="secondary"
+                                            className="text-xs flex items-center gap-1"
+                                          >
+                                            {language === 'pt' ? spec.name_pt : spec.name_en}
+                                            <button
+                                              className="ml-1 ring-offset-background rounded-full outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                                              onClick={(e) => {
+                                                e.preventDefault();
+                                                e.stopPropagation();
+                                                handleRemoveSpeciality(spec.id);
+                                              }}
+                                            >
+                                              <X className="h-3 w-3 text-muted-foreground hover:text-foreground" />
+                                            </button>
+                                          </Badge>
+                                        ))}
+                                        {specs.length === 0 && (
+                                          <span className="text-xs text-muted-foreground">None</span>
+                                        )}
+                                        <Dialog open={editingItemId === item.id} onOpenChange={(open) => {
+                                          if (open) {
+                                            handleOpenItemDialog(item.id, item.chapter_id);
+                                          } else {
+                                            handleCloseItemDialog(false);
+                                          }
+                                        }}>
+                                          <DialogTrigger asChild>
+                                            <Button 
+                                              variant="outline" 
+                                              size="sm" 
+                                              className="h-7 px-2 ml-1 gap-1"
+                                            >
+                                              <Tag className="h-3 w-3" />
+                                              <span className="text-xs">Edit</span>
+                                            </Button>
+                                          </DialogTrigger>
+                                          <DialogContent onInteractOutside={(e) => {
+                                            // Prevent dialog from closing when clicking inside Popover
+                                            const target = e.target as Element;
+                                            if (target.closest('[data-radix-popover-content]')) {
+                                              e.preventDefault();
+                                            }
+                                          }}>
+                                            <DialogHeader>
+                                              <DialogTitle>Item Specialities</DialogTitle>
+                                              <DialogDescription>
+                                                Select specialities for this item.
+                                              </DialogDescription>
+                                            </DialogHeader>
+                                            <div className="space-y-4 py-4">
+                                              <MultiSelect
+                                                groupedOptions={groupedSpecialityOptions}
+                                                selected={editingItemId === item.id ? pendingItemSpecialities : getItemOwnSpecialityIds(item.id)}
+                                                onChange={(selected) => {
+                                                  if (editingItemId === item.id) {
+                                                    setPendingItemSpecialities(selected);
+                                                  }
+                                                }}
+                                                placeholder="Select specialities..."
+                                                emptyText="No specialities found"
+                                              />
+                                            </div>
+                                            <div className="flex justify-end gap-2">
+                                              <Button 
+                                                variant="outline" 
+                                                onClick={() => {
+                                                  setEditingItemId(null);
+                                                  setPendingItemSpecialities([]);
+                                                }}
+                                                disabled={updateItemSpecialitiesMutation.isPending}
+                                              >
+                                                Cancel
+                                              </Button>
+                                              <Button 
+                                                onClick={handleApplyItemSpecialities}
+                                                disabled={updateItemSpecialitiesMutation.isPending}
+                                              >
+                                                {updateItemSpecialitiesMutation.isPending ? "Applying..." : "Apply"}
+                                              </Button>
+                                            </div>
+                                          </DialogContent>
+                                        </Dialog>
+                                      </>
+                                    );
+                                  })()}
+                                </div>
+                              </TableCell>
                               <TableCell className="text-sm">
                                 <div className="space-y-2">
                                   {item.observacoes_empreiteiro && (
