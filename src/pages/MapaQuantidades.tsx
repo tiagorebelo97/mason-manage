@@ -544,12 +544,24 @@ const MapaQuantidades = () => {
             }
             // Case 2: Row with ARTIGO but no UN and QT (comment parent)
             else if (artigoCell && /^\d+\./.test(artigoCell) && !hasUN && !hasQT && descricaoCell) {
-              // This is a parent item comment - store it with DESCRIÇÃO
-              if (!parentCommentsMap.has(artigoCell)) {
-                parentCommentsMap.set(artigoCell, []);
+              // Check if this ARTIGO is a child of the current lastCommentArtigo
+              // If so, treat it as a multi-line comment instead of a new parent
+              const isChildOfLastComment = lastCommentArtigo && artigoCell.startsWith(lastCommentArtigo + '.');
+              
+              if (isChildOfLastComment) {
+                // This is a continuation of the previous comment (child ARTIGO)
+                if (!parentCommentsMap.has(lastCommentArtigo)) {
+                  parentCommentsMap.set(lastCommentArtigo, []);
+                }
+                parentCommentsMap.get(lastCommentArtigo)!.push(descricaoCell);
+              } else {
+                // This is a parent item comment - store it with DESCRIÇÃO
+                if (!parentCommentsMap.has(artigoCell)) {
+                  parentCommentsMap.set(artigoCell, []);
+                }
+                parentCommentsMap.get(artigoCell)!.push(descricaoCell);
+                lastCommentArtigo = artigoCell;
               }
-              parentCommentsMap.get(artigoCell)!.push(descricaoCell);
-              lastCommentArtigo = artigoCell;
             }
             // Case 3: Multi-line comment (no ARTIGO, UN, QT after a comment row)
             else if (!artigoCell && !hasUN && !hasQT && descricaoCell && lastCommentArtigo) {
