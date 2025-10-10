@@ -1195,7 +1195,7 @@ const MapaQuantidades = () => {
   // Handlers for item specialities dialog
   const handleOpenItemDialog = (itemId: string, chapterId?: string) => {
     setEditingItemId(itemId);
-    setPendingItemSpecialities(getItemOwnSpecialityIds(itemId));
+    setPendingItemSpecialities(getItemSpecialityIds(itemId, chapterId));
   };
 
   const handleCloseItemDialog = (open: boolean) => {
