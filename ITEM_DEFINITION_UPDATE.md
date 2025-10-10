@@ -3,6 +3,8 @@
 ## Overview
 This document describes the updates made to the Excel analysis logic in `MapaQuantidades.tsx` to align with the new item definition and comment handling requirements.
 
+> **Latest Update (2025-10-10):** Fixed the order of condition evaluation to ensure multi-line item comments are properly associated with their parent comments instead of being incorrectly added to chapter comments. See `ITEM_COMMENT_ORDER_FIX.md` for details.
+
 ## Key Changes
 
 ### 1. Item Definition (CRITICAL CHANGE)
@@ -89,16 +91,17 @@ let firstItemFoundInChapter = false;                   // NEW - limits chapter c
    - Reset `lastCommentArtigo` to null
    - Clear `chapterComments` array
 
-2. **Chapter Comment Row** (no ARTIGO, UN, QT but has DESCRIÇÃO)
-   - Only add if `!firstItemFoundInChapter`
-   - Reset `lastCommentArtigo` to null
-
-3. **Parent Comment Row** (has ARTIGO matching `\d+\.` but no UN and QT)
+2. **Parent Comment Row** (has ARTIGO matching `\d+\.` but no UN and QT)
    - Store DESCRIÇÃO in `parentCommentsMap` as an array
    - Set `lastCommentArtigo` to this ARTIGO
 
-4. **Multi-line Comment Row** (no ARTIGO, UN, QT after a parent comment)
+3. **Multi-line Comment Row** (no ARTIGO, UN, QT after a parent comment)
    - Append to the array in `parentCommentsMap` for `lastCommentArtigo`
+   - **Note:** This is checked BEFORE chapter comments to prevent item comment rows from being incorrectly classified as chapter comments
+
+4. **Chapter Comment Row** (no ARTIGO, UN, QT but has DESCRIÇÃO)
+   - Only add if `!firstItemFoundInChapter`
+   - Reset `lastCommentArtigo` to null
 
 5. **Item Row** (has BOTH UN and QT)
    - Mark `firstItemFoundInChapter` as true
