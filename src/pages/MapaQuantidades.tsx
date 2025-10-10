@@ -1519,7 +1519,7 @@ const MapaQuantidades = () => {
                                               <DialogContent onInteractOutside={(e) => {
                                                 // Prevent dialog from closing when clicking inside Popover
                                                 const target = e.target as Element;
-                                                if (target.closest('[role="dialog"]') || target.closest('[data-radix-popper-content-wrapper]')) {
+                                                if (target.closest('[data-radix-popover-content]')) {
                                                   e.preventDefault();
                                                 }
                                               }}>
@@ -1821,7 +1821,7 @@ const MapaQuantidades = () => {
                                           <DialogContent onInteractOutside={(e) => {
                                             // Prevent dialog from closing when clicking inside Popover
                                             const target = e.target as Element;
-                                            if (target.closest('[role="dialog"]') || target.closest('[data-radix-popper-content-wrapper]')) {
+                                            if (target.closest('[data-radix-popover-content]')) {
                                               e.preventDefault();
                                             }
                                           }}>
