@@ -1515,7 +1515,13 @@ const MapaQuantidades = () => {
                                                   <span className="text-xs">Edit</span>
                                                 </Button>
                                               </DialogTrigger>
-                                              <DialogContent>
+                                              <DialogContent onInteractOutside={(e) => {
+                                                // Prevent dialog from closing when clicking inside Popover
+                                                const target = e.target as Element;
+                                                if (target.closest('[role="dialog"]') || target.closest('[data-radix-popper-content-wrapper]')) {
+                                                  e.preventDefault();
+                                                }
+                                              }}>
                                                 <DialogHeader>
                                                   <DialogTitle>Item Specialities</DialogTitle>
                                                   <DialogDescription>
@@ -1811,7 +1817,13 @@ const MapaQuantidades = () => {
                                               <span className="text-xs">Edit</span>
                                             </Button>
                                           </DialogTrigger>
-                                          <DialogContent>
+                                          <DialogContent onInteractOutside={(e) => {
+                                            // Prevent dialog from closing when clicking inside Popover
+                                            const target = e.target as Element;
+                                            if (target.closest('[role="dialog"]') || target.closest('[data-radix-popper-content-wrapper]')) {
+                                              e.preventDefault();
+                                            }
+                                          }}>
                                             <DialogHeader>
                                               <DialogTitle>Item Specialities</DialogTitle>
                                               <DialogDescription>
