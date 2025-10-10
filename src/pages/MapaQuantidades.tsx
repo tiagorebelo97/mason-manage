@@ -1195,7 +1195,7 @@ const MapaQuantidades = () => {
   // Handlers for item specialities dialog
   const handleOpenItemDialog = (itemId: string, chapterId?: string) => {
     setEditingItemId(itemId);
-    setPendingItemSpecialities(getItemSpecialityIds(itemId, chapterId));
+    setPendingItemSpecialities(getItemOwnSpecialityIds(itemId));
   };
 
   const handleCloseItemDialog = (open: boolean) => {
@@ -1466,7 +1466,7 @@ const MapaQuantidades = () => {
                                         const specs = getSpecialitiesByIds(itemSpecs);
                                         
                                         const handleRemoveSpeciality = (specialityId: string) => {
-                                          const currentSpecs = getItemSpecialityIds(item.id, item.chapter_id);
+                                          const currentSpecs = getItemOwnSpecialityIds(item.id);
                                           const updatedSpecs = currentSpecs.filter(id => id !== specialityId);
                                           updateItemSpecialitiesMutation.mutate({
                                             itemId: item.id,
@@ -1762,7 +1762,7 @@ const MapaQuantidades = () => {
                                     const specs = getSpecialitiesByIds(itemSpecs);
                                     
                                     const handleRemoveSpeciality = (specialityId: string) => {
-                                      const currentSpecs = getItemSpecialityIds(item.id, item.chapter_id);
+                                      const currentSpecs = getItemOwnSpecialityIds(item.id);
                                       const updatedSpecs = currentSpecs.filter(id => id !== specialityId);
                                       updateItemSpecialitiesMutation.mutate({
                                         itemId: item.id,
