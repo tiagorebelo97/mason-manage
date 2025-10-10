@@ -545,12 +545,7 @@ const MapaQuantidades = () => {
               firstItemFoundInChapter = false;
               lastCommentArtigo = null;
             }
-            // Case 2: Chapter comment (no ARTIGO, UN, QT but has DESCRIÇÃO - only before first item)
-            else if (!artigoCell && !hasUN && !hasQT && descricaoCell && currentChapterNumber && !firstItemFoundInChapter) {
-              chapterComments.push(descricaoCell);
-              lastCommentArtigo = null;
-            }
-            // Case 3: Row with ARTIGO but no UN and QT (comment parent)
+            // Case 2: Row with ARTIGO but no UN and QT (comment parent)
             else if (artigoCell && /^\d+\./.test(artigoCell) && !hasUN && !hasQT && descricaoCell) {
               // This is a parent item comment - store it with DESCRIÇÃO
               if (!parentCommentsMap.has(artigoCell)) {
@@ -559,12 +554,17 @@ const MapaQuantidades = () => {
               parentCommentsMap.get(artigoCell)!.push(descricaoCell);
               lastCommentArtigo = artigoCell;
             }
-            // Case 4: Multi-line comment (no ARTIGO, UN, QT after a comment row)
+            // Case 3: Multi-line comment (no ARTIGO, UN, QT after a comment row)
             else if (!artigoCell && !hasUN && !hasQT && descricaoCell && lastCommentArtigo) {
               // This is part of the previous comment
               if (parentCommentsMap.has(lastCommentArtigo)) {
                 parentCommentsMap.get(lastCommentArtigo)!.push(descricaoCell);
               }
+            }
+            // Case 4: Chapter comment (no ARTIGO, UN, QT but has DESCRIÇÃO - only before first item)
+            else if (!artigoCell && !hasUN && !hasQT && descricaoCell && currentChapterNumber && !firstItemFoundInChapter) {
+              chapterComments.push(descricaoCell);
+              lastCommentArtigo = null;
             }
             // Case 5: Item (has BOTH QT AND UN)
             else if (hasQT && hasUN) {
