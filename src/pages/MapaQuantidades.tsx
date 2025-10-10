@@ -981,9 +981,15 @@ const MapaQuantidades = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["chapter_specialities", id, import.meta.env.VITE_SUPABASE_URL] });
       toast.success('Chapter specialities updated successfully');
+      // Clean up state after successful mutation
+      setEditingChapterId(null);
+      setPendingChapterSpecialities([]);
     },
     onError: () => {
       toast.error('Failed to update chapter specialities');
+      // Clean up state even on error
+      setEditingChapterId(null);
+      setPendingChapterSpecialities([]);
     },
   });
 
@@ -1023,9 +1029,15 @@ const MapaQuantidades = () => {
       queryClient.invalidateQueries({ queryKey: ["item_specialities", id, import.meta.env.VITE_SUPABASE_URL] });
       queryClient.invalidateQueries({ queryKey: ["orcamento_items", id, import.meta.env.VITE_SUPABASE_URL] });
       toast.success('Item specialities updated successfully');
+      // Clean up state after successful mutation
+      setEditingItemId(null);
+      setPendingItemSpecialities([]);
     },
     onError: () => {
       toast.error('Failed to update item specialities');
+      // Clean up state even on error
+      setEditingItemId(null);
+      setPendingItemSpecialities([]);
     },
   });
 
@@ -1175,8 +1187,7 @@ const MapaQuantidades = () => {
         chapterId: editingChapterId,
         specialityIds: pendingChapterSpecialities,
       });
-      setEditingChapterId(null);
-      setPendingChapterSpecialities([]);
+      // Note: State cleanup moved to mutation onSuccess for better UX
     }
   };
 
@@ -1193,8 +1204,7 @@ const MapaQuantidades = () => {
         itemId: editingItemId,
         specialityIds: pendingItemSpecialities,
       });
-      setEditingItemId(null);
-      setPendingItemSpecialities([]);
+      // Note: State cleanup moved to mutation onSuccess for better UX
     }
   };
 
