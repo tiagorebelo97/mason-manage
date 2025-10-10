@@ -1369,23 +1369,24 @@ const MapaQuantidades = () => {
                               handleCloseChapterDialog(false);
                             }
                           }}>
-                            <TooltipProvider>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Button 
-                                    variant="ghost" 
-                                    size="icon" 
-                                    className="h-8 w-8 ml-auto"
-                                    onClick={() => setEditingChapterId(chapter.id)}
-                                  >
-                                    <Tag className="h-4 w-4 text-muted-foreground hover:text-foreground" />
-                                  </Button>
-                                </TooltipTrigger>
-                                <TooltipContent side="top" className="max-w-xs">
-                                  <p className="text-xs">Manage Chapter Specialities</p>
-                                </TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
+                            <DialogTrigger asChild>
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button 
+                                      variant="ghost" 
+                                      size="icon" 
+                                      className="h-8 w-8 ml-auto"
+                                    >
+                                      <Tag className="h-4 w-4 text-muted-foreground hover:text-foreground" />
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent side="top" className="max-w-xs">
+                                    <p className="text-xs">Manage Chapter Specialities</p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            </DialogTrigger>
                             <DialogContent>
                               <DialogHeader>
                                 <DialogTitle>Chapter Specialities</DialogTitle>
@@ -1477,15 +1478,16 @@ const MapaQuantidades = () => {
                                                 handleCloseItemDialog(false);
                                               }
                                             }}>
-                                              <Button 
-                                                variant="outline" 
-                                                size="sm" 
-                                                className="h-7 px-2 ml-1 gap-1"
-                                                onClick={() => setEditingItemId(item.id)}
-                                              >
-                                                <Tag className="h-3 w-3" />
-                                                <span className="text-xs">Edit</span>
-                                              </Button>
+                                              <DialogTrigger asChild>
+                                                <Button 
+                                                  variant="outline" 
+                                                  size="sm" 
+                                                  className="h-7 px-2 ml-1 gap-1"
+                                                >
+                                                  <Tag className="h-3 w-3" />
+                                                  <span className="text-xs">Edit</span>
+                                                </Button>
+                                              </DialogTrigger>
                                               <DialogContent>
                                                 <DialogHeader>
                                                   <DialogTitle>Item Specialities</DialogTitle>
@@ -1663,23 +1665,24 @@ const MapaQuantidades = () => {
                           handleCloseChapterDialog(false);
                         }
                       }}>
-                        <TooltipProvider>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button 
-                                variant="ghost" 
-                                size="icon" 
-                                className="h-8 w-8 ml-auto"
-                                onClick={() => setEditingChapterId(chapter.id)}
-                              >
-                                <Tag className="h-4 w-4 text-muted-foreground hover:text-foreground" />
-                              </Button>
-                            </TooltipTrigger>
-                            <TooltipContent side="top" className="max-w-xs">
-                              <p className="text-xs">Manage Chapter Specialities</p>
-                            </TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
+                        <DialogTrigger asChild>
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button 
+                                  variant="ghost" 
+                                  size="icon" 
+                                  className="h-8 w-8 ml-auto"
+                                >
+                                  <Tag className="h-4 w-4 text-muted-foreground hover:text-foreground" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent side="top" className="max-w-xs">
+                                <p className="text-xs">Manage Chapter Specialities</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        </DialogTrigger>
                         <DialogContent>
                           <DialogHeader>
                             <DialogTitle>Chapter Specialities</DialogTitle>
@@ -1771,15 +1774,16 @@ const MapaQuantidades = () => {
                                             handleCloseItemDialog(false);
                                           }
                                         }}>
-                                          <Button 
-                                            variant="outline" 
-                                            size="sm" 
-                                            className="h-7 px-2 ml-1 gap-1"
-                                            onClick={() => setEditingItemId(item.id)}
-                                          >
-                                            <Tag className="h-3 w-3" />
-                                            <span className="text-xs">Edit</span>
-                                          </Button>
+                                          <DialogTrigger asChild>
+                                            <Button 
+                                              variant="outline" 
+                                              size="sm" 
+                                              className="h-7 px-2 ml-1 gap-1"
+                                            >
+                                              <Tag className="h-3 w-3" />
+                                              <span className="text-xs">Edit</span>
+                                            </Button>
+                                          </DialogTrigger>
                                           <DialogContent>
                                             <DialogHeader>
                                               <DialogTitle>Item Specialities</DialogTitle>
