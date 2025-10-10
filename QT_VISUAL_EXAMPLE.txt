@@ -1,0 +1,76 @@
+╔════════════════════════════════════════════════════════════════════════════════════╗
+║                    QT VALUE FORMATTING - BEFORE vs AFTER                           ║
+╚════════════════════════════════════════════════════════════════════════════════════╝
+
+BEFORE (No decimal limit):
+┌────────┬─────────────────────┬──────┬──────────────┐
+│ ARTIGO │ DESCRIÇÃO           │ UN   │ QT           │
+├────────┼─────────────────────┼──────┼──────────────┤
+│ 1.2.1  │ Paredes interiores  │ m2   │ 50.1234567   │  ← Too many decimals
+│ 1.2.2  │ Pavimentos          │ m2   │ 30.123456    │  ← Too many decimals  
+│ 1.2.3  │ Teto falso          │ m2   │ 100.99999    │  ← Too many decimals
+│ 1.2.4  │ Portas              │ un   │ 5.0000       │  ← Unnecessary zeros
+└────────┴─────────────────────┴──────┴──────────────┘
+
+AFTER (Limited to 2 decimal places):
+┌────────┬─────────────────────┬──────┬──────────────┐
+│ ARTIGO │ DESCRIÇÃO           │ UN   │ QT           │
+├────────┼─────────────────────┼──────┼──────────────┤
+│ 1.2.1  │ Paredes interiores  │ m2   │ 50.12        │  ✓ Rounded to 2 decimals
+│ 1.2.2  │ Pavimentos          │ m2   │ 30.12        │  ✓ Rounded to 2 decimals
+│ 1.2.3  │ Teto falso          │ m2   │ 101          │  ✓ Rounded and no trailing zeros
+│ 1.2.4  │ Portas              │ un   │ 5            │  ✓ Trailing zeros removed
+└────────┴─────────────────────┴──────┴──────────────┘
+
+╔════════════════════════════════════════════════════════════════════════════════════╗
+║                           KEY IMPROVEMENTS                                         ║
+╚════════════════════════════════════════════════════════════════════════════════════╝
+
+✓ Values are rounded to 2 decimal places during Excel import
+✓ Display shows maximum 2 decimal places
+✓ Trailing zeros are automatically removed (50.00 → 50, 50.50 → 50.5)
+✓ Cleaner, more professional appearance
+✓ Consistent formatting across all tables
+✓ Supports both comma (,) and period (.) as decimal separators
+
+╔════════════════════════════════════════════════════════════════════════════════════╗
+║                           EXAMPLE TEST CASES                                       ║
+╚════════════════════════════════════════════════════════════════════════════════════╝
+
+Excel Input → Stored in DB → Displayed
+─────────────────────────────────────────
+50          → 50          → 50
+50.5        → 50.5        → 50.5
+50.50       → 50.5        → 50.5
+50.123      → 50.12       → 50.12
+50.1234567  → 50.12       → 50.12
+50.125      → 50.13       → 50.13 (rounds up)
+50.126      → 50.13       → 50.13
+0.5         → 0.5         → 0.5
+0.05        → 0.05        → 0.05
+100,75      → 100.75      → 100.75 (comma support)
+null        → null        → -
+
+╔════════════════════════════════════════════════════════════════════════════════════╗
+║                              CODE CHANGES                                          ║
+╚════════════════════════════════════════════════════════════════════════════════════╝
+
+File: src/pages/MapaQuantidades.tsx
+
+1. Line 610 - Parsing with rounding:
+   OLD: const parsedQt = qtValue ? parseFloat(qtValue.replace(',', '.')) : null;
+   NEW: const parsedQt = qtValue ? Math.round(parseFloat(qtValue.replace(',', '.')) * 100) / 100 : null;
+
+2. Lines 1465 & 1738 - Display formatting:
+   OLD: {item.qt !== null ? item.qt : '-'}
+   NEW: {item.qt !== null ? Number(item.qt).toFixed(2).replace(/\.?0+$/, '') : '-'}
+
+╔════════════════════════════════════════════════════════════════════════════════════╗
+║                              VERIFICATION                                          ║
+╚════════════════════════════════════════════════════════════════════════════════════╝
+
+✓ Build completes successfully (npm run build)
+✓ No new linting errors introduced
+✓ All test cases pass
+✓ Backwards compatible with existing data
+✓ Documentation added (QT_DECIMAL_LIMIT_FIX.md)
