@@ -477,8 +477,10 @@ const MapaQuantidades = () => {
         // Items are rows that have BOTH UN and QT values
         // Comments are handled as follows:
         // - Chapter comments: rows without ARTIGO, UN, and QT but with DESCRIÇÃO (accumulated between chapter and first item)
+        //                     OR rows with non-numeric ARTIGO (e.g., "Note", "A") before first item
         // - Item comments: rows with ARTIGO but without BOTH QT and UN (parent for child items)
         // - Multi-line comments: rows without ARTIGO, UN, QT after a comment row are part of that comment
+        // - Post-item comments: rows with non-numeric ARTIGO after items are appended to the previous item's comments
         // - Duplicate chapter numbers: In single-sheet files, if a chapter number appears again, treat it as a comment for the next item
         if (artigoColumnIndex !== -1 && descricaoColumnIndex !== -1) {
           let currentChapterNumber: string | null = null;
@@ -571,12 +573,29 @@ const MapaQuantidades = () => {
               }
               parentCommentsMap.get(lastCommentArtigo)!.push(descricaoCell);
             }
-            // Case 4: Chapter comment (no ARTIGO, UN, QT but has DESCRIÇÃO - only before first item)
+            // Case 4: Non-numeric ARTIGO (text, not a number or number.number pattern)
+            else if (artigoCell && !/^\d+$/.test(artigoCell) && !/^\d+\./.test(artigoCell) && !hasUN && !hasQT && descricaoCell) {
+              // This is a row with non-numeric ARTIGO (e.g., "Note", "A", "Special")
+              if (currentChapterNumber && !firstItemFoundInChapter) {
+                // Before first item → add to chapter comments
+                chapterComments.push(descricaoCell);
+                lastCommentArtigo = null;
+              } else if (firstItemFoundInChapter && itemsToInsert.length > 0) {
+                // After first item → add to the last inserted item's comments
+                const lastItem = itemsToInsert[itemsToInsert.length - 1];
+                if (lastItem.item_comments) {
+                  lastItem.item_comments += '\n' + descricaoCell;
+                } else {
+                  lastItem.item_comments = descricaoCell;
+                }
+              }
+            }
+            // Case 5: Chapter comment (no ARTIGO, UN, QT but has DESCRIÇÃO - only before first item)
             else if (!artigoCell && !hasUN && !hasQT && descricaoCell && currentChapterNumber && !firstItemFoundInChapter) {
               chapterComments.push(descricaoCell);
               lastCommentArtigo = null;
             }
-            // Case 5: Item (has BOTH QT AND UN)
+            // Case 6: Item (has BOTH QT AND UN)
             else if (hasQT && hasUN) {
               // Mark that we found the first item in this chapter
               if (currentChapterNumber && !firstItemFoundInChapter) {
