@@ -1017,10 +1017,11 @@ const MapaQuantidades = () => {
         if (insertError) throw insertError;
       }
       
-      // Update the flag to indicate specialities were explicitly set
+      // Update the flag based on whether specialities were set
+      // If empty, allow inheritance from chapter; if not empty, use explicit specialities
       const { error: updateError } = await supabase
         .from('orcamento_items')
-        .update({ specialities_explicitly_set: true })
+        .update({ specialities_explicitly_set: specialityIds.length > 0 })
         .eq('id', itemId);
       
       if (updateError) throw updateError;
