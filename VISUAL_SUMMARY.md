@@ -43,18 +43,19 @@ Excel Cell: "abc" → Database: NULL
 
 **NEW FEATURE:** Comments for chapters
 
-**How it works:**
-- Rows **WITHOUT** ARTIGO but **WITH** DESCRIÇÃO after a chapter = chapter comments
+**How it works (UPDATED):**
+- Rows **WITHOUT** ARTIGO, UN, and QT but **WITH** DESCRIÇÃO **between a chapter and the first item** = chapter comments
 - Comments are displayed below the chapter title in muted text
 
 **Example Input:**
 ```
-| ARTIGO | DESCRIÇÃO                    |
-|--------|------------------------------|
-| 1      | Trabalhos Preliminares       | ← CHAPTER
-|        | Incluir limpeza completa     | ← COMMENT
-|        | e preparação do terreno      | ← COMMENT
-| 1.1    | Limpeza                     | ← ITEM
+| ARTIGO | DESCRIÇÃO                    | UN | QT |
+|--------|------------------------------|----|----|
+| 1      | Trabalhos Preliminares       |    |    | ← CHAPTER
+|        | Incluir limpeza completa     |    |    | ← COMMENT (before first item)
+|        | e preparação do terreno      |    |    | ← COMMENT (before first item)
+| 1.1    | Limpeza                      | m2 | 50 | ← ITEM (first item)
+|        | Nota adicional               |    |    | ← NOT a chapter comment
 ```
 
 **Display:**
@@ -74,16 +75,19 @@ Excel Cell: "abc" → Database: NULL
 
 **NEW FEATURE:** Parent item comments
 
-**How it works:**
-- Rows WITH ARTIGO (e.g., "1.2") but WITHOUT QT/UN = parent comment
+**How it works (UPDATED):**
+- Rows WITH ARTIGO (e.g., "1.2") but WITHOUT **BOTH** QT and UN = parent comment
 - Child items (e.g., "1.2.1") receive this comment
+- Multi-line comments: rows without ARTIGO, UN, QT after a parent comment are part of that comment
+- Items must have **BOTH** UN and QT to be considered items
 
 **Example Input:**
 ```
 | ARTIGO | DESCRIÇÃO              | UN | QT |
 |--------|------------------------|----|----|
 | 1.2    | Demolições             |    |    | ← PARENT COMMENT
-| 1.2.1  | Paredes interiores     | m2 | 50 | ← CHILD ITEM
+|        | Incluir remoção        |    |    | ← Part of 1.2 comment
+| 1.2.1  | Paredes interiores     | m2 | 50 | ← CHILD ITEM (has BOTH UN and QT)
 | 1.2.2  | Pavimentos             | m2 | 30 | ← CHILD ITEM
 ```
 

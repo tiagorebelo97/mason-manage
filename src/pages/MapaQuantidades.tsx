@@ -493,14 +493,17 @@ const MapaQuantidades = () => {
         // Find chapters (rows where ARTIGO column has a number without a dot)
         // A chapter is identified by a pure number (e.g., "1", "2") in the ARTIGO column
         // Sub-items with dots (e.g., "1.1", "2.3") are NOT considered chapters
-        // Items are rows where ARTIGO contains a number with a dot
+        // Items are rows that have BOTH UN and QT values
         // Comments are handled as follows:
-        // - Chapter comments: rows without ARTIGO but with DESCRIÇÃO (accumulated after a chapter is found)
-        // - Item comments: rows with ARTIGO like "1.2" but without QT and UN (parent for items like "1.2.1")
+        // - Chapter comments: rows without ARTIGO, UN, and QT but with DESCRIÇÃO (accumulated between chapter and first item)
+        // - Item comments: rows with ARTIGO but without BOTH QT and UN (parent for child items)
+        // - Multi-line comments: rows without ARTIGO, UN, QT after a comment row are part of that comment
         if (artigoColumnIndex !== -1 && descricaoColumnIndex !== -1) {
           let currentChapterNumber: string | null = null;
           let chapterComments: string[] = [];
-          const parentCommentsMap = new Map<string, string>();
+          const parentCommentsMap = new Map<string, string[]>();
+          let lastCommentArtigo: string | null = null;
+          let firstItemFoundInChapter = false;
           
           jsonData.forEach((row: unknown, rowIndex: number) => {
             if (!Array.isArray(row)) return;
@@ -508,7 +511,17 @@ const MapaQuantidades = () => {
             const artigoCell = row[artigoColumnIndex] !== null && row[artigoColumnIndex] !== undefined ? String(row[artigoColumnIndex]).trim() : "";
             const descricaoCell = row[descricaoColumnIndex] !== null && row[descricaoColumnIndex] !== undefined ? String(row[descricaoColumnIndex]).trim() : "";
             
-            // Skip empty rows
+            // Check if this row has QT AND UN to determine if it's an item
+            const hasQT = qtColumnIndex !== -1 && 
+              typeof row[qtColumnIndex] !== 'undefined' && 
+              row[qtColumnIndex] !== null && 
+              (typeof row[qtColumnIndex] === 'number' || String(row[qtColumnIndex]).trim() !== "");
+            const hasUN = unColumnIndex !== -1 && 
+              typeof row[unColumnIndex] !== 'undefined' && 
+              row[unColumnIndex] !== null && 
+              String(row[unColumnIndex]).trim() !== "";
+            
+            // Skip completely empty rows
             if (!artigoCell && !descricaoCell) return;
             
             // Case 1: Chapter (pure number in ARTIGO column)
@@ -529,101 +542,124 @@ const MapaQuantidades = () => {
               });
               currentChapterNumber = artigoCell;
               chapterComments = [];
+              firstItemFoundInChapter = false;
+              lastCommentArtigo = null;
             }
-            // Case 2: Chapter comment (no ARTIGO but has DESCRIÇÃO)
-            else if (!artigoCell && descricaoCell && currentChapterNumber) {
+            // Case 2: Chapter comment (no ARTIGO, UN, QT but has DESCRIÇÃO - only before first item)
+            else if (!artigoCell && !hasUN && !hasQT && descricaoCell && currentChapterNumber && !firstItemFoundInChapter) {
               chapterComments.push(descricaoCell);
+              lastCommentArtigo = null;
             }
-            // Case 3: Item with full data (has ARTIGO with dot pattern)
-            else if (/^\d+\./.test(artigoCell) && descricaoCell) {
-              // Use the current chapter context instead of extracting from ARTIGO
-              // Items belong to the chapter they appear after
+            // Case 3: Row with ARTIGO but no UN and QT (comment parent)
+            else if (artigoCell && /^\d+\./.test(artigoCell) && !hasUN && !hasQT && descricaoCell) {
+              // This is a parent item comment - store it with DESCRIÇÃO
+              if (!parentCommentsMap.has(artigoCell)) {
+                parentCommentsMap.set(artigoCell, []);
+              }
+              parentCommentsMap.get(artigoCell)!.push(descricaoCell);
+              lastCommentArtigo = artigoCell;
+            }
+            // Case 4: Multi-line comment (no ARTIGO, UN, QT after a comment row)
+            else if (!artigoCell && !hasUN && !hasQT && descricaoCell && lastCommentArtigo) {
+              // This is part of the previous comment
+              if (parentCommentsMap.has(lastCommentArtigo)) {
+                parentCommentsMap.get(lastCommentArtigo)!.push(descricaoCell);
+              }
+            }
+            // Case 5: Item (has BOTH QT AND UN)
+            else if (hasQT && hasUN) {
+              // Mark that we found the first item in this chapter
+              if (currentChapterNumber && !firstItemFoundInChapter) {
+                firstItemFoundInChapter = true;
+                // Save chapter comments now that we've reached the first item
+                if (chapterComments.length > 0) {
+                  const lastChapter = chaptersToInsert[chaptersToInsert.length - 1];
+                  if (lastChapter && lastChapter.chapter_number === currentChapterNumber) {
+                    lastChapter.chapter_comments = chapterComments.join('\n');
+                  }
+                  chapterComments = [];
+                }
+              }
+              
+              // Determine ARTIGO for this item
+              let itemArtigo = artigoCell;
+              if (!artigoCell && lastCommentArtigo) {
+                // Item without ARTIGO assumes the previous comment ARTIGO
+                itemArtigo = lastCommentArtigo;
+              }
+              
+              // Use the current chapter context
               const chapterNumber = currentChapterNumber;
               
-              // Check if this row has QT or UN to determine if it's a full item or just a parent comment
-              // Enhanced to handle numeric values (including 0), text values, and various cell formats
-              const hasQT = qtColumnIndex !== -1 && 
-                typeof row[qtColumnIndex] !== 'undefined' && 
-                row[qtColumnIndex] !== null && 
-                (typeof row[qtColumnIndex] === 'number' || String(row[qtColumnIndex]).trim() !== "");
-              const hasUN = unColumnIndex !== -1 && 
+              // Get all values - extract even if empty to ensure proper data flow
+              const unValue = unColumnIndex !== -1 && 
                 typeof row[unColumnIndex] !== 'undefined' && 
-                row[unColumnIndex] !== null && 
-                String(row[unColumnIndex]).trim() !== "";
+                row[unColumnIndex] !== null
+                ? String(row[unColumnIndex]).trim() 
+                : null;
               
-              // If it has QT or UN, it's an actual item
-              // Otherwise, it's a parent comment (e.g., "1.2" for items like "1.2.1")
-              if (hasQT || hasUN) {
-                // Get all values - extract even if empty to ensure proper data flow
-                const unValue = unColumnIndex !== -1 && 
-                  typeof row[unColumnIndex] !== 'undefined' && 
-                  row[unColumnIndex] !== null
-                  ? String(row[unColumnIndex]).trim() 
-                  : null;
-                
-                // Enhanced QT value extraction to handle numeric and general formats
-                const qtValue = qtColumnIndex !== -1 && 
-                  typeof row[qtColumnIndex] !== 'undefined' && 
-                  row[qtColumnIndex] !== null
-                  ? (typeof row[qtColumnIndex] === 'number' 
-                      ? row[qtColumnIndex].toString() 
-                      : String(row[qtColumnIndex]).trim())
-                  : null;
-                const parsedQt = qtValue ? parseFloat(qtValue.replace(',', '.')) : null;
-                
-                const precoValue = precoUnitarioColumnIndex !== -1 && 
-                  typeof row[precoUnitarioColumnIndex] !== 'undefined' && 
-                  row[precoUnitarioColumnIndex] !== null
-                  ? String(row[precoUnitarioColumnIndex]).trim()
-                  : null;
-                const parsedPreco = precoValue ? parseFloat(precoValue.replace(',', '.')) : null;
-                
-                // Handle observacoes_empreiteiro - can be text or potentially an image reference
-                let observacoesValue: string | null = null;
-                if (observacoesColumnIndex !== -1 && 
-                    typeof row[observacoesColumnIndex] !== 'undefined' && 
-                    row[observacoesColumnIndex] !== null) {
-                  const cellValue = row[observacoesColumnIndex];
-                  // Handle different types of cell values
-                  if (typeof cellValue === 'string') {
-                    observacoesValue = cellValue.trim() || null;
-                  } else if (typeof cellValue === 'number') {
-                    observacoesValue = String(cellValue);
-                  } else if (cellValue && typeof cellValue === 'object') {
-                    // Handle potential image or complex cell content
-                    // For now, convert to string representation
-                    observacoesValue = JSON.stringify(cellValue);
-                  }
+              // Enhanced QT value extraction to handle numeric and general formats
+              const qtValue = qtColumnIndex !== -1 && 
+                typeof row[qtColumnIndex] !== 'undefined' && 
+                row[qtColumnIndex] !== null
+                ? (typeof row[qtColumnIndex] === 'number' 
+                    ? row[qtColumnIndex].toString() 
+                    : String(row[qtColumnIndex]).trim())
+                : null;
+              const parsedQt = qtValue ? parseFloat(qtValue.replace(',', '.')) : null;
+              
+              const precoValue = precoUnitarioColumnIndex !== -1 && 
+                typeof row[precoUnitarioColumnIndex] !== 'undefined' && 
+                row[precoUnitarioColumnIndex] !== null
+                ? String(row[precoUnitarioColumnIndex]).trim()
+                : null;
+              const parsedPreco = precoValue ? parseFloat(precoValue.replace(',', '.')) : null;
+              
+              // Handle observacoes_empreiteiro - can be text or potentially an image reference
+              let observacoesValue: string | null = null;
+              if (observacoesColumnIndex !== -1 && 
+                  typeof row[observacoesColumnIndex] !== 'undefined' && 
+                  row[observacoesColumnIndex] !== null) {
+                const cellValue = row[observacoesColumnIndex];
+                // Handle different types of cell values
+                if (typeof cellValue === 'string') {
+                  observacoesValue = cellValue.trim() || null;
+                } else if (typeof cellValue === 'number') {
+                  observacoesValue = String(cellValue);
+                } else if (cellValue && typeof cellValue === 'object') {
+                  // Handle potential image or complex cell content
+                  // For now, convert to string representation
+                  observacoesValue = JSON.stringify(cellValue);
                 }
-                
-                // Look for parent comments (e.g., for "1.2.1", look for "1.2")
-                let itemComment: string | null = null;
-                const parts = artigoCell.split('.');
-                if (parts.length > 2) {
+              }
+              
+              // Look for parent comments (e.g., for "1.2.1", look for "1.2")
+              let itemComment: string | null = null;
+              if (itemArtigo) {
+                const parts = itemArtigo.split('.');
+                if (parts.length > 1) {
                   // For items like "1.2.1", check for parent "1.2"
                   const parentArtigo = parts.slice(0, -1).join('.');
-                  itemComment = parentCommentsMap.get(parentArtigo) || null;
+                  const parentComments = parentCommentsMap.get(parentArtigo);
+                  if (parentComments && parentComments.length > 0) {
+                    itemComment = parentComments.join('\n');
+                  }
                 }
-                
-                itemsToInsert.push({
-                  sheet_name: sheetName,
-                  chapter_number: chapterNumber,
-                  artigo: artigoCell,
-                  descricao: descricaoCell,
-                  un: unValue || null,
-                  qt: (parsedQt !== null && !isNaN(parsedQt)) ? parsedQt : null,
-                  preco_unitario: (parsedPreco !== null && !isNaN(parsedPreco)) ? parsedPreco : null,
-                  item_comments: itemComment,
-                  observacoes_empreiteiro: observacoesValue || null,
-                  observacoes_image_url: null, // Future enhancement: extract images from Excel
-                  excel_row_index: rowIndex, // Store the Excel row index for image matching
-                });
               }
-              // If it has ARTIGO but no QT/UN, it's a comment for child items (e.g., "1.2" for "1.2.1")
-              else {
-                // This is a parent item comment - store it for future child items
-                parentCommentsMap.set(artigoCell, descricaoCell);
-              }
+              
+              itemsToInsert.push({
+                sheet_name: sheetName,
+                chapter_number: chapterNumber,
+                artigo: itemArtigo,
+                descricao: descricaoCell,
+                un: unValue || null,
+                qt: (parsedQt !== null && !isNaN(parsedQt)) ? parsedQt : null,
+                preco_unitario: (parsedPreco !== null && !isNaN(parsedPreco)) ? parsedPreco : null,
+                item_comments: itemComment,
+                observacoes_empreiteiro: observacoesValue || null,
+                observacoes_image_url: null, // Future enhancement: extract images from Excel
+                excel_row_index: rowIndex, // Store the Excel row index for image matching
+              });
             }
           });
           

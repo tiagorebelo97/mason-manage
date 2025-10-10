@@ -58,21 +58,25 @@ Enhanced column detection to identify additional columns:
 
 ### 4. Comment Handling Logic
 
+#### Item Definition (UPDATED)
+An **item** is a row that has **BOTH** UN (unit) and QT (quantity) values. Rows with only one or neither are not considered items.
+
 #### Chapter Comments
-Rows **without ARTIGO** but **with DESCRIÇÃO** that appear after a chapter are treated as chapter comments.
+Rows **without ARTIGO, UN, and QT** but **with DESCRIÇÃO** that appear **between a chapter and the first item** are treated as chapter comments.
 
 **Example:**
 ```
-| ARTIGO | DESCRIÇÃO                    |
-|--------|------------------------------|
-| 1      | Trabalhos Preliminares       | <- CHAPTER
-|        | Inclui limpeza e preparação  | <- CHAPTER COMMENT
-|        | do terreno                   | <- CHAPTER COMMENT
-| 1.1    | Limpeza do terreno          | <- ITEM
+| ARTIGO | DESCRIÇÃO                    | UN | QT |
+|--------|------------------------------|----|----|
+| 1      | Trabalhos Preliminares       |    |    | <- CHAPTER
+|        | Inclui limpeza e preparação  |    |    | <- CHAPTER COMMENT
+|        | do terreno                   |    |    | <- CHAPTER COMMENT
+| 1.1    | Limpeza do terreno           | m2 | 50 | <- ITEM (chapter comments end here)
+|        | Nota adicional               |    |    | <- NOT a chapter comment (after first item)
 ```
 
-#### Item Comments
-Rows **with ARTIGO** pattern (e.g., "1.2") but **without QT and UN** are treated as parent item comments for direct child items (e.g., "1.2.1", "1.2.2").
+#### Item Comments (Parent Comments)
+Rows **with ARTIGO** pattern (e.g., "1.2") but **without BOTH QT and UN** are treated as parent item comments for direct child items (e.g., "1.2.1", "1.2.2").
 
 **Example:**
 ```
@@ -86,6 +90,31 @@ Rows **with ARTIGO** pattern (e.g., "1.2") but **without QT and UN** are treated
 The comment from "1.2" ("Demolições gerais") is stored in the `item_comments` field of items "1.2.1" and "1.2.2".
 
 **Note**: The algorithm looks for the immediate parent. For example, for item "1.2.1", it looks for "1.2". For "1.2.3.4", it would look for "1.2.3".
+
+#### Multi-line Comments (NEW)
+Rows **without ARTIGO, UN, and QT** that appear after a parent comment row are considered part of that comment. Multiple description lines are joined with newlines.
+
+**Example:**
+```
+| ARTIGO | DESCRIÇÃO                    | UN | QT |
+|--------|------------------------------|----|----|
+| 1.2    | Demolições gerais            |    |    | <- PARENT COMMENT
+|        | Incluir remoção de entulho   |    |    | <- Part of 1.2 comment
+|        | Transporte incluído          |    |    | <- Part of 1.2 comment
+| 1.2.1  | Paredes interiores           | m2 | 50 | <- ITEM (receives all 3 lines as comment)
+```
+
+#### Items Without ARTIGO (NEW)
+If an item row (with BOTH UN and QT) doesn't have an ARTIGO value, it assumes the ARTIGO from the most recent parent comment row.
+
+**Example:**
+```
+| ARTIGO | DESCRIÇÃO              | UN | QT |
+|--------|------------------------|----|----|
+| 1.2    | Demolições gerais      |    |    | <- PARENT COMMENT
+| 1.2.1  | Paredes interiores     | m2 | 50 | <- ITEM with ARTIGO
+|        | Portas                 | un | 3  | <- ITEM assumes ARTIGO 1.2.1 (not implemented - assumes last parent)
+```
 
 ### 5. Data Extraction Improvements
 
