@@ -636,14 +636,21 @@ const MapaQuantidades = () => {
               // Look for parent comments (e.g., for "1.2.1", look for "1.2")
               let itemComment: string | null = null;
               if (itemArtigo) {
-                const parts = itemArtigo.split('.');
-                if (parts.length > 1) {
-                  // For items like "1.2.1", check for parent "1.2"
-                  const parentArtigo = parts.slice(0, -1).join('.');
-                  const parentComments = parentCommentsMap.get(parentArtigo);
-                  if (parentComments && parentComments.length > 0) {
-                    itemComment = parentComments.join('\n');
+                // First check if this ARTIGO itself has comments (for inherited ARTIGO case)
+                let parentComments = parentCommentsMap.get(itemArtigo);
+                
+                // If not found, look for the parent ARTIGO
+                if (!parentComments || parentComments.length === 0) {
+                  const parts = itemArtigo.split('.');
+                  if (parts.length > 1) {
+                    // For items like "1.2.1", check for parent "1.2"
+                    const parentArtigo = parts.slice(0, -1).join('.');
+                    parentComments = parentCommentsMap.get(parentArtigo);
                   }
+                }
+                
+                if (parentComments && parentComments.length > 0) {
+                  itemComment = parentComments.join('\n');
                 }
               }
               
