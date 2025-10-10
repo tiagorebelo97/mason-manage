@@ -1466,7 +1466,7 @@ const MapaQuantidades = () => {
                                         const specs = getSpecialitiesByIds(itemSpecs);
                                         
                                         const handleRemoveSpeciality = (specialityId: string) => {
-                                          const currentSpecs = getItemOwnSpecialityIds(item.id);
+                                          const currentSpecs = getItemSpecialityIds(item.id, item.chapter_id);
                                           const updatedSpecs = currentSpecs.filter(id => id !== specialityId);
                                           updateItemSpecialitiesMutation.mutate({
                                             itemId: item.id,
@@ -1762,7 +1762,7 @@ const MapaQuantidades = () => {
                                     const specs = getSpecialitiesByIds(itemSpecs);
                                     
                                     const handleRemoveSpeciality = (specialityId: string) => {
-                                      const currentSpecs = getItemOwnSpecialityIds(item.id);
+                                      const currentSpecs = getItemSpecialityIds(item.id, item.chapter_id);
                                       const updatedSpecs = currentSpecs.filter(id => id !== specialityId);
                                       updateItemSpecialitiesMutation.mutate({
                                         itemId: item.id,
