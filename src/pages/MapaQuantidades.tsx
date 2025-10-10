@@ -55,6 +55,8 @@ import {
 } from "@/components/ui/hover-card";
 import { MultiSelect } from "@/components/ui/multi-select";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 
 type OrcamentoFile = {
   id: string;
@@ -122,6 +124,7 @@ const MapaQuantidades = () => {
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [treatAsSingleSheet, setTreatAsSingleSheet] = useState(false);
   const [editingChapterId, setEditingChapterId] = useState<string | null>(null);
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [pendingChapterSpecialities, setPendingChapterSpecialities] = useState<string[]>([]);
@@ -278,7 +281,7 @@ const MapaQuantidades = () => {
   });
 
   const analyzeMutation = useMutation({
-    mutationFn: async (fileId: string) => {
+    mutationFn: async ({ fileId, treatAsSingleSheet }: { fileId: string; treatAsSingleSheet: boolean }) => {
       // Get file info from database
       const { data: fileData, error: fileQueryError } = await supabase
         .from("orcamento_files")
@@ -363,7 +366,8 @@ const MapaQuantidades = () => {
       // Process each sheet and create tabs
       // For single-sheet files, create 3 default tabs: Principal, Arquitetura, Instalações Especiais
       // For multi-sheet files, create tabs from sheet names
-      const hasMultipleSheets = workbook.SheetNames.length > 1;
+      // Allow user to force single-sheet treatment via treatAsSingleSheet flag
+      const hasMultipleSheets = treatAsSingleSheet ? false : workbook.SheetNames.length > 1;
       
       if (!hasMultipleSheets) {
         // Create 3 default tabs for single-sheet files
@@ -1035,7 +1039,7 @@ const MapaQuantidades = () => {
   const handleAnalyze = () => {
     if (currentFile) {
       setIsAnalyzing(true);
-      analyzeMutation.mutate(currentFile.id);
+      analyzeMutation.mutate({ fileId: currentFile.id, treatAsSingleSheet });
     }
   };
 
@@ -1264,13 +1268,25 @@ const MapaQuantidades = () => {
             </div>
             <div className="flex gap-2">
               {!isAnalyzed && (
-                <Button
-                  onClick={handleAnalyze}
-                  disabled={isAnalyzing}
-                >
-                  {isAnalyzing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  {isAnalyzing ? t('orcamento.analyzing') : t('orcamento.analyze')}
-                </Button>
+                <>
+                  <div className="flex items-center gap-2 mr-4">
+                    <Switch
+                      id="single-sheet-mode"
+                      checked={treatAsSingleSheet}
+                      onCheckedChange={setTreatAsSingleSheet}
+                    />
+                    <Label htmlFor="single-sheet-mode" className="text-sm cursor-pointer">
+                      Treat as single sheet
+                    </Label>
+                  </div>
+                  <Button
+                    onClick={handleAnalyze}
+                    disabled={isAnalyzing}
+                  >
+                    {isAnalyzing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    {isAnalyzing ? t('orcamento.analyzing') : t('orcamento.analyze')}
+                  </Button>
+                </>
               )}
               <AlertDialog>
                 <AlertDialogTrigger asChild>
