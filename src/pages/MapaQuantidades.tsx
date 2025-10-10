@@ -505,8 +505,8 @@ const MapaQuantidades = () => {
           jsonData.forEach((row: unknown, rowIndex: number) => {
             if (!Array.isArray(row)) return;
             
-            const artigoCell = row[artigoColumnIndex] ? String(row[artigoColumnIndex]).trim() : "";
-            const descricaoCell = row[descricaoColumnIndex] ? String(row[descricaoColumnIndex]).trim() : "";
+            const artigoCell = row[artigoColumnIndex] !== null && row[artigoColumnIndex] !== undefined ? String(row[artigoColumnIndex]).trim() : "";
+            const descricaoCell = row[descricaoColumnIndex] !== null && row[descricaoColumnIndex] !== undefined ? String(row[descricaoColumnIndex]).trim() : "";
             
             // Skip empty rows
             if (!artigoCell && !descricaoCell) return;
