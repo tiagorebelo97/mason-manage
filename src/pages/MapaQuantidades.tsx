@@ -1433,53 +1433,6 @@ const MapaQuantidades = () => {
                               </Dialog>
                             </>
                           )}
-                          <Dialog open={editingChapterId === chapter.id} onOpenChange={(open) => {
-                            if (open) {
-                              handleOpenChapterDialog(chapter.id);
-                            } else {
-                              handleCloseChapterDialog(false);
-                            }
-                          }}>
-                            <TooltipProvider>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <DialogTrigger asChild>
-                                    <Button 
-                                      variant="ghost" 
-                                      size="icon" 
-                                      className="h-8 w-8 ml-auto"
-                                    >
-                                      <Tag className="h-4 w-4 text-muted-foreground hover:text-foreground" />
-                                    </Button>
-                                  </DialogTrigger>
-                                </TooltipTrigger>
-                                <TooltipContent side="top" className="max-w-xs">
-                                  <p className="text-xs">Manage Chapter Specialities</p>
-                                </TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
-                            <DialogContent>
-                              <DialogHeader>
-                                <DialogTitle>Chapter Specialities</DialogTitle>
-                                <DialogDescription>
-                                  Select specialities for this chapter. All items will inherit these by default.
-                                </DialogDescription>
-                              </DialogHeader>
-                              <div className="space-y-4 py-4">
-                                <MultiSelect
-                                  groupedOptions={groupedSpecialityOptions}
-                                  selected={editingChapterId === chapter.id ? pendingChapterSpecialities : getChapterSpecialityIds(chapter.id)}
-                                  onChange={(selected) => {
-                                    if (editingChapterId === chapter.id) {
-                                      setPendingChapterSpecialities(selected);
-                                    }
-                                  }}
-                                  placeholder="Select specialities..."
-                                  emptyText="No specialities found"
-                                />
-                              </div>
-                            </DialogContent>
-                          </Dialog>
                         </div>
                       </div>
                       <CollapsibleContent>
@@ -1735,53 +1688,6 @@ const MapaQuantidades = () => {
                           </Dialog>
                         </>
                       )}
-                      <Dialog open={editingChapterId === chapter.id} onOpenChange={(open) => {
-                        if (open) {
-                          handleOpenChapterDialog(chapter.id);
-                        } else {
-                          handleCloseChapterDialog(false);
-                        }
-                      }}>
-                        <TooltipProvider>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <DialogTrigger asChild>
-                                <Button 
-                                  variant="ghost" 
-                                  size="icon" 
-                                  className="h-8 w-8 ml-auto"
-                                >
-                                  <Tag className="h-4 w-4 text-muted-foreground hover:text-foreground" />
-                                </Button>
-                              </DialogTrigger>
-                            </TooltipTrigger>
-                            <TooltipContent side="top" className="max-w-xs">
-                              <p className="text-xs">Manage Chapter Specialities</p>
-                            </TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
-                        <DialogContent>
-                          <DialogHeader>
-                            <DialogTitle>Chapter Specialities</DialogTitle>
-                            <DialogDescription>
-                              Select specialities for this chapter. All items will inherit these by default.
-                            </DialogDescription>
-                          </DialogHeader>
-                          <div className="space-y-4 py-4">
-                            <MultiSelect
-                              groupedOptions={groupedSpecialityOptions}
-                              selected={editingChapterId === chapter.id ? pendingChapterSpecialities : getChapterSpecialityIds(chapter.id)}
-                              onChange={(selected) => {
-                                if (editingChapterId === chapter.id) {
-                                  setPendingChapterSpecialities(selected);
-                                }
-                              }}
-                              placeholder="Select specialities..."
-                              emptyText="No specialities found"
-                            />
-                          </div>
-                        </DialogContent>
-                      </Dialog>
                     </div>
                   </div>
                   <CollapsibleContent>
