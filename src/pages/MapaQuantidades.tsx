@@ -1395,10 +1395,10 @@ const MapaQuantidades = () => {
                               handleCloseChapterDialog(false);
                             }
                           }}>
-                            <DialogTrigger asChild>
-                              <TooltipProvider>
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <DialogTrigger asChild>
                                     <Button 
                                       variant="ghost" 
                                       size="icon" 
@@ -1406,13 +1406,13 @@ const MapaQuantidades = () => {
                                     >
                                       <Tag className="h-4 w-4 text-muted-foreground hover:text-foreground" />
                                     </Button>
-                                  </TooltipTrigger>
-                                  <TooltipContent side="top" className="max-w-xs">
-                                    <p className="text-xs">Manage Chapter Specialities</p>
-                                  </TooltipContent>
-                                </Tooltip>
-                              </TooltipProvider>
-                            </DialogTrigger>
+                                  </DialogTrigger>
+                                </TooltipTrigger>
+                                <TooltipContent side="top" className="max-w-xs">
+                                  <p className="text-xs">Manage Chapter Specialities</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
                             <DialogContent>
                               <DialogHeader>
                                 <DialogTitle>Chapter Specialities</DialogTitle>
@@ -1691,10 +1691,10 @@ const MapaQuantidades = () => {
                           handleCloseChapterDialog(false);
                         }
                       }}>
-                        <DialogTrigger asChild>
-                          <TooltipProvider>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <DialogTrigger asChild>
                                 <Button 
                                   variant="ghost" 
                                   size="icon" 
@@ -1702,13 +1702,13 @@ const MapaQuantidades = () => {
                                 >
                                   <Tag className="h-4 w-4 text-muted-foreground hover:text-foreground" />
                                 </Button>
-                              </TooltipTrigger>
-                              <TooltipContent side="top" className="max-w-xs">
-                                <p className="text-xs">Manage Chapter Specialities</p>
-                              </TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                        </DialogTrigger>
+                              </DialogTrigger>
+                            </TooltipTrigger>
+                            <TooltipContent side="top" className="max-w-xs">
+                              <p className="text-xs">Manage Chapter Specialities</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
                         <DialogContent>
                           <DialogHeader>
                             <DialogTitle>Chapter Specialities</DialogTitle>
