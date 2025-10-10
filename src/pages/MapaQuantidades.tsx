@@ -1034,7 +1034,8 @@ const MapaQuantidades = () => {
       setEditingItemId(null);
       setPendingItemSpecialities([]);
     },
-    onError: () => {
+    onError: (error) => {
+      console.error('Failed to update item specialities:', error);
       toast.error('Failed to update item specialities');
       // Clean up state even on error
       setEditingItemId(null);
