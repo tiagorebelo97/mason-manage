@@ -167,7 +167,11 @@ const MapaQuantidades = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("orcamento_chapters")
-        .select("*")
+        .select(`
+          *,
+          orcamento_tabs!inner(orcamento_id)
+        `)
+        .eq("orcamento_tabs.orcamento_id", id)
         .order("chapter_number");
       if (error) throw error;
       return data as OrcamentoChapter[];
@@ -180,7 +184,14 @@ const MapaQuantidades = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("orcamento_items")
-        .select("*")
+        .select(`
+          *,
+          orcamento_chapters!inner(
+            tab_id,
+            orcamento_tabs!inner(orcamento_id)
+          )
+        `)
+        .eq("orcamento_chapters.orcamento_tabs.orcamento_id", id)
         .order("artigo");
       if (error) throw error;
       return data as OrcamentoItem[];
@@ -207,7 +218,14 @@ const MapaQuantidades = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("chapter_specialities")
-        .select("*");
+        .select(`
+          *,
+          orcamento_chapters!inner(
+            tab_id,
+            orcamento_tabs!inner(orcamento_id)
+          )
+        `)
+        .eq("orcamento_chapters.orcamento_tabs.orcamento_id", id);
       if (error) throw error;
       return data as ChapterSpeciality[];
     },
