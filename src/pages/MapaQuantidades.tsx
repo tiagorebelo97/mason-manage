@@ -607,7 +607,7 @@ const MapaQuantidades = () => {
                     ? row[qtColumnIndex].toString() 
                     : String(row[qtColumnIndex]).trim())
                 : null;
-              const parsedQt = qtValue ? parseFloat(qtValue.replace(',', '.')) : null;
+              const parsedQt = qtValue ? Math.round(parseFloat(qtValue.replace(',', '.')) * 100) / 100 : null;
               
               const precoValue = precoUnitarioColumnIndex !== -1 && 
                 typeof row[precoUnitarioColumnIndex] !== 'undefined' && 
@@ -1462,7 +1462,7 @@ const MapaQuantidades = () => {
                                   <TableCell>{item.artigo}</TableCell>
                                   <TableCell>{item.descricao}</TableCell>
                                   <TableCell>{item.un || '-'}</TableCell>
-                                  <TableCell className="text-right">{item.qt !== null ? item.qt : '-'}</TableCell>
+                                  <TableCell className="text-right">{item.qt !== null ? Number(item.qt).toFixed(2).replace(/\.?0+$/, '') : '-'}</TableCell>
                                   <TableCell>
                                     <div className="flex flex-wrap gap-1 items-center">
                                       {(() => {
@@ -1735,7 +1735,7 @@ const MapaQuantidades = () => {
                               <TableCell>{item.artigo}</TableCell>
                               <TableCell>{item.descricao}</TableCell>
                               <TableCell>{item.un || '-'}</TableCell>
-                              <TableCell className="text-right">{item.qt !== null ? item.qt : '-'}</TableCell>
+                              <TableCell className="text-right">{item.qt !== null ? Number(item.qt).toFixed(2).replace(/\.?0+$/, '') : '-'}</TableCell>
                               <TableCell>
                                 <div className="flex flex-wrap gap-1 items-center">
                                   {(() => {
