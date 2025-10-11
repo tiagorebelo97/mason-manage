@@ -383,33 +383,111 @@ const MapaQuantidades = () => {
 
   const analyzeMutation = useMutation({
     mutationFn: async ({ fileId, treatAsSingleSheet, articleBasedView }: { fileId: string; treatAsSingleSheet: boolean; articleBasedView: boolean }) => {
-      // Get file info from database
-      const { data: fileData, error: fileQueryError } = await supabase
-        .from("orcamento_files")
-        .select("*")
-        .eq("id", fileId)
-        .single();
-      
-      if (fileQueryError) throw fileQueryError;
-      
-      // Download file from storage
-      const urlParts = fileData.file_url.split('/orcamento-files/');
-      if (urlParts.length < 2) throw new Error("Invalid file URL");
-      
-      const filePath = urlParts[1];
-      const { data: fileBlob, error: downloadError } = await supabase.storage
-        .from('orcamento-files')
-        .download(filePath);
-      
-      if (downloadError) throw downloadError;
-      
-      // Read the Excel file from the downloaded blob
-      const arrayBuffer = await fileBlob.arrayBuffer();
-      const workbook = XLSX.read(arrayBuffer, { type: 'array' });
-      
-      // Also load with ExcelJS for image extraction
-      const excelJSWorkbook = new ExcelJS.Workbook();
-      await excelJSWorkbook.xlsx.load(arrayBuffer);
+      try {
+        // Get file info from database
+        const { data: fileData, error: fileQueryError } = await supabase
+          .from("orcamento_files")
+          .select("*")
+          .eq("id", fileId)
+          .single();
+        
+        if (fileQueryError) {
+          console.error("Error fetching file data:", fileQueryError);
+          throw new Error(`Failed to fetch file data: ${fileQueryError.message}`);
+        }
+        
+        if (!fileData) {
+          console.error("No file data found for fileId:", fileId);
+          throw new Error("File not found in database");
+        }
+        
+        if (!fileData.file_url) {
+          console.error("File URL is missing for file:", fileData);
+          throw new Error("File URL is missing");
+        }
+        
+        // Download file from storage
+        console.log("Attempting to download file from URL:", fileData.file_url);
+        
+        // Extract file path from public URL
+        // Supabase public URL format: https://[domain]/storage/v1/object/public/orcamento-files/[path]
+        // We need to extract just the [path] part
+        let filePath: string;
+        
+        // Try multiple parsing strategies
+        if (fileData.file_url.includes('/orcamento-files/')) {
+          const urlParts = fileData.file_url.split('/orcamento-files/');
+          filePath = urlParts[1];
+        } else if (fileData.file_url.includes('/object/public/orcamento-files/')) {
+          // Alternative format
+          const urlParts = fileData.file_url.split('/object/public/orcamento-files/');
+          filePath = urlParts[1];
+        } else {
+          // If we can't parse the URL, try using the entire URL as-is
+          console.error("Could not parse file URL format:", fileData.file_url);
+          console.log("Attempting to extract filename from URL");
+          
+          // Try to extract just the filename if URL doesn't match expected format
+          const urlObj = new URL(fileData.file_url);
+          const pathParts = urlObj.pathname.split('/');
+          // Get the last two parts (should be {orcamento_id}/{filename})
+          if (pathParts.length >= 2) {
+            filePath = `${pathParts[pathParts.length - 2]}/${pathParts[pathParts.length - 1]}`;
+            console.log("Extracted path:", filePath);
+          } else {
+            throw new Error(`Invalid file URL format. Expected URL to contain '/orcamento-files/' but got: ${fileData.file_url}`);
+          }
+        }
+        
+        console.log("Downloading file from path:", filePath);
+        const { data: fileBlob, error: downloadError } = await supabase.storage
+          .from('orcamento-files')
+          .download(filePath);
+        
+        if (downloadError) {
+          console.error("Error downloading file from storage:", downloadError);
+          throw new Error(`Failed to download file: ${downloadError.message}`);
+        }
+        
+        if (!fileBlob) {
+          console.error("No file blob received from storage");
+          throw new Error("Failed to download file: No data received");
+        }
+        
+        // Read the Excel file from the downloaded blob
+        console.log("Reading Excel file...");
+        const arrayBuffer = await fileBlob.arrayBuffer();
+        
+        if (!arrayBuffer || arrayBuffer.byteLength === 0) {
+          console.error("Empty or invalid file content");
+          throw new Error("File is empty or corrupted");
+        }
+        
+        console.log("File size:", arrayBuffer.byteLength, "bytes");
+        
+        let workbook;
+        try {
+          workbook = XLSX.read(arrayBuffer, { type: 'array' });
+          console.log("Excel file read successfully. Sheets:", workbook.SheetNames);
+        } catch (xlsxError) {
+          console.error("Error reading Excel file with XLSX:", xlsxError);
+          throw new Error(`Failed to read Excel file: ${xlsxError instanceof Error ? xlsxError.message : 'Unknown error'}`);
+        }
+        
+        if (!workbook.SheetNames || workbook.SheetNames.length === 0) {
+          console.error("Excel file has no sheets");
+          throw new Error("Excel file has no sheets");
+        }
+        
+        // Also load with ExcelJS for image extraction
+        const excelJSWorkbook = new ExcelJS.Workbook();
+        try {
+          await excelJSWorkbook.xlsx.load(arrayBuffer);
+          console.log("ExcelJS workbook loaded successfully");
+        } catch (excelJSError) {
+          console.error("Error loading file with ExcelJS (images won't be extracted):", excelJSError);
+          // Don't throw here - images are optional
+        }
       
       // Extract images from all worksheets
       const extractedImages: Array<{
@@ -969,13 +1047,18 @@ const MapaQuantidades = () => {
       const sheetNameToTabId = new Map<string, string>();
       
       if (tabsToInsert.length > 0) {
+        console.log("Inserting", tabsToInsert.length, "tabs into database:", tabsToInsert.map(t => t.name));
         const { data, error: tabError } = await supabase
           .from("orcamento_tabs")
           .insert(tabsToInsert)
           .select();
         
-        if (tabError) throw tabError;
+        if (tabError) {
+          console.error("Error inserting tabs:", tabError);
+          throw new Error(`Failed to create tabs: ${tabError.message}`);
+        }
         insertedTabs = data || [];
+        console.log("Successfully inserted", insertedTabs.length, "tabs");
         
         // Create a map of sheet names to tab IDs
         // For single-sheet files, map the single sheet to "Principal" tab
@@ -1003,11 +1086,16 @@ const MapaQuantidades = () => {
 
       // Insert chapters into database
       if (chaptersWithTabIds.length > 0) {
+        console.log("Inserting", chaptersWithTabIds.length, "chapters into database");
         const { data: insertedChapters, error: chapterError } = await supabase
           .from("orcamento_chapters")
           .insert(chaptersWithTabIds)
           .select();
-        if (chapterError) throw chapterError;
+        if (chapterError) {
+          console.error("Error inserting chapters:", chapterError);
+          throw new Error(`Failed to create chapters: ${chapterError.message}`);
+        }
+        console.log("Successfully inserted", insertedChapters?.length || 0, "chapters");
         
         // Create a map of (sheet_name + chapter_number) to chapter IDs
         const chapterMap = new Map<string, string>();
@@ -1046,13 +1134,20 @@ const MapaQuantidades = () => {
           };
         }).filter(item => item.chapter_id); // Only include items with valid chapter_id
         
+        console.log("Processing", itemsToInsert.length, "items,", itemsWithChapterIds.length, "have valid chapter IDs");
+        
         // Insert items into database
         if (itemsWithChapterIds.length > 0) {
+          console.log("Inserting", itemsWithChapterIds.length, "items into database");
           const { data: insertedItems, error: itemError } = await supabase
             .from("orcamento_items")
             .insert(itemsWithChapterIds)
             .select();
-          if (itemError) throw itemError;
+          if (itemError) {
+            console.error("Error inserting items:", itemError);
+            throw new Error(`Failed to create items: ${itemError.message}`);
+          }
+          console.log("Successfully inserted", insertedItems?.length || 0, "items");
           
           // Upload extracted images and match them to items
           if (extractedImages.length > 0 && insertedItems) {
@@ -1122,14 +1217,25 @@ const MapaQuantidades = () => {
       }
 
       // Mark file as analyzed
+      console.log("Marking file as analyzed");
       const { error: fileError } = await supabase
         .from("orcamento_files")
         .update({ analyzed: true })
         .eq("id", fileId);
-      if (fileError) throw fileError;
+      if (fileError) {
+        console.error("Error marking file as analyzed:", fileError);
+        throw new Error(`Failed to mark file as analyzed: ${fileError.message}`);
+      }
       
-      // Return articlesData for article-based view processing
-      return { articlesData, articleBasedView };
+      console.log("File analysis completed successfully");
+        
+        // Return articlesData for article-based view processing
+        return { articlesData, articleBasedView };
+      } catch (error) {
+        console.error("Error in analyzeMutation:", error);
+        // Re-throw to let the onError handler display the toast
+        throw error;
+      }
     },
     onSuccess: (data) => {
       setIsAnalyzing(false);
@@ -1159,9 +1265,27 @@ const MapaQuantidades = () => {
       
       toast.success(t('orcamento.analyzeSuccess'));
     },
-    onError: () => {
+    onError: (error) => {
       setIsAnalyzing(false);
-      toast.error(t('orcamento.analyzeError'));
+      console.error("Analysis mutation error:", error);
+      
+      // Try to extract a meaningful error message
+      let errorMessage = t('orcamento.analyzeError');
+      if (error instanceof Error) {
+        // Append the specific error message for debugging
+        console.error("Detailed error:", error.message);
+        if (error.message.includes("Invalid file URL")) {
+          errorMessage += " - Invalid file URL format";
+        } else if (error.message.includes("Failed to download")) {
+          errorMessage += " - Failed to download file from storage";
+        } else if (error.message.includes("Failed to read Excel")) {
+          errorMessage += " - Invalid Excel file format";
+        } else if (error.message.includes("no sheets")) {
+          errorMessage += " - Excel file has no sheets";
+        }
+      }
+      
+      toast.error(errorMessage);
     },
   });
 
@@ -1393,8 +1517,14 @@ const MapaQuantidades = () => {
 
   const handleAnalyze = () => {
     if (currentFile) {
+      console.log("Starting analysis for file:", currentFile.id, currentFile.file_name);
+      console.log("File URL:", currentFile.file_url);
+      console.log("Settings - treatAsSingleSheet:", treatAsSingleSheet, "articleBasedView:", articleBasedView);
       setIsAnalyzing(true);
       analyzeMutation.mutate({ fileId: currentFile.id, treatAsSingleSheet, articleBasedView });
+    } else {
+      console.error("handleAnalyze called but currentFile is null");
+      toast.error("No file selected for analysis");
     }
   };
 
