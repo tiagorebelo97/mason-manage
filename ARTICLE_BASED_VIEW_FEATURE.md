@@ -54,17 +54,18 @@ Before analyzing an Excel file:
 
 After analysis:
 1. **Tabs at the top**: Switch between Principal, Arquitetura, and Instalações Especiais
-2. **Chapter sections**: Each chapter is displayed as a separate section
-3. **Article pages**: Articles are shown as clickable boxes in a 4-column grid
-4. **Click an article**: Opens a modal with the full article content
+2. **Chapter sections**: Each chapter is displayed as a separate section with header
+3. **Articles**: Each article is displayed inline within its chapter, already open and visible
+4. **Scroll**: Simply scroll down to view all articles within a chapter
 
-### 3. Article Detail Modal
+### 3. Article Display
 
-When you click an article page:
+Each article is displayed inline with:
 - **Header**: Shows the article number and title (e.g., "1.1 - Article Title")
 - **Content**: Displays all content in the order it appears in the Excel:
   - Text rows are shown as paragraphs
-  - Item rows are shown in a formatted table
+  - Item rows (with both UN and QT) are grouped into tables
+  - Multiple consecutive items appear in the same table
 
 ## Excel File Structure Requirements
 
@@ -124,24 +125,26 @@ When article-based view is enabled:
 
 **Chapter Box:**
 - Header with chapter number and name
-- Contains article page grid
+- Contains all articles displayed inline
 
-**Article Page Box:**
-- Shows article number (e.g., "1.1")
-- Shows article title (truncated to 3 lines)
-- Clickable to open detail modal
+**Article Display:**
+- Each article is shown inline with a border and padding
+- Shows article number and title as a header (e.g., "1.1 - Article Title")
+- Content is displayed immediately below the header
+- No clicking required - all information is visible
 
-**Article Detail Modal:**
-- Full-screen modal with scrolling
-- Title bar with article number and full title
-- Content area displaying text and items in order
+**Article Content:**
+- Text rows displayed as paragraphs
+- Item rows grouped into tables (consecutive items in same table)
+- Tables have columns: ARTIGO, DESCRIÇÃO, UN, QT, OBSERVAÇÕES EMPREITEIRO
 
 ## Benefits
 
 1. **Better Organization**: Content is grouped by articles rather than scattered in tables
 2. **Complete Context**: All content between articles is preserved and displayed
-3. **Easy Navigation**: Page-based interface makes it easy to browse articles
-4. **Flexible Content**: Supports both text descriptions and structured item data
+3. **Immediate Visibility**: No need to click - all articles are already open and visible
+4. **Efficient Tables**: Items with UN and QT are grouped together in tables
+5. **Flexible Content**: Supports both text descriptions and structured item data
 
 ## Comparison with Standard View
 
@@ -149,9 +152,10 @@ When article-based view is enabled:
 |---------|--------------|-------------------|
 | Tab Creation | From sheet names or 3 default tabs | Always 3 tabs |
 | Content Grouping | By chapters | By chapters and articles |
-| Item Display | Table of all items per chapter | Pages per article with mixed content |
+| Item Display | Table of all items per chapter | Tables of items grouped within articles |
 | Text Rows | Not captured | Captured and displayed |
-| Navigation | Expandable chapter sections | Clickable article pages |
+| Navigation | Expandable chapter sections | Inline article display (scroll to view) |
+| Interaction | Click to expand chapters | All content visible, just scroll |
 
 ## Limitations
 
