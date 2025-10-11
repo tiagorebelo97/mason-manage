@@ -819,6 +819,51 @@ const MapaQuantidades = () => {
               currentArticleArtigo = artigoCell;
               currentArticleTitle = descricaoCell;
               currentArticleContents = [];
+              
+              // Check if the article row itself has UN and QT values
+              // If so, add them to the article contents as an item
+              if (hasUN && hasQT) {
+                const unValue = unColumnIndex !== -1 && 
+                  typeof row[unColumnIndex] !== 'undefined' && 
+                  row[unColumnIndex] !== null
+                  ? String(row[unColumnIndex]).trim() 
+                  : null;
+                
+                const qtValue = qtColumnIndex !== -1 && 
+                  typeof row[qtColumnIndex] !== 'undefined' && 
+                  row[qtColumnIndex] !== null
+                  ? (typeof row[qtColumnIndex] === 'number' 
+                      ? row[qtColumnIndex].toString() 
+                      : String(row[qtColumnIndex]).trim())
+                  : null;
+                const parsedQt = qtValue ? Math.round(parseFloat(qtValue.replace(',', '.')) * 100) / 100 : null;
+                
+                // Get observacoes_empreiteiro if present
+                let observacoesValue: string | null = null;
+                if (observacoesColumnIndex !== -1 && 
+                    typeof row[observacoesColumnIndex] !== 'undefined' && 
+                    row[observacoesColumnIndex] !== null) {
+                  const cellValue = row[observacoesColumnIndex];
+                  if (typeof cellValue === 'string') {
+                    observacoesValue = cellValue.trim() || null;
+                  } else if (typeof cellValue === 'number') {
+                    observacoesValue = String(cellValue);
+                  }
+                }
+                
+                if (unValue && parsedQt !== null && !isNaN(parsedQt)) {
+                  currentArticleContents.push({
+                    type: 'item',
+                    data: {
+                      artigo: artigoCell,
+                      descricao: descricaoCell,
+                      un: unValue,
+                      qt: parsedQt,
+                      observacoes_empreiteiro: observacoesValue || undefined
+                    }
+                  });
+                }
+              }
             }
             // Case 2: Row with ARTIGO but no UN and QT (comment parent)
             else if (artigoCell && /^\d+\./.test(artigoCell) && !hasUN && !hasQT && descricaoCell) {
@@ -1063,15 +1108,18 @@ const MapaQuantidades = () => {
         // Create a map of sheet names to tab IDs
         // For single-sheet files, map the single sheet to "Principal" tab
         // For multi-sheet files, map each sheet to its corresponding tab
+        // For article-based view, map ALL sheets to "Principal" tab
         if (hasMultipleSheets) {
           insertedTabs.forEach(tab => {
             sheetNameToTabId.set(tab.name, tab.id);
           });
         } else {
-          // Map the single sheet to the "Principal" tab
+          // Map all sheets to the "Principal" tab
           const principalTab = insertedTabs.find(tab => tab.name === "Principal");
-          if (principalTab && workbook.SheetNames.length > 0) {
-            sheetNameToTabId.set(workbook.SheetNames[0], principalTab.id);
+          if (principalTab) {
+            workbook.SheetNames.forEach(sheetName => {
+              sheetNameToTabId.set(sheetName, principalTab.id);
+            });
           }
         }
       }
@@ -1098,22 +1146,14 @@ const MapaQuantidades = () => {
         console.log("Successfully inserted", insertedChapters?.length || 0, "chapters");
         
         // Create a map of (sheet_name + chapter_number) to chapter IDs
+        // We need to use the original sheet_name from chaptersToInsert since it's not in the database
         const chapterMap = new Map<string, string>();
-        insertedChapters.forEach(chapter => {
-          if (hasMultipleSheets) {
-            // For multi-sheet files, find the corresponding tab to get sheet name
-            const tab = insertedTabs.find(t => t.id === chapter.tab_id);
-            if (tab) {
-              const key = `${tab.name}_${chapter.chapter_number}`;
-              chapterMap.set(key, chapter.id);
-            }
-          } else {
-            // For single-sheet files, use the original sheet name
-            // Since we mapped the sheet to Principal tab, we need to use the original sheet name
-            if (workbook.SheetNames.length > 0) {
-              const key = `${workbook.SheetNames[0]}_${chapter.chapter_number}`;
-              chapterMap.set(key, chapter.id);
-            }
+        insertedChapters.forEach((chapter, index) => {
+          // The insertedChapters array should be in the same order as chaptersToInsert
+          const originalChapter = chaptersToInsert[index];
+          if (originalChapter && originalChapter.sheet_name) {
+            const key = `${originalChapter.sheet_name}_${chapter.chapter_number}`;
+            chapterMap.set(key, chapter.id);
           }
         });
         
