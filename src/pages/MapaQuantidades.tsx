@@ -2395,76 +2395,102 @@ const MapaQuantidades = () => {
                             </h3>
                           </div>
                           
-                          {/* Article pages grid (4 per row) */}
-                          <div className="p-4">
-                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                              {chapterWithArticles.articles.map((article) => (
-                                <Dialog key={article.id}>
-                                  <DialogTrigger asChild>
-                                    <div className="border rounded-lg p-4 cursor-pointer hover:shadow-md hover:border-primary transition-all">
-                                      <div className="text-sm font-medium text-primary mb-2">
-                                        {article.artigo}
-                                      </div>
-                                      <div className="text-sm line-clamp-3">
-                                        {article.title}
-                                      </div>
-                                    </div>
-                                  </DialogTrigger>
-                                  
-                                  <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-                                    <DialogHeader>
-                                      <DialogTitle>{article.artigo} - {article.title}</DialogTitle>
-                                    </DialogHeader>
+                          {/* Articles displayed inline */}
+                          <div className="p-4 space-y-8">
+                            {chapterWithArticles.articles.map((article) => (
+                              <div key={article.id} className="border rounded-lg p-4 space-y-4">
+                                {/* Article header */}
+                                <div className="border-b pb-3">
+                                  <h4 className="text-base font-semibold text-primary">
+                                    {article.artigo} - {article.title}
+                                  </h4>
+                                </div>
+                                
+                                {/* Article content */}
+                                <div className="space-y-4">
+                                  {(() => {
+                                    const groupedContent: Array<{type: 'text', data: string} | {type: 'items', items: Array<{
+                                      artigo: string;
+                                      descricao: string;
+                                      un: string;
+                                      qt: number;
+                                      observacoes_empreiteiro?: string;
+                                    }>}> = [];
                                     
-                                    <div className="space-y-4">
-                                      {article.contents.map((content, index) => (
-                                        <div key={index}>
-                                          {content.type === 'text' ? (
-                                            <p className="text-sm">{content.data as string}</p>
-                                          ) : (
-                                            <Table className="border">
-                                              <TableHeader>
-                                                <TableRow>
-                                                  <TableHead>{t('orcamento.artigo')}</TableHead>
-                                                  <TableHead>{t('orcamento.descricao')}</TableHead>
-                                                  <TableHead>{t('orcamento.unit')}</TableHead>
-                                                  <TableHead className="text-right">{t('orcamento.quantity')}</TableHead>
-                                                  <TableHead>{t('orcamento.observacoesEmpreiteiro')}</TableHead>
+                                    // Group consecutive items into a single table
+                                    let currentItemGroup: Array<{
+                                      artigo: string;
+                                      descricao: string;
+                                      un: string;
+                                      qt: number;
+                                      observacoes_empreiteiro?: string;
+                                    }> = [];
+                                    
+                                    article.contents.forEach((content, index) => {
+                                      if (content.type === 'text') {
+                                        // If we have accumulated items, push them as a group first
+                                        if (currentItemGroup.length > 0) {
+                                          groupedContent.push({ type: 'items', items: [...currentItemGroup] });
+                                          currentItemGroup = [];
+                                        }
+                                        // Add text content
+                                        groupedContent.push({ type: 'text', data: content.data as string });
+                                      } else {
+                                        // Accumulate items
+                                        const itemData = content.data as {
+                                          artigo: string;
+                                          descricao: string;
+                                          un: string;
+                                          qt: number;
+                                          observacoes_empreiteiro?: string;
+                                        };
+                                        currentItemGroup.push(itemData);
+                                      }
+                                    });
+                                    
+                                    // Don't forget the last group
+                                    if (currentItemGroup.length > 0) {
+                                      groupedContent.push({ type: 'items', items: currentItemGroup });
+                                    }
+                                    
+                                    return groupedContent.map((group, groupIndex) => (
+                                      <div key={groupIndex}>
+                                        {group.type === 'text' ? (
+                                          <p className="text-sm">{group.data}</p>
+                                        ) : (
+                                          <Table className="border">
+                                            <TableHeader>
+                                              <TableRow>
+                                                <TableHead>{t('orcamento.artigo')}</TableHead>
+                                                <TableHead>{t('orcamento.descricao')}</TableHead>
+                                                <TableHead>{t('orcamento.unit')}</TableHead>
+                                                <TableHead className="text-right">{t('orcamento.quantity')}</TableHead>
+                                                <TableHead>{t('orcamento.observacoesEmpreiteiro')}</TableHead>
+                                              </TableRow>
+                                            </TableHeader>
+                                            <TableBody>
+                                              {group.items.map((item, itemIndex) => (
+                                                <TableRow key={itemIndex}>
+                                                  <TableCell>{item.artigo}</TableCell>
+                                                  <TableCell>{item.descricao}</TableCell>
+                                                  <TableCell>{item.un}</TableCell>
+                                                  <TableCell className="text-right">
+                                                    {Number(item.qt).toFixed(2).replace(/\.?0+$/, '')}
+                                                  </TableCell>
+                                                  <TableCell>
+                                                    {item.observacoes_empreiteiro || '-'}
+                                                  </TableCell>
                                                 </TableRow>
-                                              </TableHeader>
-                                              <TableBody>
-                                                {(() => {
-                                                  const itemData = content.data as {
-                                                    artigo: string;
-                                                    descricao: string;
-                                                    un: string;
-                                                    qt: number;
-                                                    observacoes_empreiteiro?: string;
-                                                  };
-                                                  return (
-                                                    <TableRow>
-                                                      <TableCell>{itemData.artigo}</TableCell>
-                                                      <TableCell>{itemData.descricao}</TableCell>
-                                                      <TableCell>{itemData.un}</TableCell>
-                                                      <TableCell className="text-right">
-                                                        {Number(itemData.qt).toFixed(2).replace(/\.?0+$/, '')}
-                                                      </TableCell>
-                                                      <TableCell>
-                                                        {itemData.observacoes_empreiteiro || '-'}
-                                                      </TableCell>
-                                                    </TableRow>
-                                                  );
-                                                })()}
-                                              </TableBody>
-                                            </Table>
-                                          )}
-                                        </div>
-                                      ))}
-                                    </div>
-                                  </DialogContent>
-                                </Dialog>
-                              ))}
-                            </div>
+                                              ))}
+                                            </TableBody>
+                                          </Table>
+                                        )}
+                                      </div>
+                                    ));
+                                  })()}
+                                </div>
+                              </div>
+                            ))}
                           </div>
                         </div>
                       ))}
