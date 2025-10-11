@@ -408,13 +408,37 @@ const MapaQuantidades = () => {
         
         // Download file from storage
         console.log("Attempting to download file from URL:", fileData.file_url);
-        const urlParts = fileData.file_url.split('/orcamento-files/');
-        if (urlParts.length < 2) {
-          console.error("Invalid file URL format:", fileData.file_url);
-          throw new Error(`Invalid file URL format. Expected URL to contain '/orcamento-files/' but got: ${fileData.file_url}`);
+        
+        // Extract file path from public URL
+        // Supabase public URL format: https://[domain]/storage/v1/object/public/orcamento-files/[path]
+        // We need to extract just the [path] part
+        let filePath: string;
+        
+        // Try multiple parsing strategies
+        if (fileData.file_url.includes('/orcamento-files/')) {
+          const urlParts = fileData.file_url.split('/orcamento-files/');
+          filePath = urlParts[1];
+        } else if (fileData.file_url.includes('/object/public/orcamento-files/')) {
+          // Alternative format
+          const urlParts = fileData.file_url.split('/object/public/orcamento-files/');
+          filePath = urlParts[1];
+        } else {
+          // If we can't parse the URL, try using the entire URL as-is
+          console.error("Could not parse file URL format:", fileData.file_url);
+          console.log("Attempting to extract filename from URL");
+          
+          // Try to extract just the filename if URL doesn't match expected format
+          const urlObj = new URL(fileData.file_url);
+          const pathParts = urlObj.pathname.split('/');
+          // Get the last two parts (should be {orcamento_id}/{filename})
+          if (pathParts.length >= 2) {
+            filePath = `${pathParts[pathParts.length - 2]}/${pathParts[pathParts.length - 1]}`;
+            console.log("Extracted path:", filePath);
+          } else {
+            throw new Error(`Invalid file URL format. Expected URL to contain '/orcamento-files/' but got: ${fileData.file_url}`);
+          }
         }
         
-        const filePath = urlParts[1];
         console.log("Downloading file from path:", filePath);
         const { data: fileBlob, error: downloadError } = await supabase.storage
           .from('orcamento-files')
