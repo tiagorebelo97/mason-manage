@@ -1047,13 +1047,18 @@ const MapaQuantidades = () => {
       const sheetNameToTabId = new Map<string, string>();
       
       if (tabsToInsert.length > 0) {
+        console.log("Inserting", tabsToInsert.length, "tabs into database:", tabsToInsert.map(t => t.name));
         const { data, error: tabError } = await supabase
           .from("orcamento_tabs")
           .insert(tabsToInsert)
           .select();
         
-        if (tabError) throw tabError;
+        if (tabError) {
+          console.error("Error inserting tabs:", tabError);
+          throw new Error(`Failed to create tabs: ${tabError.message}`);
+        }
         insertedTabs = data || [];
+        console.log("Successfully inserted", insertedTabs.length, "tabs");
         
         // Create a map of sheet names to tab IDs
         // For single-sheet files, map the single sheet to "Principal" tab
@@ -1081,11 +1086,16 @@ const MapaQuantidades = () => {
 
       // Insert chapters into database
       if (chaptersWithTabIds.length > 0) {
+        console.log("Inserting", chaptersWithTabIds.length, "chapters into database");
         const { data: insertedChapters, error: chapterError } = await supabase
           .from("orcamento_chapters")
           .insert(chaptersWithTabIds)
           .select();
-        if (chapterError) throw chapterError;
+        if (chapterError) {
+          console.error("Error inserting chapters:", chapterError);
+          throw new Error(`Failed to create chapters: ${chapterError.message}`);
+        }
+        console.log("Successfully inserted", insertedChapters?.length || 0, "chapters");
         
         // Create a map of (sheet_name + chapter_number) to chapter IDs
         const chapterMap = new Map<string, string>();
@@ -1124,13 +1134,20 @@ const MapaQuantidades = () => {
           };
         }).filter(item => item.chapter_id); // Only include items with valid chapter_id
         
+        console.log("Processing", itemsToInsert.length, "items,", itemsWithChapterIds.length, "have valid chapter IDs");
+        
         // Insert items into database
         if (itemsWithChapterIds.length > 0) {
+          console.log("Inserting", itemsWithChapterIds.length, "items into database");
           const { data: insertedItems, error: itemError } = await supabase
             .from("orcamento_items")
             .insert(itemsWithChapterIds)
             .select();
-          if (itemError) throw itemError;
+          if (itemError) {
+            console.error("Error inserting items:", itemError);
+            throw new Error(`Failed to create items: ${itemError.message}`);
+          }
+          console.log("Successfully inserted", insertedItems?.length || 0, "items");
           
           // Upload extracted images and match them to items
           if (extractedImages.length > 0 && insertedItems) {
@@ -1200,11 +1217,17 @@ const MapaQuantidades = () => {
       }
 
       // Mark file as analyzed
+      console.log("Marking file as analyzed");
       const { error: fileError } = await supabase
         .from("orcamento_files")
         .update({ analyzed: true })
         .eq("id", fileId);
-      if (fileError) throw fileError;
+      if (fileError) {
+        console.error("Error marking file as analyzed:", fileError);
+        throw new Error(`Failed to mark file as analyzed: ${fileError.message}`);
+      }
+      
+      console.log("File analysis completed successfully");
         
         // Return articlesData for article-based view processing
         return { articlesData, articleBasedView };
