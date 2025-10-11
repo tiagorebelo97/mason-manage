@@ -117,6 +117,30 @@ type ItemSpeciality = {
   speciality_id: string;
 };
 
+type ArticleContent = {
+  type: 'text' | 'item';
+  data: string | {
+    artigo: string;
+    descricao: string;
+    un: string;
+    qt: number;
+    observacoes_empreiteiro?: string;
+  };
+};
+
+type Article = {
+  id: string;
+  chapter_id: string;
+  artigo: string;
+  title: string;
+  contents: ArticleContent[];
+};
+
+type ChapterWithArticles = {
+  chapter: OrcamentoChapter;
+  articles: Article[];
+};
+
 const MapaQuantidades = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -125,6 +149,9 @@ const MapaQuantidades = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [treatAsSingleSheet, setTreatAsSingleSheet] = useState(false);
+  const [articleBasedView, setArticleBasedView] = useState(false);
+  const [chaptersWithArticles, setChaptersWithArticles] = useState<ChapterWithArticles[]>([]);
+  const [selectedArticle, setSelectedArticle] = useState<Article | null>(null);
   const [editingChapterId, setEditingChapterId] = useState<string | null>(null);
   const [pendingChapterSpecialities, setPendingChapterSpecialities] = useState<string[]>([]);
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
@@ -311,7 +338,7 @@ const MapaQuantidades = () => {
   });
 
   const analyzeMutation = useMutation({
-    mutationFn: async ({ fileId, treatAsSingleSheet }: { fileId: string; treatAsSingleSheet: boolean }) => {
+    mutationFn: async ({ fileId, treatAsSingleSheet, articleBasedView }: { fileId: string; treatAsSingleSheet: boolean; articleBasedView: boolean }) => {
       // Get file info from database
       const { data: fileData, error: fileQueryError } = await supabase
         .from("orcamento_files")
@@ -392,12 +419,31 @@ const MapaQuantidades = () => {
         observacoes_image_url: string | null;
         excel_row_index?: number; // Track the Excel row for image matching
       }> = [];
+      
+      // Article-based view data structure
+      const articlesData: Array<{
+        sheet_name: string;
+        chapter_number: string;
+        artigo: string;
+        title: string;
+        contents: Array<{
+          type: 'text' | 'item';
+          data: string | {
+            artigo: string;
+            descricao: string;
+            un: string;
+            qt: number;
+            observacoes_empreiteiro?: string;
+          };
+        }>;
+      }> = [];
 
       // Process each sheet and create tabs
       // For single-sheet files, create 3 default tabs: Principal, Arquitetura, Instalações Especiais
       // For multi-sheet files, create tabs from sheet names
       // Allow user to force single-sheet treatment via treatAsSingleSheet flag
-      const hasMultipleSheets = treatAsSingleSheet ? false : workbook.SheetNames.length > 1;
+      // For article-based view, always create 3 tabs regardless of sheet count
+      const hasMultipleSheets = (articleBasedView || treatAsSingleSheet) ? false : workbook.SheetNames.length > 1;
       
       if (!hasMultipleSheets) {
         // Create 3 default tabs for single-sheet files
@@ -531,6 +577,10 @@ const MapaQuantidades = () => {
         // - Multi-line comments: rows without ARTIGO, UN, QT after a comment row are part of that comment
         // - Post-item comments: rows with non-numeric ARTIGO after items are appended to the previous item's comments
         // - Duplicate chapter numbers: In single-sheet files, if a chapter number appears again, treat it as a comment for the next item
+        //
+        // ARTICLE-BASED VIEW MODE:
+        // When articleBasedView is true, we extract articles (rows with exactly one dot in ARTIGO)
+        // and capture ALL content between articles (both text rows and item rows)
         if (artigoColumnIndex !== -1 && descricaoColumnIndex !== -1) {
           let currentChapterNumber: string | null = null;
           let chapterComments: string[] = [];
@@ -538,6 +588,20 @@ const MapaQuantidades = () => {
           let lastCommentArtigo: string | null = null;
           let firstItemFoundInChapter = false;
           const seenChapterNumbers = new Set<string>(); // Track seen chapter numbers to detect duplicates
+          
+          // Article-based view tracking
+          let currentArticleArtigo: string | null = null;
+          let currentArticleTitle: string = "";
+          let currentArticleContents: Array<{
+            type: 'text' | 'item';
+            data: string | {
+              artigo: string;
+              descricao: string;
+              un: string;
+              qt: number;
+              observacoes_empreiteiro?: string;
+            };
+          }> = [];
           
           jsonData.forEach((row: unknown, rowIndex: number) => {
             if (!Array.isArray(row)) return;
@@ -570,8 +634,30 @@ const MapaQuantidades = () => {
                 }
                 parentCommentsMap.get(artigoCell)!.push(descricaoCell);
                 lastCommentArtigo = artigoCell;
+                
+                // Article-based view: add to current article contents as text
+                if (articleBasedView && currentArticleArtigo) {
+                  currentArticleContents.push({
+                    type: 'text',
+                    data: descricaoCell
+                  });
+                }
               } else {
                 // This is a new chapter - process normally
+                // Article-based view: save previous article if exists
+                if (articleBasedView && currentArticleArtigo && currentChapterNumber) {
+                  articlesData.push({
+                    sheet_name: sheetName,
+                    chapter_number: currentChapterNumber,
+                    artigo: currentArticleArtigo,
+                    title: currentArticleTitle,
+                    contents: [...currentArticleContents]
+                  });
+                  currentArticleArtigo = null;
+                  currentArticleTitle = "";
+                  currentArticleContents = [];
+                }
+                
                 // Save previous chapter with its comments
                 if (currentChapterNumber && chapterComments.length > 0) {
                   const lastChapter = chaptersToInsert[chaptersToInsert.length - 1];
@@ -593,6 +679,25 @@ const MapaQuantidades = () => {
                 lastCommentArtigo = null;
               }
             }
+            // Case 1.5: Article detection (for article-based view)
+            // Article is a row with ARTIGO containing exactly ONE dot (e.g., "1.1", "2.3", NOT "1.2.3")
+            else if (articleBasedView && artigoCell && /^\d+\.\d+$/.test(artigoCell) && descricaoCell) {
+              // Save previous article if exists
+              if (currentArticleArtigo && currentChapterNumber) {
+                articlesData.push({
+                  sheet_name: sheetName,
+                  chapter_number: currentChapterNumber,
+                  artigo: currentArticleArtigo,
+                  title: currentArticleTitle,
+                  contents: [...currentArticleContents]
+                });
+              }
+              
+              // Start new article
+              currentArticleArtigo = artigoCell;
+              currentArticleTitle = descricaoCell;
+              currentArticleContents = [];
+            }
             // Case 2: Row with ARTIGO but no UN and QT (comment parent)
             else if (artigoCell && /^\d+\./.test(artigoCell) && !hasUN && !hasQT && descricaoCell) {
               // Check if this ARTIGO is a child of the current lastCommentArtigo
@@ -613,6 +718,14 @@ const MapaQuantidades = () => {
                 parentCommentsMap.get(artigoCell)!.push(descricaoCell);
                 lastCommentArtigo = artigoCell;
               }
+              
+              // Article-based view: add to current article contents as text
+              if (articleBasedView && currentArticleArtigo) {
+                currentArticleContents.push({
+                  type: 'text',
+                  data: descricaoCell
+                });
+              }
             }
             // Case 3: Multi-line comment (no ARTIGO, UN, QT after a comment row)
             else if (!artigoCell && !hasUN && !hasQT && descricaoCell && lastCommentArtigo) {
@@ -621,6 +734,14 @@ const MapaQuantidades = () => {
                 parentCommentsMap.set(lastCommentArtigo, []);
               }
               parentCommentsMap.get(lastCommentArtigo)!.push(descricaoCell);
+              
+              // Article-based view: add to current article contents as text
+              if (articleBasedView && currentArticleArtigo) {
+                currentArticleContents.push({
+                  type: 'text',
+                  data: descricaoCell
+                });
+              }
             }
             // Case 4: Non-numeric ARTIGO (text, not a number or number.number pattern)
             else if (artigoCell && !/^\d+$/.test(artigoCell) && !/^\d+\./.test(artigoCell) && !hasUN && !hasQT && descricaoCell) {
@@ -638,11 +759,27 @@ const MapaQuantidades = () => {
                   lastItem.item_comments = descricaoCell;
                 }
               }
+              
+              // Article-based view: add to current article contents as text
+              if (articleBasedView && currentArticleArtigo) {
+                currentArticleContents.push({
+                  type: 'text',
+                  data: descricaoCell
+                });
+              }
             }
             // Case 5: Chapter comment (no ARTIGO, UN, QT but has DESCRIÇÃO - only before first item)
             else if (!artigoCell && !hasUN && !hasQT && descricaoCell && currentChapterNumber && !firstItemFoundInChapter) {
               chapterComments.push(descricaoCell);
               lastCommentArtigo = null;
+              
+              // Article-based view: add to current article contents as text
+              if (articleBasedView && currentArticleArtigo) {
+                currentArticleContents.push({
+                  type: 'text',
+                  data: descricaoCell
+                });
+              }
             }
             // Case 6: Item (has BOTH QT AND UN)
             else if (hasQT && hasUN) {
@@ -745,8 +882,33 @@ const MapaQuantidades = () => {
                 observacoes_image_url: null, // Future enhancement: extract images from Excel
                 excel_row_index: rowIndex, // Store the Excel row index for image matching
               });
+              
+              // Article-based view: add to current article contents as item
+              if (articleBasedView && currentArticleArtigo && unValue && parsedQt !== null && !isNaN(parsedQt)) {
+                currentArticleContents.push({
+                  type: 'item',
+                  data: {
+                    artigo: itemArtigo,
+                    descricao: descricaoCell,
+                    un: unValue,
+                    qt: parsedQt,
+                    observacoes_empreiteiro: observacoesValue || undefined
+                  }
+                });
+              }
             }
           });
+          
+          // Article-based view: save the last article if exists
+          if (articleBasedView && currentArticleArtigo && currentChapterNumber) {
+            articlesData.push({
+              sheet_name: sheetName,
+              chapter_number: currentChapterNumber,
+              artigo: currentArticleArtigo,
+              title: currentArticleTitle,
+              contents: [...currentArticleContents]
+            });
+          }
           
           // Save comments for the last chapter
           if (currentChapterNumber && chapterComments.length > 0) {
@@ -921,13 +1083,36 @@ const MapaQuantidades = () => {
         .update({ analyzed: true })
         .eq("id", fileId);
       if (fileError) throw fileError;
+      
+      // Return articlesData for article-based view processing
+      return { articlesData, articleBasedView };
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       setIsAnalyzing(false);
       queryClient.invalidateQueries({ queryKey: ["orcamento_files", id, import.meta.env.VITE_SUPABASE_URL] });
       queryClient.invalidateQueries({ queryKey: ["orcamento_tabs", id, import.meta.env.VITE_SUPABASE_URL] });
       queryClient.invalidateQueries({ queryKey: ["orcamento_chapters", id, import.meta.env.VITE_SUPABASE_URL] });
       queryClient.invalidateQueries({ queryKey: ["orcamento_items", id, import.meta.env.VITE_SUPABASE_URL] });
+      
+      // Process article-based view data
+      if (data && data.articleBasedView && data.articlesData) {
+        // Group articles by chapter
+        const groupedArticles = new Map<string, typeof data.articlesData>();
+        data.articlesData.forEach((article: typeof data.articlesData[0]) => {
+          const key = article.chapter_number;
+          if (!groupedArticles.has(key)) {
+            groupedArticles.set(key, []);
+          }
+          groupedArticles.get(key)!.push(article);
+        });
+        
+        // Fetch chapters to create the ChapterWithArticles structure
+        // This will be done via the normal query invalidation, but we need to store
+        // the articles data temporarily for the UI to use
+        // For now, we'll store it in localStorage or state
+        sessionStorage.setItem(`articles_${id}`, JSON.stringify(data.articlesData));
+      }
+      
       toast.success(t('orcamento.analyzeSuccess'));
     },
     onError: () => {
@@ -1165,7 +1350,7 @@ const MapaQuantidades = () => {
   const handleAnalyze = () => {
     if (currentFile) {
       setIsAnalyzing(true);
-      analyzeMutation.mutate({ fileId: currentFile.id, treatAsSingleSheet });
+      analyzeMutation.mutate({ fileId: currentFile.id, treatAsSingleSheet, articleBasedView });
     }
   };
 
@@ -1402,6 +1587,16 @@ const MapaQuantidades = () => {
                     />
                     <Label htmlFor="single-sheet-mode" className="text-sm cursor-pointer">
                       Treat as single sheet
+                    </Label>
+                  </div>
+                  <div className="flex items-center gap-2 mr-4">
+                    <Switch
+                      id="article-based-view"
+                      checked={articleBasedView}
+                      onCheckedChange={setArticleBasedView}
+                    />
+                    <Label htmlFor="article-based-view" className="text-sm cursor-pointer">
+                      Article-based view
                     </Label>
                   </div>
                   <Button
