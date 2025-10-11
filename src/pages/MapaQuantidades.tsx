@@ -289,6 +289,50 @@ const MapaQuantidades = () => {
     },
     enabled: !!id && items && items.length > 0,
   });
+  
+  // Load articles data from sessionStorage when chapters are loaded
+  React.useEffect(() => {
+    if (chapters && chapters.length > 0 && id) {
+      const storedArticles = sessionStorage.getItem(`articles_${id}`);
+      if (storedArticles) {
+        try {
+          const articlesData = JSON.parse(storedArticles);
+          
+          // Group articles by chapter
+          const groupedByChapter = new Map<string, typeof articlesData>();
+          articlesData.forEach((article: typeof articlesData[0]) => {
+            if (!groupedByChapter.has(article.chapter_number)) {
+              groupedByChapter.set(article.chapter_number, []);
+            }
+            groupedByChapter.get(article.chapter_number)!.push(article);
+          });
+          
+          // Create ChapterWithArticles structure
+          const chaptersWithArticlesData: ChapterWithArticles[] = [];
+          chapters.forEach((chapter) => {
+            const articlesForChapter = groupedByChapter.get(chapter.chapter_number) || [];
+            if (articlesForChapter.length > 0) {
+              chaptersWithArticlesData.push({
+                chapter,
+                articles: articlesForChapter.map((articleData: typeof articlesData[0]) => ({
+                  id: `${chapter.id}_${articleData.artigo}`,
+                  chapter_id: chapter.id,
+                  artigo: articleData.artigo,
+                  title: articleData.title,
+                  contents: articleData.contents
+                }))
+              });
+            }
+          });
+          
+          setChaptersWithArticles(chaptersWithArticlesData);
+        } catch (error) {
+          console.error('Error loading articles data:', error);
+        }
+      }
+    }
+  }, [chapters, id]);
+
 
 
 
@@ -1508,6 +1552,9 @@ const MapaQuantidades = () => {
 
 
 
+  // Check if article-based view is active
+  const isArticleBasedViewActive = chaptersWithArticles.length > 0;
+  
   // Group chapters by tab
   const chaptersByTab = chapters?.reduce((acc, chapter) => {
     if (!acc[chapter.tab_id]) {
@@ -1644,7 +1691,7 @@ const MapaQuantidades = () => {
             </div>
           </div>
 
-          {isAnalyzed && tabs && tabs.length > 1 && (
+          {isAnalyzed && tabs && tabs.length > 1 && !isArticleBasedViewActive && (
             <Tabs defaultValue={tabs[0]?.id} className="w-full">
               <TabsList className="w-full justify-start overflow-x-auto flex-wrap h-auto">
                 {tabs.map((tab) => (
@@ -1925,7 +1972,7 @@ const MapaQuantidades = () => {
           )}
           
           {/* Single-sheet view: no tabs needed */}
-          {isAnalyzed && (!tabs || tabs.length <= 1) && chapters && chapters.length > 0 && (
+          {isAnalyzed && (!tabs || tabs.length <= 1) && chapters && chapters.length > 0 && !isArticleBasedViewActive && (
             <div className="space-y-6">
               {chapters.map((chapter) => (
                 <Collapsible key={chapter.id} defaultOpen={false} className="border rounded-lg overflow-hidden">
@@ -2191,6 +2238,109 @@ const MapaQuantidades = () => {
                   </CollapsibleContent>
                 </Collapsible>
               ))}
+            </div>
+          )}
+          
+          {/* Article-based view: show articles grouped by chapters */}
+          {isAnalyzed && isArticleBasedViewActive && tabs && tabs.length > 0 && (
+            <div className="space-y-8">
+              <Tabs defaultValue={tabs[0]?.id} className="w-full">
+                <TabsList className="w-full justify-start overflow-x-auto flex-wrap h-auto">
+                  {tabs.map((tab) => (
+                    <TabsTrigger key={tab.id} value={tab.id}>
+                      {tab.name}
+                    </TabsTrigger>
+                  ))}
+                </TabsList>
+                
+                {tabs.map((tab) => (
+                  <TabsContent key={tab.id} value={tab.id} className="space-y-6">
+                    {chaptersWithArticles
+                      .filter((cwa) => cwa.chapter.tab_id === tab.id)
+                      .map((chapterWithArticles) => (
+                        <div key={chapterWithArticles.chapter.id} className="border rounded-lg overflow-hidden">
+                          <div className="bg-muted p-4">
+                            <h3 className="text-lg font-semibold">
+                              {chapterWithArticles.chapter.chapter_number}. {cleanChapterName(chapterWithArticles.chapter.chapter_name)}
+                            </h3>
+                          </div>
+                          
+                          {/* Article pages grid (4 per row) */}
+                          <div className="p-4">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                              {chapterWithArticles.articles.map((article) => (
+                                <Dialog key={article.id}>
+                                  <DialogTrigger asChild>
+                                    <div className="border rounded-lg p-4 cursor-pointer hover:shadow-md hover:border-primary transition-all">
+                                      <div className="text-sm font-medium text-primary mb-2">
+                                        {article.artigo}
+                                      </div>
+                                      <div className="text-sm line-clamp-3">
+                                        {article.title}
+                                      </div>
+                                    </div>
+                                  </DialogTrigger>
+                                  
+                                  <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+                                    <DialogHeader>
+                                      <DialogTitle>{article.artigo} - {article.title}</DialogTitle>
+                                    </DialogHeader>
+                                    
+                                    <div className="space-y-4">
+                                      {article.contents.map((content, index) => (
+                                        <div key={index}>
+                                          {content.type === 'text' ? (
+                                            <p className="text-sm">{content.data as string}</p>
+                                          ) : (
+                                            <Table className="border">
+                                              <TableHeader>
+                                                <TableRow>
+                                                  <TableHead>{t('orcamento.artigo')}</TableHead>
+                                                  <TableHead>{t('orcamento.descricao')}</TableHead>
+                                                  <TableHead>{t('orcamento.unit')}</TableHead>
+                                                  <TableHead className="text-right">{t('orcamento.quantity')}</TableHead>
+                                                  <TableHead>{t('orcamento.observacoesEmpreiteiro')}</TableHead>
+                                                </TableRow>
+                                              </TableHeader>
+                                              <TableBody>
+                                                {(() => {
+                                                  const itemData = content.data as {
+                                                    artigo: string;
+                                                    descricao: string;
+                                                    un: string;
+                                                    qt: number;
+                                                    observacoes_empreiteiro?: string;
+                                                  };
+                                                  return (
+                                                    <TableRow>
+                                                      <TableCell>{itemData.artigo}</TableCell>
+                                                      <TableCell>{itemData.descricao}</TableCell>
+                                                      <TableCell>{itemData.un}</TableCell>
+                                                      <TableCell className="text-right">
+                                                        {Number(itemData.qt).toFixed(2).replace(/\.?0+$/, '')}
+                                                      </TableCell>
+                                                      <TableCell>
+                                                        {itemData.observacoes_empreiteiro || '-'}
+                                                      </TableCell>
+                                                    </TableRow>
+                                                  );
+                                                })()}
+                                              </TableBody>
+                                            </Table>
+                                          )}
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </DialogContent>
+                                </Dialog>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                  </TabsContent>
+                ))}
+              </Tabs>
             </div>
           )}
         </div>
