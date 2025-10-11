@@ -1967,7 +1967,7 @@ const MapaQuantidades = () => {
                                   <TableCell>{item.artigo}</TableCell>
                                   <TableCell>{item.descricao}</TableCell>
                                   <TableCell>{item.un || '-'}</TableCell>
-                                  <TableCell className="text-right">{item.qt !== null ? Number(item.qt).toFixed(2).replace(/\.?0+$/, '') : '-'}</TableCell>
+                                  <TableCell className="text-right">{item.qt !== null ? Number(item.qt).toFixed(2) : '-'}</TableCell>
                                   <TableCell>
                                     <div className="flex flex-wrap gap-1 items-center">
                                       {(() => {
@@ -2239,7 +2239,7 @@ const MapaQuantidades = () => {
                               <TableCell>{item.artigo}</TableCell>
                               <TableCell>{item.descricao}</TableCell>
                               <TableCell>{item.un || '-'}</TableCell>
-                              <TableCell className="text-right">{item.qt !== null ? Number(item.qt).toFixed(2).replace(/\.?0+$/, '') : '-'}</TableCell>
+                              <TableCell className="text-right">{item.qt !== null ? Number(item.qt).toFixed(2) : '-'}</TableCell>
                               <TableCell>
                                 <div className="flex flex-wrap gap-1 items-center">
                                   {(() => {
@@ -2483,7 +2483,7 @@ const MapaQuantidades = () => {
                           
                           {/* Chapters in this sheet */}
                           {chaptersInSheet.map((chapterWithArticles) => (
-                            <Collapsible key={chapterWithArticles.chapter.id} defaultOpen={true} className="border rounded-lg overflow-hidden mb-6">
+                            <Collapsible key={chapterWithArticles.chapter.id} defaultOpen={false} className="border rounded-lg overflow-hidden mb-6">
                               <div className="bg-muted">
                                 <div className="flex items-center justify-between p-4">
                                   <div className="flex items-center gap-2">
@@ -2543,33 +2543,40 @@ const MapaQuantidades = () => {
                                   {chapterWithArticles.articles.map((article) => {
                                     const isCollapsed = collapsedArticles.has(article.id);
                                     
+                                    // Check if the article has UN and QT by checking if first item has same artigo as article
+                                    const hasArticleUnQt = article.contents.length > 0 && 
+                                      article.contents[0].type === 'item' &&
+                                      (article.contents[0].data as {artigo: string; descricao: string; un: string; qt: number}).artigo === article.artigo;
+                                    
                                     return (
                                       <div key={article.id} className="border rounded-lg overflow-hidden bg-gray-50 dark:bg-gray-900">
-                                        {/* Article header with toggle */}
-                                        <div 
-                                          className="flex items-center justify-between p-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-                                          onClick={() => {
-                                            const newCollapsed = new Set(collapsedArticles);
-                                            if (isCollapsed) {
-                                              newCollapsed.delete(article.id);
-                                            } else {
-                                              newCollapsed.add(article.id);
-                                            }
-                                            setCollapsedArticles(newCollapsed);
-                                          }}
-                                        >
-                                          <div className="flex items-center gap-2">
-                                            <ChevronDown 
-                                              className={`h-5 w-5 transition-transform duration-200 ${isCollapsed ? '-rotate-90' : ''}`}
-                                            />
-                                            <h4 className="text-base font-semibold text-primary">
-                                              {article.artigo} - {article.title}
-                                            </h4>
+                                        {/* Article header with toggle - hide if article has UN and QT */}
+                                        {!hasArticleUnQt && (
+                                          <div 
+                                            className="flex items-center justify-between p-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                                            onClick={() => {
+                                              const newCollapsed = new Set(collapsedArticles);
+                                              if (isCollapsed) {
+                                                newCollapsed.delete(article.id);
+                                              } else {
+                                                newCollapsed.add(article.id);
+                                              }
+                                              setCollapsedArticles(newCollapsed);
+                                            }}
+                                          >
+                                            <div className="flex items-center gap-2">
+                                              <ChevronDown 
+                                                className={`h-5 w-5 transition-transform duration-200 ${isCollapsed ? '-rotate-90' : ''}`}
+                                              />
+                                              <h4 className="text-base font-semibold text-primary">
+                                                {article.artigo} - {article.title}
+                                              </h4>
+                                            </div>
                                           </div>
-                                        </div>
+                                        )}
                                         
                                         {/* Article content */}
-                                        {!isCollapsed && (
+                                        {(!isCollapsed || hasArticleUnQt) && (
                                           <div className="p-4 pt-0 space-y-4">
                                             {(() => {
                                               const groupedContent: Array<{type: 'text', data: string} | {type: 'items', items: Array<{
@@ -2638,7 +2645,7 @@ const MapaQuantidades = () => {
                                                             <TableCell>{item.descricao}</TableCell>
                                                             <TableCell>{item.un}</TableCell>
                                                             <TableCell className="text-right">
-                                                              {Number(item.qt).toFixed(2).replace(/\.?0+$/, '')}
+                                                              {Number(item.qt).toFixed(2)}
                                                             </TableCell>
                                                             <TableCell>
                                                               {item.observacoes_empreiteiro || '-'}
