@@ -4,7 +4,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Upload, FileSpreadsheet, Loader2, Trash2, MessageSquare, ChevronDown, ImagePlus, ImageIcon, Tag, X } from "lucide-react";
+import { ArrowLeft, Upload, FileSpreadsheet, Loader2, Trash2, MessageSquare, ChevronDown, ImagePlus, ImageIcon, Tag, X, ChevronRight, MoveRight } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
@@ -53,6 +53,14 @@ import {
   HoverCardContent,
   HoverCardTrigger,
 } from "@/components/ui/hover-card";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
@@ -134,11 +142,13 @@ type Article = {
   artigo: string;
   title: string;
   contents: ArticleContent[];
+  sheet_name?: string; // Track original sheet name
 };
 
 type ChapterWithArticles = {
   chapter: OrcamentoChapter;
   articles: Article[];
+  sheet_name?: string; // Track original sheet name
 };
 
 const MapaQuantidades = () => {
@@ -156,6 +166,7 @@ const MapaQuantidades = () => {
   const [pendingChapterSpecialities, setPendingChapterSpecialities] = useState<string[]>([]);
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [pendingItemSpecialities, setPendingItemSpecialities] = useState<string[]>([]);
+  const [collapsedArticles, setCollapsedArticles] = useState<Set<string>>(new Set());
 
   const { data: orcamento } = useQuery({
     queryKey: ["orcamento", id, import.meta.env.VITE_SUPABASE_URL],
@@ -319,8 +330,10 @@ const MapaQuantidades = () => {
                   chapter_id: chapter.id,
                   artigo: articleData.artigo,
                   title: articleData.title,
-                  contents: articleData.contents
-                }))
+                  contents: articleData.contents,
+                  sheet_name: articleData.sheet_name
+                })),
+                sheet_name: articlesForChapter[0]?.sheet_name
               });
             }
           });
@@ -1546,6 +1559,24 @@ const MapaQuantidades = () => {
     },
   });
 
+  const moveChapterMutation = useMutation({
+    mutationFn: async ({ chapterId, newTabId }: { chapterId: string; newTabId: string }) => {
+      const { error } = await supabase
+        .from('orcamento_chapters')
+        .update({ tab_id: newTabId })
+        .eq('id', chapterId);
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["orcamento_chapters", id, import.meta.env.VITE_SUPABASE_URL] });
+      toast.success('Chapter moved successfully');
+    },
+    onError: () => {
+      toast.error('Failed to move chapter');
+    },
+  });
+
 
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -2425,115 +2456,213 @@ const MapaQuantidades = () => {
                 
                 {tabs.map((tab) => (
                   <TabsContent key={tab.id} value={tab.id} className="space-y-6">
-                    {chaptersWithArticles
-                      .filter((cwa) => cwa.chapter.tab_id === tab.id)
-                      .map((chapterWithArticles) => (
-                        <div key={chapterWithArticles.chapter.id} className="border rounded-lg overflow-hidden">
-                          <div className="bg-muted p-4">
-                            <h3 className="text-lg font-semibold">
-                              {chapterWithArticles.chapter.chapter_number}. {cleanChapterName(chapterWithArticles.chapter.chapter_name)}
-                            </h3>
-                          </div>
+                    {(() => {
+                      const chaptersForTab = chaptersWithArticles.filter((cwa) => cwa.chapter.tab_id === tab.id);
+                      
+                      // Group chapters by sheet name for multi-sheet separators
+                      const chaptersBySheet = new Map<string, typeof chaptersForTab>();
+                      chaptersForTab.forEach((cwa) => {
+                        const sheetName = cwa.sheet_name || 'Unknown';
+                        if (!chaptersBySheet.has(sheetName)) {
+                          chaptersBySheet.set(sheetName, []);
+                        }
+                        chaptersBySheet.get(sheetName)!.push(cwa);
+                      });
+                      
+                      // Display chapters grouped by sheet
+                      return Array.from(chaptersBySheet.entries()).map(([sheetName, chaptersInSheet]) => (
+                        <div key={sheetName}>
+                          {/* Sheet separator - only show if there are multiple sheets */}
+                          {chaptersBySheet.size > 1 && (
+                            <div className="bg-blue-50 dark:bg-blue-950 border-l-4 border-blue-500 p-4 mb-6 rounded-r-lg">
+                              <h2 className="text-xl font-bold text-blue-900 dark:text-blue-100">
+                                📄 {sheetName}
+                              </h2>
+                            </div>
+                          )}
                           
-                          {/* Articles displayed inline */}
-                          <div className="p-4 space-y-8">
-                            {chapterWithArticles.articles.map((article) => (
-                              <div key={article.id} className="border rounded-lg p-4 space-y-4">
-                                {/* Article header */}
-                                <div className="border-b pb-3">
-                                  <h4 className="text-base font-semibold text-primary">
-                                    {article.artigo} - {article.title}
-                                  </h4>
-                                </div>
-                                
-                                {/* Article content */}
-                                <div className="space-y-4">
-                                  {(() => {
-                                    const groupedContent: Array<{type: 'text', data: string} | {type: 'items', items: Array<{
-                                      artigo: string;
-                                      descricao: string;
-                                      un: string;
-                                      qt: number;
-                                      observacoes_empreiteiro?: string;
-                                    }>}> = [];
-                                    
-                                    // Group consecutive items into a single table
-                                    let currentItemGroup: Array<{
-                                      artigo: string;
-                                      descricao: string;
-                                      un: string;
-                                      qt: number;
-                                      observacoes_empreiteiro?: string;
-                                    }> = [];
-                                    
-                                    article.contents.forEach((content, index) => {
-                                      if (content.type === 'text') {
-                                        // If we have accumulated items, push them as a group first
-                                        if (currentItemGroup.length > 0) {
-                                          groupedContent.push({ type: 'items', items: [...currentItemGroup] });
-                                          currentItemGroup = [];
-                                        }
-                                        // Add text content
-                                        groupedContent.push({ type: 'text', data: content.data as string });
-                                      } else {
-                                        // Accumulate items
-                                        const itemData = content.data as {
-                                          artigo: string;
-                                          descricao: string;
-                                          un: string;
-                                          qt: number;
-                                          observacoes_empreiteiro?: string;
-                                        };
-                                        currentItemGroup.push(itemData);
-                                      }
-                                    });
-                                    
-                                    // Don't forget the last group
-                                    if (currentItemGroup.length > 0) {
-                                      groupedContent.push({ type: 'items', items: currentItemGroup });
-                                    }
-                                    
-                                    return groupedContent.map((group, groupIndex) => (
-                                      <div key={groupIndex}>
-                                        {group.type === 'text' ? (
-                                          <p className="text-sm">{group.data}</p>
-                                        ) : (
-                                          <Table className="border">
-                                            <TableHeader>
-                                              <TableRow>
-                                                <TableHead>{t('orcamento.artigo')}</TableHead>
-                                                <TableHead>{t('orcamento.descricao')}</TableHead>
-                                                <TableHead>{t('orcamento.unit')}</TableHead>
-                                                <TableHead className="text-right">{t('orcamento.quantity')}</TableHead>
-                                                <TableHead>{t('orcamento.observacoesEmpreiteiro')}</TableHead>
-                                              </TableRow>
-                                            </TableHeader>
-                                            <TableBody>
-                                              {group.items.map((item, itemIndex) => (
-                                                <TableRow key={itemIndex}>
-                                                  <TableCell>{item.artigo}</TableCell>
-                                                  <TableCell>{item.descricao}</TableCell>
-                                                  <TableCell>{item.un}</TableCell>
-                                                  <TableCell className="text-right">
-                                                    {Number(item.qt).toFixed(2).replace(/\.?0+$/, '')}
-                                                  </TableCell>
-                                                  <TableCell>
-                                                    {item.observacoes_empreiteiro || '-'}
-                                                  </TableCell>
-                                                </TableRow>
-                                              ))}
-                                            </TableBody>
-                                          </Table>
-                                        )}
-                                      </div>
-                                    ));
-                                  })()}
+                          {/* Chapters in this sheet */}
+                          {chaptersInSheet.map((chapterWithArticles) => (
+                            <Collapsible key={chapterWithArticles.chapter.id} defaultOpen={true} className="border rounded-lg overflow-hidden mb-6">
+                              <div className="bg-muted">
+                                <div className="flex items-center justify-between p-4">
+                                  <div className="flex items-center gap-2">
+                                    <CollapsibleTrigger asChild>
+                                      <Button variant="ghost" size="sm" className="flex items-center gap-2 hover:bg-transparent p-0 h-auto">
+                                        <ChevronDown className="h-5 w-5 transition-transform duration-200 data-[state=open]:rotate-180" />
+                                        <h3 className="text-lg font-semibold">
+                                          {chapterWithArticles.chapter.chapter_number}. {cleanChapterName(chapterWithArticles.chapter.chapter_name)}
+                                        </h3>
+                                      </Button>
+                                    </CollapsibleTrigger>
+                                  </div>
+                                  
+                                  {/* Move chapter button */}
+                                  {tabs && tabs.length > 1 && (
+                                    <Sheet>
+                                      <SheetTrigger asChild>
+                                        <Button variant="ghost" size="sm" className="gap-2">
+                                          <MoveRight className="h-4 w-4" />
+                                          Move to tab
+                                        </Button>
+                                      </SheetTrigger>
+                                      <SheetContent>
+                                        <SheetHeader>
+                                          <SheetTitle>Move Chapter</SheetTitle>
+                                          <SheetDescription>
+                                            Select a tab to move this chapter to
+                                          </SheetDescription>
+                                        </SheetHeader>
+                                        <div className="mt-6 space-y-2">
+                                          {tabs.filter(t => t.id !== chapterWithArticles.chapter.tab_id).map((targetTab) => (
+                                            <Button
+                                              key={targetTab.id}
+                                              variant="outline"
+                                              className="w-full justify-start"
+                                              onClick={() => {
+                                                moveChapterMutation.mutate({
+                                                  chapterId: chapterWithArticles.chapter.id,
+                                                  newTabId: targetTab.id
+                                                });
+                                              }}
+                                            >
+                                              <ChevronRight className="mr-2 h-4 w-4" />
+                                              {targetTab.name}
+                                            </Button>
+                                          ))}
+                                        </div>
+                                      </SheetContent>
+                                    </Sheet>
+                                  )}
                                 </div>
                               </div>
-                            ))}
-                          </div>
+                              
+                              <CollapsibleContent>
+                                {/* Articles displayed inline with collapsible feature */}
+                                <div className="p-4 space-y-4">
+                                  {chapterWithArticles.articles.map((article) => {
+                                    const isCollapsed = collapsedArticles.has(article.id);
+                                    
+                                    return (
+                                      <div key={article.id} className="border rounded-lg overflow-hidden bg-gray-50 dark:bg-gray-900">
+                                        {/* Article header with toggle */}
+                                        <div 
+                                          className="flex items-center justify-between p-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                                          onClick={() => {
+                                            const newCollapsed = new Set(collapsedArticles);
+                                            if (isCollapsed) {
+                                              newCollapsed.delete(article.id);
+                                            } else {
+                                              newCollapsed.add(article.id);
+                                            }
+                                            setCollapsedArticles(newCollapsed);
+                                          }}
+                                        >
+                                          <div className="flex items-center gap-2">
+                                            <ChevronDown 
+                                              className={`h-5 w-5 transition-transform duration-200 ${isCollapsed ? '-rotate-90' : ''}`}
+                                            />
+                                            <h4 className="text-base font-semibold text-primary">
+                                              {article.artigo} - {article.title}
+                                            </h4>
+                                          </div>
+                                        </div>
+                                        
+                                        {/* Article content */}
+                                        {!isCollapsed && (
+                                          <div className="p-4 pt-0 space-y-4">
+                                            {(() => {
+                                              const groupedContent: Array<{type: 'text', data: string} | {type: 'items', items: Array<{
+                                                artigo: string;
+                                                descricao: string;
+                                                un: string;
+                                                qt: number;
+                                                observacoes_empreiteiro?: string;
+                                              }>}> = [];
+                                              
+                                              // Group consecutive items into a single table
+                                              let currentItemGroup: Array<{
+                                                artigo: string;
+                                                descricao: string;
+                                                un: string;
+                                                qt: number;
+                                                observacoes_empreiteiro?: string;
+                                              }> = [];
+                                              
+                                              article.contents.forEach((content, index) => {
+                                                if (content.type === 'text') {
+                                                  // If we have accumulated items, push them as a group first
+                                                  if (currentItemGroup.length > 0) {
+                                                    groupedContent.push({ type: 'items', items: [...currentItemGroup] });
+                                                    currentItemGroup = [];
+                                                  }
+                                                  // Add text content
+                                                  groupedContent.push({ type: 'text', data: content.data as string });
+                                                } else {
+                                                  // Accumulate items
+                                                  const itemData = content.data as {
+                                                    artigo: string;
+                                                    descricao: string;
+                                                    un: string;
+                                                    qt: number;
+                                                    observacoes_empreiteiro?: string;
+                                                  };
+                                                  currentItemGroup.push(itemData);
+                                                }
+                                              });
+                                              
+                                              // Don't forget the last group
+                                              if (currentItemGroup.length > 0) {
+                                                groupedContent.push({ type: 'items', items: currentItemGroup });
+                                              }
+                                              
+                                              return groupedContent.map((group, groupIndex) => (
+                                                <div key={groupIndex}>
+                                                  {group.type === 'text' ? (
+                                                    <p className="text-sm whitespace-pre-line">{group.data}</p>
+                                                  ) : (
+                                                    <Table className="border">
+                                                      <TableHeader>
+                                                        <TableRow>
+                                                          <TableHead>{t('orcamento.artigo')}</TableHead>
+                                                          <TableHead>{t('orcamento.descricao')}</TableHead>
+                                                          <TableHead>{t('orcamento.unit')}</TableHead>
+                                                          <TableHead className="text-right">{t('orcamento.quantity')}</TableHead>
+                                                          <TableHead>{t('orcamento.observacoesEmpreiteiro')}</TableHead>
+                                                        </TableRow>
+                                                      </TableHeader>
+                                                      <TableBody>
+                                                        {group.items.map((item, itemIndex) => (
+                                                          <TableRow key={itemIndex}>
+                                                            <TableCell>{item.artigo}</TableCell>
+                                                            <TableCell>{item.descricao}</TableCell>
+                                                            <TableCell>{item.un}</TableCell>
+                                                            <TableCell className="text-right">
+                                                              {Number(item.qt).toFixed(2).replace(/\.?0+$/, '')}
+                                                            </TableCell>
+                                                            <TableCell>
+                                                              {item.observacoes_empreiteiro || '-'}
+                                                            </TableCell>
+                                                          </TableRow>
+                                                        ))}
+                                                      </TableBody>
+                                                    </Table>
+                                                  )}
+                                                </div>
+                                              ));
+                                            })()}
+                                          </div>
+                                        )}
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </CollapsibleContent>
+                            </Collapsible>
+                          ))}
                         </div>
-                      ))}
+                      ));
+                    })()}
                   </TabsContent>
                 ))}
               </Tabs>
