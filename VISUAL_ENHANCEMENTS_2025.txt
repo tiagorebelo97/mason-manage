@@ -1,0 +1,189 @@
+╔════════════════════════════════════════════════════════════════════════════════════╗
+║                      ARTICLE-BASED VIEW ENHANCEMENTS                               ║
+║                             Visual Examples                                         ║
+╚════════════════════════════════════════════════════════════════════════════════════╝
+
+═══════════════════════════════════════════════════════════════════════════════════════
+CHANGE 1: QT Always Shows 2 Decimal Places
+═══════════════════════════════════════════════════════════════════════════════════════
+
+BEFORE (Trailing zeros removed):
+┌────────┬─────────────────────┬──────┬──────────────┐
+│ ARTIGO │ DESCRIÇÃO           │ UN   │ QT           │
+├────────┼─────────────────────┼──────┼──────────────┤
+│ 1.2.1  │ Paredes interiores  │ m2   │ 50           │  ← Inconsistent
+│ 1.2.2  │ Pavimentos          │ m2   │ 30.5         │  ← Inconsistent
+│ 1.2.3  │ Teto falso          │ m2   │ 101.12       │  ← OK
+└────────┴─────────────────────┴──────┴──────────────┘
+
+AFTER (Always 2 decimals):
+┌────────┬─────────────────────┬──────┬──────────────┐
+│ ARTIGO │ DESCRIÇÃO           │ UN   │ QT           │
+├────────┼─────────────────────┼──────┼──────────────┤
+│ 1.2.1  │ Paredes interiores  │ m2   │ 50.00        │  ✓ Consistent
+│ 1.2.2  │ Pavimentos          │ m2   │ 30.50        │  ✓ Consistent
+│ 1.2.3  │ Teto falso          │ m2   │ 101.12       │  ✓ Consistent
+└────────┴─────────────────────┴──────┴──────────────┘
+
+═══════════════════════════════════════════════════════════════════════════════════════
+CHANGE 2: Hide Article Title When Article Has UN and QT
+═══════════════════════════════════════════════════════════════════════════════════════
+
+EXCEL INPUT:
+┌────────┬─────────────────────┬──────┬──────────────┐
+│ ARTIGO │ DESCRIÇÃO           │ UN   │ QT           │
+├────────┼─────────────────────┼──────┼──────────────┤
+│ 1      │ Chapter             │      │              │
+│ 1.2    │ Demolições          │ m2   │ 100.00       │  ← Article with UN/QT
+│ 1.2.1  │ Incluir entulho     │ m2   │ 50.00        │
+└────────┴─────────────────────┴──────┴──────────────┘
+
+BEFORE (Title and table both shown):
+┌─────────────────────────────────────────────────────────────┐
+│ ▼ 1.2 - Demolições                         ← Redundant     │
+├─────────────────────────────────────────────────────────────┤
+│ ┌───────────────────────────────────────────────────────┐   │
+│ │ ARTIGO │ DESCRIÇÃO        │ UN │ QT               │   │
+│ ├────────┼──────────────────┼────┼──────────────────┤   │
+│ │ 1.2    │ Demolições       │ m2 │ 100.00           │   │
+│ │ 1.2.1  │ Incluir entulho  │ m2 │ 50.00            │   │
+│ └───────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────┘
+
+AFTER (Only table shown):
+┌─────────────────────────────────────────────────────────────┐
+│ ┌───────────────────────────────────────────────────────┐   │
+│ │ ARTIGO │ DESCRIÇÃO        │ UN │ QT               │   │
+│ ├────────┼──────────────────┼────┼──────────────────┤   │
+│ │ 1.2    │ Demolições       │ m2 │ 100.00           │   │  ✓ Clean
+│ │ 1.2.1  │ Incluir entulho  │ m2 │ 50.00            │   │
+│ └───────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────┘
+
+COMPARISON - Article WITHOUT UN/QT (Normal case):
+┌─────────────────────────────────────────────────────────────┐
+│ ▼ 1.3 - Construção                         ← Title shown   │
+├─────────────────────────────────────────────────────────────┤
+│ ┌───────────────────────────────────────────────────────┐   │
+│ │ ARTIGO │ DESCRIÇÃO        │ UN │ QT               │   │
+│ ├────────┼──────────────────┼────┼──────────────────┤   │
+│ │ 1.3.1  │ Item 1           │ m2 │ 75.00            │   │
+│ │ 1.3.2  │ Item 2           │ un │ 10.00            │   │
+│ └───────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────┘
+
+═══════════════════════════════════════════════════════════════════════════════════════
+CHANGE 3: Chapters Default to Collapsed
+═══════════════════════════════════════════════════════════════════════════════════════
+
+BEFORE (All expanded):
+┌──────────────────────────────────────────────────────────────┐
+│ ▼ 1. Chapter Name                                           │
+│   ▼ 1.1 - Article One                                       │
+│     [content...]                                             │
+│   ▼ 1.2 - Article Two                                       │
+│     [content...]                                             │
+│                                                              │
+│ ▼ 2. Another Chapter                                        │
+│   ▼ 2.1 - Article Three                                     │
+│     [content...]                                             │
+│                                                              │
+│ ▼ 3. Yet Another Chapter                                    │
+│   ▼ 3.1 - Article Four                                      │
+│     [content...]                                             │
+└──────────────────────────────────────────────────────────────┘
+                    ↓ Much scrolling needed ↓
+
+AFTER (All collapsed):
+┌──────────────────────────────────────────────────────────────┐
+│ ▶ 1. Chapter Name                                           │
+│ ▶ 2. Another Chapter                                        │
+│ ▶ 3. Yet Another Chapter                                    │
+│ ▶ 4. More Chapters                                          │
+│ ▶ 5. Even More Chapters                                     │
+└──────────────────────────────────────────────────────────────┘
+                    ✓ Easy navigation ✓
+
+═══════════════════════════════════════════════════════════════════════════════════════
+CHANGE 4: Special Case - Inherited ARTIGO
+═══════════════════════════════════════════════════════════════════════════════════════
+
+EXCEL INPUT:
+┌────────┬─────────────────────┬──────┬──────────────┐
+│ ARTIGO │ DESCRIÇÃO           │ UN   │ QT           │
+├────────┼─────────────────────┼──────┼──────────────┤
+│ 1      │ Chapter             │      │              │
+│ 1.2    │ Demolições          │      │              │  ← Article (parent)
+│ 1.2.1  │ Incluir entulho     │      │              │  ← Comment text
+│        │ Paredes interiores  │ m2   │ 50.00        │  ← Item (inherits 1.2.1)
+│        │ Incluir entulho     │      │              │  ← Comment text
+│        │ Transporte incluído │      │              │  ← Comment text
+└────────┴─────────────────────┴──────┴──────────────┘
+
+HOW IT WORKS:
+1. Row "1.2.1" (Incluir entulho) has no UN/QT → Stored as comment with artigo "1.2.1"
+2. Row with "Paredes interiores" has UN/QT but NO ARTIGO → Inherits "1.2.1"
+3. Subsequent comment rows continue under "1.2.1"
+
+RESULT IN DATABASE:
+Item:
+  artigo: "1.2.1"          ← Inherited from lastCommentArtigo
+  descricao: "Paredes interiores"
+  un: "m2"
+  qt: 50.00
+  item_comments: "Incluir entulho\nIncluir entulho\nTransporte incluído"
+                 ↑ All comments from 1.2.1 and parent 1.2
+
+DISPLAYED AS:
+┌─────────────────────────────────────────────────────────────┐
+│ ▼ 1.2 - Demolições                                         │
+├─────────────────────────────────────────────────────────────┤
+│ Incluir entulho                      ← Text                │
+│                                                             │
+│ ┌───────────────────────────────────────────────────────┐   │
+│ │ ARTIGO │ DESCRIÇÃO        │ UN │ QT               │   │
+│ ├────────┼──────────────────┼────┼──────────────────┤   │
+│ │ 1.2.1  │ Paredes inter... │ m2 │ 50.00            │   │
+│ │        │ [💬 Comments]    │    │                  │   │  ← Hover shows
+│ └───────────────────────────────────────────────────────┘   │  all comments
+│                                                             │
+│ Incluir entulho                      ← Text                │
+│ Transporte incluído                  ← Text                │
+└─────────────────────────────────────────────────────────────┘
+
+═══════════════════════════════════════════════════════════════════════════════════════
+CODE CHANGES SUMMARY
+═══════════════════════════════════════════════════════════════════════════════════════
+
+File: src/pages/MapaQuantidades.tsx
+
+Line 1970:  {item.qt !== null ? Number(item.qt).toFixed(2) : '-'}
+Line 2242:  {item.qt !== null ? Number(item.qt).toFixed(2) : '-'}
+Line 2641:  {Number(item.qt).toFixed(2)}
+
+Line 2486:  <Collapsible ... defaultOpen={false} ...>
+
+Lines 2546-2549:
+  const hasArticleUnQt = article.contents.length > 0 && 
+    article.contents[0].type === 'item' &&
+    (article.contents[0].data as {...}).artigo === article.artigo;
+
+Line 2554:  {!hasArticleUnQt && ( ... title header ... )}
+
+Line 2578:  {(!isCollapsed || hasArticleUnQt) && ( ... content ... )}
+
+═══════════════════════════════════════════════════════════════════════════════════════
+VERIFICATION CHECKLIST
+═══════════════════════════════════════════════════════════════════════════════════════
+
+✓ Build passes successfully (npm run build)
+✓ No new linting errors introduced
+✓ QT values always show 2 decimal places
+✓ Article titles hidden when article has UN/QT
+✓ Chapters collapsed by default
+✓ Articles open by default (when they have titles)
+✓ Inherited ARTIGO case works correctly
+✓ Multi-sheet Excel support maintained
+✓ Backward compatibility preserved
+
+═══════════════════════════════════════════════════════════════════════════════════════
