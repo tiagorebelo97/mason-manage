@@ -1164,17 +1164,28 @@ const MapaQuantidades = () => {
             workbook.SheetNames.forEach(sheetName => {
               sheetNameToTabId.set(sheetName, principalTab.id);
             });
+          } else {
+            console.error("Principal tab not found in inserted tabs:", insertedTabs.map(t => t.name));
+            throw new Error("Failed to find Principal tab for sheet mapping");
           }
         }
       }
       
       // Update chapters with tab IDs
-      const chaptersWithTabIds = chaptersToInsert.map(chapter => ({
-        tab_id: sheetNameToTabId.get(chapter.sheet_name!) || null,
-        chapter_number: chapter.chapter_number,
-        chapter_name: chapter.chapter_name,
-        chapter_comments: chapter.chapter_comments || null,
-      }));
+      const chaptersWithTabIds = chaptersToInsert.map(chapter => {
+        const tab_id = sheetNameToTabId.get(chapter.sheet_name!);
+        if (!tab_id) {
+          console.error(`No tab_id found for chapter with sheet_name: "${chapter.sheet_name}"`);
+          console.error("Available sheet mappings:", Array.from(sheetNameToTabId.entries()));
+          throw new Error(`Failed to map chapter "${chapter.chapter_number}" from sheet "${chapter.sheet_name}" to a tab`);
+        }
+        return {
+          tab_id,
+          chapter_number: chapter.chapter_number,
+          chapter_name: chapter.chapter_name,
+          chapter_comments: chapter.chapter_comments || null,
+        };
+      });
 
       // Insert chapters into database
       if (chaptersWithTabIds.length > 0) {
@@ -1313,8 +1324,8 @@ const MapaQuantidades = () => {
       
       console.log("File analysis completed successfully");
         
-        // Return articlesData for article-based view processing
-        return { articlesData, articleBasedView };
+        // Return articlesData and sheetOrder for article-based view processing
+        return { articlesData, articleBasedView, sheetOrder: workbook.SheetNames };
       } catch (error) {
         console.error("Error in analyzeMutation:", error);
         // Re-throw to let the onError handler display the toast
@@ -1345,6 +1356,11 @@ const MapaQuantidades = () => {
         // the articles data temporarily for the UI to use
         // For now, we'll store it in localStorage or state
         sessionStorage.setItem(`articles_${id}`, JSON.stringify(data.articlesData));
+        
+        // Store sheet order for proper display
+        if (data.sheetOrder) {
+          sessionStorage.setItem(`sheetOrder_${id}`, JSON.stringify(data.sheetOrder));
+        }
       }
       
       toast.success(t('orcamento.analyzeSuccess'));
@@ -2500,8 +2516,41 @@ const MapaQuantidades = () => {
                         chaptersBySheet.get(sheetName)!.push(cwa);
                       });
                       
+                      // Get sheet order from sessionStorage to maintain original Excel order
+                      let sheetOrder: string[] = [];
+                      try {
+                        const storedOrder = sessionStorage.getItem(`sheetOrder_${id}`);
+                        if (storedOrder) {
+                          sheetOrder = JSON.parse(storedOrder);
+                        }
+                      } catch (e) {
+                        console.error('Error loading sheet order:', e);
+                      }
+                      
+                      // Sort sheet entries by the original sheet order
+                      let sortedSheetEntries: Array<[string, typeof chaptersForTab]>;
+                      if (sheetOrder.length > 0) {
+                        // Sort by sheet order, putting any unknown sheets at the end
+                        sortedSheetEntries = Array.from(chaptersBySheet.entries()).sort((a, b) => {
+                          const indexA = sheetOrder.indexOf(a[0]);
+                          const indexB = sheetOrder.indexOf(b[0]);
+                          // If both are in the sheet order, sort by their position
+                          if (indexA !== -1 && indexB !== -1) {
+                            return indexA - indexB;
+                          }
+                          // If only one is in the sheet order, put it first
+                          if (indexA !== -1) return -1;
+                          if (indexB !== -1) return 1;
+                          // If neither is in the sheet order, maintain original order
+                          return 0;
+                        });
+                      } else {
+                        // Fallback to insertion order if sheet order is not available
+                        sortedSheetEntries = Array.from(chaptersBySheet.entries());
+                      }
+                      
                       // Display chapters grouped by sheet
-                      return Array.from(chaptersBySheet.entries()).map(([sheetName, chaptersInSheet]) => (
+                      return sortedSheetEntries.map(([sheetName, chaptersInSheet]) => (
                         <div key={sheetName}>
                           {/* Sheet separator - only show if there are multiple sheets */}
                           {chaptersBySheet.size > 1 && (
