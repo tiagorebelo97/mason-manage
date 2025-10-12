@@ -167,6 +167,7 @@ const MapaQuantidades = () => {
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [pendingItemSpecialities, setPendingItemSpecialities] = useState<string[]>([]);
   const [collapsedArticles, setCollapsedArticles] = useState<Set<string>>(new Set());
+  const [sheetOrder, setSheetOrder] = useState<string[]>([]);
 
   const { data: orcamento } = useQuery({
     queryKey: ["orcamento", id, import.meta.env.VITE_SUPABASE_URL],
@@ -305,6 +306,17 @@ const MapaQuantidades = () => {
   React.useEffect(() => {
     if (chapters && chapters.length > 0 && id) {
       const storedArticles = sessionStorage.getItem(`articles_${id}`);
+      const storedSheetOrder = sessionStorage.getItem(`sheetOrder_${id}`);
+      
+      if (storedSheetOrder) {
+        try {
+          const order = JSON.parse(storedSheetOrder);
+          setSheetOrder(order);
+        } catch (error) {
+          console.error('Error loading sheet order:', error);
+        }
+      }
+      
       if (storedArticles) {
         try {
           const articlesData = JSON.parse(storedArticles);
@@ -1313,8 +1325,8 @@ const MapaQuantidades = () => {
       
       console.log("File analysis completed successfully");
         
-        // Return articlesData for article-based view processing
-        return { articlesData, articleBasedView };
+        // Return articlesData and sheet order for article-based view processing
+        return { articlesData, articleBasedView, sheetNames: workbook.SheetNames };
       } catch (error) {
         console.error("Error in analyzeMutation:", error);
         // Re-throw to let the onError handler display the toast
@@ -1345,6 +1357,11 @@ const MapaQuantidades = () => {
         // the articles data temporarily for the UI to use
         // For now, we'll store it in localStorage or state
         sessionStorage.setItem(`articles_${id}`, JSON.stringify(data.articlesData));
+        
+        // Store the original sheet order for correct display
+        if (data.sheetNames) {
+          sessionStorage.setItem(`sheetOrder_${id}`, JSON.stringify(data.sheetNames));
+        }
       }
       
       toast.success(t('orcamento.analyzeSuccess'));
@@ -2500,8 +2517,16 @@ const MapaQuantidades = () => {
                         chaptersBySheet.get(sheetName)!.push(cwa);
                       });
                       
-                      // Display chapters grouped by sheet
-                      return Array.from(chaptersBySheet.entries()).map(([sheetName, chaptersInSheet]) => (
+                      // Get the sheet names in the original order from Excel
+                      // Filter to only include sheets that have chapters in this tab
+                      const orderedSheets = sheetOrder.length > 0
+                        ? sheetOrder.filter(sheetName => chaptersBySheet.has(sheetName))
+                        : Array.from(chaptersBySheet.keys());
+                      
+                      // Display chapters grouped by sheet in the correct order
+                      return orderedSheets.map((sheetName) => {
+                        const chaptersInSheet = chaptersBySheet.get(sheetName) || [];
+                        return (
                         <div key={sheetName}>
                           {/* Sheet separator - only show if there are multiple sheets */}
                           {chaptersBySheet.size > 1 && (
@@ -2699,7 +2724,8 @@ const MapaQuantidades = () => {
                             </Collapsible>
                           ))}
                         </div>
-                      ));
+                        );
+                      });
                     })()}
                   </TabsContent>
                 ))}
