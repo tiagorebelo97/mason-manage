@@ -894,66 +894,36 @@ const MapaQuantidades = () => {
               // If so, treat it as a multi-line comment instead of a new parent
               const isChildOfLastComment = lastCommentArtigo && artigoCell.startsWith(lastCommentArtigo + '.');
               
-              // In article-based view, check if this is a child of the current article
-              // If so, treat it as article text, not a comment parent
-              const isChildOfArticle = articleBasedView && currentArticleArtigo && artigoCell.startsWith(currentArticleArtigo + '.');
-              
-              if (isChildOfArticle) {
-                // Article-based view: this is article text (e.g., "1.2.1" under article "1.2")
-                // Don't add to parentCommentsMap, only to article contents
-                if (articleBasedView && currentArticleArtigo) {
-                  currentArticleContents.push({
-                    type: 'text',
-                    data: descricaoCell
-                  });
-                }
-              } else if (isChildOfLastComment) {
+              if (isChildOfLastComment) {
                 // This is a continuation of the previous comment (child ARTIGO)
-                // In non-article-based view, add to parentCommentsMap
-                if (!articleBasedView) {
-                  if (!parentCommentsMap.has(lastCommentArtigo)) {
-                    parentCommentsMap.set(lastCommentArtigo, []);
-                  }
-                  parentCommentsMap.get(lastCommentArtigo)!.push(descricaoCell);
-                }
-                
-                // Article-based view: add to current article contents as text
-                if (articleBasedView && currentArticleArtigo) {
-                  currentArticleContents.push({
-                    type: 'text',
-                    data: descricaoCell
-                  });
-                }
-              } else {
-                // This is a parent item comment - store it with DESCRIÇÃO
-                // In non-article-based view, add to parentCommentsMap
-                if (!articleBasedView) {
-                  if (!parentCommentsMap.has(artigoCell)) {
-                    parentCommentsMap.set(artigoCell, []);
-                  }
-                  parentCommentsMap.get(artigoCell)!.push(descricaoCell);
-                  lastCommentArtigo = artigoCell;
-                }
-                
-                // Article-based view: add to current article contents as text
-                if (articleBasedView && currentArticleArtigo) {
-                  currentArticleContents.push({
-                    type: 'text',
-                    data: descricaoCell
-                  });
-                }
-              }
-            }
-            // Case 3: Multi-line comment (no ARTIGO, UN, QT after a comment row)
-            else if (!artigoCell && !hasUN && !hasQT && descricaoCell && (lastCommentArtigo || (articleBasedView && currentArticleArtigo))) {
-              // This is part of the previous comment
-              // In non-article-based view, add to parentCommentsMap for item inheritance
-              if (!articleBasedView && lastCommentArtigo) {
                 if (!parentCommentsMap.has(lastCommentArtigo)) {
                   parentCommentsMap.set(lastCommentArtigo, []);
                 }
                 parentCommentsMap.get(lastCommentArtigo)!.push(descricaoCell);
+              } else {
+                // This is a parent item comment - store it with DESCRIÇÃO
+                if (!parentCommentsMap.has(artigoCell)) {
+                  parentCommentsMap.set(artigoCell, []);
+                }
+                parentCommentsMap.get(artigoCell)!.push(descricaoCell);
+                lastCommentArtigo = artigoCell;
               }
+              
+              // Article-based view: add to current article contents as text
+              if (articleBasedView && currentArticleArtigo) {
+                currentArticleContents.push({
+                  type: 'text',
+                  data: descricaoCell
+                });
+              }
+            }
+            // Case 3: Multi-line comment (no ARTIGO, UN, QT after a comment row)
+            else if (!artigoCell && !hasUN && !hasQT && descricaoCell && lastCommentArtigo) {
+              // This is part of the previous comment
+              if (!parentCommentsMap.has(lastCommentArtigo)) {
+                parentCommentsMap.set(lastCommentArtigo, []);
+              }
+              parentCommentsMap.get(lastCommentArtigo)!.push(descricaoCell);
               
               // Article-based view: add to current article contents as text
               if (articleBasedView && currentArticleArtigo) {
@@ -966,16 +936,7 @@ const MapaQuantidades = () => {
             // Case 4: Non-numeric ARTIGO (text, not a number or number.number pattern)
             else if (artigoCell && !/^\d+$/.test(artigoCell) && !/^\d+\./.test(artigoCell) && !hasUN && !hasQT && descricaoCell) {
               // This is a row with non-numeric ARTIGO (e.g., "Note", "A", "Special")
-              
-              // In article-based view, treat as article text
-              if (articleBasedView && currentArticleArtigo) {
-                currentArticleContents.push({
-                  type: 'text',
-                  data: descricaoCell
-                });
-              }
-              // In non-article-based view, handle as before
-              else if (currentChapterNumber && !firstItemFoundInChapter) {
+              if (currentChapterNumber && !firstItemFoundInChapter) {
                 // Before first item → add to chapter comments
                 chapterComments.push(descricaoCell);
                 lastCommentArtigo = null;
@@ -987,6 +948,14 @@ const MapaQuantidades = () => {
                 } else {
                   lastItem.item_comments = descricaoCell;
                 }
+              }
+              
+              // Article-based view: add to current article contents as text
+              if (articleBasedView && currentArticleArtigo) {
+                currentArticleContents.push({
+                  type: 'text',
+                  data: descricaoCell
+                });
               }
             }
             // Case 5: Chapter comment (no ARTIGO, UN, QT but has DESCRIÇÃO - only before first item)
