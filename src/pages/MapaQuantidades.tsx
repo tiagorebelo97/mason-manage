@@ -87,6 +87,7 @@ type OrcamentoChapter = {
   chapter_number: string;
   chapter_name: string;
   chapter_comments: string | null;
+  sheet_name?: string | null; // Track original sheet name for separators
 };
 
 type OrcamentoItem = {
@@ -1183,6 +1184,7 @@ const MapaQuantidades = () => {
       // Update chapters with tab IDs
       const chaptersWithTabIds = chaptersToInsert.map(chapter => ({
         tab_id: sheetNameToTabId.get(chapter.sheet_name!) || null,
+        sheet_name: chapter.sheet_name, // Preserve sheet name for separators
         chapter_number: chapter.chapter_number,
         chapter_name: chapter.chapter_name,
         chapter_comments: chapter.chapter_comments || null,
@@ -1951,7 +1953,41 @@ const MapaQuantidades = () => {
               </TabsList>
               {tabs.map((tab) => (
                 <TabsContent key={tab.id} value={tab.id} className="space-y-6">
-                  {chaptersByTab[tab.id]?.map((chapter) => (
+                  {(() => {
+                    const chaptersForTab = chaptersByTab[tab.id] || [];
+                    
+                    // Group chapters by sheet name for multi-sheet separators
+                    const chaptersBySheet = new Map<string, typeof chaptersForTab>();
+                    chaptersForTab.forEach((chapter) => {
+                      const sheetName = chapter.sheet_name || 'Unknown';
+                      if (!chaptersBySheet.has(sheetName)) {
+                        chaptersBySheet.set(sheetName, []);
+                      }
+                      chaptersBySheet.get(sheetName)!.push(chapter);
+                    });
+                    
+                    // Get the sheet names in the original order from Excel
+                    // Filter to only include sheets that have chapters in this tab
+                    const orderedSheets = sheetOrder.length > 0
+                      ? sheetOrder.filter(sheetName => chaptersBySheet.has(sheetName))
+                      : Array.from(chaptersBySheet.keys());
+                    
+                    // Display chapters grouped by sheet in the correct order
+                    return orderedSheets.map((sheetName) => {
+                      const chaptersInSheet = chaptersBySheet.get(sheetName) || [];
+                      return (
+                      <div key={sheetName}>
+                        {/* Sheet separator - only show if there are multiple sheets */}
+                        {chaptersBySheet.size > 1 && (
+                          <div className="bg-blue-50 dark:bg-blue-950 border-l-4 border-blue-500 p-4 mb-6 rounded-r-lg">
+                            <h2 className="text-xl font-bold text-blue-900 dark:text-blue-100">
+                              📄 {sheetName}
+                            </h2>
+                          </div>
+                        )}
+                        
+                        {/* Chapters in this sheet */}
+                        {chaptersInSheet.map((chapter) => (
                     <Collapsible key={chapter.id} defaultOpen={false} className="border rounded-lg overflow-hidden">
                       <div className="bg-muted">
                         <div className="flex items-center gap-2 p-4">
@@ -2215,6 +2251,10 @@ const MapaQuantidades = () => {
                       </CollapsibleContent>
                     </Collapsible>
                   ))}
+                      </div>
+                    );
+                  });
+                })()}
                 </TabsContent>
               ))}
             </Tabs>
