@@ -2717,39 +2717,42 @@ const MapaQuantidades = () => {
                               }}
                               className="mb-6"
                             >
-                              <div className="bg-blue-50 dark:bg-blue-950 border-l-4 border-blue-500 rounded-r-lg overflow-hidden">
+                              <div className="bg-gradient-to-r from-primary/5 via-primary/10 to-primary/5 border-l-4 border-primary rounded-r-xl overflow-hidden shadow-md">
                                 <CollapsibleTrigger asChild>
-                                  <div className="flex items-center justify-between p-4 cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900 transition-colors">
-                                    <div className="flex items-center gap-2">
+                                  <div className="flex items-center justify-between p-5 cursor-pointer hover:bg-primary/15 transition-all duration-200">
+                                    <div className="flex items-center gap-3">
                                       <ChevronRight 
-                                        className={`h-5 w-5 text-blue-700 dark:text-blue-300 transition-transform duration-200 ${!isSheetCollapsed ? 'rotate-90' : ''}`}
+                                        className={`h-6 w-6 text-primary transition-transform duration-300 ${!isSheetCollapsed ? 'rotate-90' : ''}`}
                                       />
-                                      <h2 className="text-xl font-bold text-blue-900 dark:text-blue-100">
+                                      <h2 className="text-2xl font-bold text-primary">
                                         📄 {sheetName}
                                       </h2>
                                     </div>
-                                    <Badge variant="secondary" className="bg-blue-200 dark:bg-blue-800 text-blue-900 dark:text-blue-100">
+                                    <Badge variant="default" className="text-sm px-3 py-1">
                                       {chaptersInSheet.length} {chaptersInSheet.length === 1 ? 'chapter' : 'chapters'}
                                     </Badge>
                                   </div>
                                 </CollapsibleTrigger>
                                 
                                 <CollapsibleContent>
-                                  <div className="space-y-6 p-4 pt-0">
+                                  <div className="space-y-6 p-5 pt-0 bg-muted/30">
                                     {/* Chapters in this sheet */}
                                     {chaptersInSheet.map((chapterWithArticles) => (
-                            <Collapsible key={chapterWithArticles.chapter.id} defaultOpen={false} className="border rounded-lg overflow-hidden mb-6">
-                              <div className="bg-muted">
-                                <div className="flex items-center justify-between p-4">
-                                  <div className="flex items-center gap-2">
+                            <Collapsible key={chapterWithArticles.chapter.id} defaultOpen={false} className="border-2 border-primary/10 rounded-xl overflow-hidden mb-6 shadow-md">
+                              <div className="bg-gradient-to-r from-muted to-muted/50">
+                                <div className="flex items-center justify-between p-5">
+                                  <div className="flex items-center gap-3">
                                     <CollapsibleTrigger asChild>
-                                      <Button variant="ghost" size="sm" className="flex items-center gap-2 hover:bg-transparent p-0 h-auto">
-                                        <ChevronDown className="h-5 w-5 transition-transform duration-200 data-[state=open]:rotate-180" />
-                                        <h3 className="text-lg font-semibold">
+                                      <Button variant="ghost" size="sm" className="flex items-center gap-2 hover:bg-primary/10 p-2 h-auto rounded-lg">
+                                        <ChevronDown className="h-6 w-6 transition-transform duration-300 data-[state=open]:rotate-180 text-primary" />
+                                        <h3 className="text-xl font-bold text-primary">
                                           {chapterWithArticles.chapter.chapter_number}. {cleanChapterName(chapterWithArticles.chapter.chapter_name)}
                                         </h3>
                                       </Button>
                                     </CollapsibleTrigger>
+                                    <Badge variant="secondary" className="ml-2">
+                                      {chapterWithArticles.articles.length} {chapterWithArticles.articles.length === 1 ? 'article' : 'articles'}
+                                    </Badge>
                                   </div>
                                   
                                   {/* Move chapter button */}
@@ -2793,22 +2796,30 @@ const MapaQuantidades = () => {
                               </div>
                               
                               <CollapsibleContent>
-                                {/* Articles displayed inline with collapsible feature */}
-                                <div className="p-4 space-y-4">
-                                  {chapterWithArticles.articles.map((article) => {
-                                    const isCollapsed = collapsedArticles.has(article.id);
-                                    
-                                    // Check if the article has UN and QT by checking if first item has same artigo as article
-                                    const hasArticleUnQt = article.contents.length > 0 && 
-                                      article.contents[0].type === 'item' &&
-                                      (article.contents[0].data as {artigo: string; descricao: string; un: string; qt: number}).artigo === article.artigo;
-                                    
-                                    return (
-                                      <div key={article.id} className="border rounded-lg overflow-hidden bg-gray-50 dark:bg-gray-900">
-                                        {/* Article header with toggle - hide if article has UN and QT */}
-                                        {!hasArticleUnQt && (
+                                {/* Articles displayed with improved UI/UX */}
+                                <div className="p-6 space-y-6">
+                                  {chapterWithArticles.articles.length === 0 ? (
+                                    <div className="text-center py-8 text-muted-foreground">
+                                      No articles found in this chapter
+                                    </div>
+                                  ) : (
+                                    chapterWithArticles.articles.map((article) => {
+                                      const isCollapsed = collapsedArticles.has(article.id);
+                                      
+                                      // Check if the article has UN and QT by checking if first item has same artigo as article
+                                      const hasArticleUnQt = article.contents.length > 0 && 
+                                        article.contents[0].type === 'item' &&
+                                        (article.contents[0].data as {artigo: string; descricao: string; un: string; qt: number}).artigo === article.artigo;
+                                      
+                                      // Count items in this article
+                                      const itemCount = article.contents.filter(c => c.type === 'item').length;
+                                      const textCount = article.contents.filter(c => c.type === 'text').length;
+                                      
+                                      return (
+                                        <div key={article.id} className="border-2 border-primary/20 rounded-xl overflow-hidden bg-white dark:bg-gray-900 shadow-md hover:shadow-lg transition-shadow">
+                                          {/* Article header - always visible */}
                                           <div 
-                                            className="flex items-center justify-between p-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                                            className="flex items-center justify-between p-5 bg-gradient-to-r from-primary/5 to-primary/10 cursor-pointer hover:from-primary/10 hover:to-primary/15 transition-all"
                                             onClick={() => {
                                               const newCollapsed = new Set(collapsedArticles);
                                               if (isCollapsed) {
@@ -2819,20 +2830,40 @@ const MapaQuantidades = () => {
                                               setCollapsedArticles(newCollapsed);
                                             }}
                                           >
-                                            <div className="flex items-center gap-2">
+                                            <div className="flex items-center gap-3 flex-1">
                                               <ChevronDown 
-                                                className={`h-5 w-5 transition-transform duration-200 ${isCollapsed ? '-rotate-90' : ''}`}
+                                                className={`h-6 w-6 text-primary transition-transform duration-300 ${isCollapsed ? '-rotate-90' : ''}`}
                                               />
-                                              <h4 className="text-base font-semibold text-primary">
-                                                {article.artigo} - {article.title}
-                                              </h4>
+                                              <div className="flex-1">
+                                                <h4 className="text-lg font-bold text-primary mb-1">
+                                                  {article.artigo} - {article.title}
+                                                </h4>
+                                                <div className="flex gap-3 text-xs text-muted-foreground">
+                                                  {itemCount > 0 && (
+                                                    <span className="flex items-center gap-1">
+                                                      <Badge variant="secondary" className="text-xs">
+                                                        {itemCount} {itemCount === 1 ? 'item' : 'items'}
+                                                      </Badge>
+                                                    </span>
+                                                  )}
+                                                  {textCount > 0 && (
+                                                    <span className="flex items-center gap-1">
+                                                      <Badge variant="outline" className="text-xs">
+                                                        {textCount} {textCount === 1 ? 'note' : 'notes'}
+                                                      </Badge>
+                                                    </span>
+                                                  )}
+                                                  {article.contents.length === 0 && (
+                                                    <span className="text-muted-foreground italic">Empty article</span>
+                                                  )}
+                                                </div>
+                                              </div>
                                             </div>
                                           </div>
-                                        )}
-                                        
-                                        {/* Article content */}
-                                        {(!isCollapsed || hasArticleUnQt) && (
-                                          <div className="p-4 pt-0 space-y-4">
+                                          
+                                          {/* Article content */}
+                                          {!isCollapsed && (
+                                            <div className="p-6 space-y-4 bg-gray-50 dark:bg-gray-950">
                                             {(() => {
                                               const groupedContent: Array<{type: 'text', data: string} | {type: 'items', items: Array<{
                                                 artigo: string;
@@ -2878,40 +2909,55 @@ const MapaQuantidades = () => {
                                                 groupedContent.push({ type: 'items', items: currentItemGroup });
                                               }
                                               
+                                              if (groupedContent.length === 0) {
+                                                return (
+                                                  <div className="text-center py-12 text-muted-foreground bg-gray-100 dark:bg-gray-900 rounded-lg">
+                                                    <p className="text-lg">No content in this article</p>
+                                                    <p className="text-sm mt-2">This article may be a placeholder or section header</p>
+                                                  </div>
+                                                );
+                                              }
+                                              
                                               return groupedContent.map((group, groupIndex) => (
                                                 <div key={groupIndex}>
                                                   {group.type === 'text' ? (
-                                                    <p className="text-sm whitespace-pre-line">{group.data}</p>
+                                                    <div className="bg-blue-50 dark:bg-blue-950/30 border-l-4 border-blue-500 p-4 rounded-r-lg">
+                                                      <p className="text-sm whitespace-pre-line text-gray-700 dark:text-gray-300">{group.data}</p>
+                                                    </div>
                                                   ) : (
-                                                    <div className="rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden shadow-sm">
+                                                    <div className="rounded-xl border-2 border-primary/20 overflow-hidden shadow-sm">
                                                       <Table>
                                                         <TableHeader>
-                                                          <TableRow className="bg-gradient-to-r from-blue-50 to-blue-100 dark:from-blue-950 dark:to-blue-900 hover:from-blue-100 hover:to-blue-200 dark:hover:from-blue-900 dark:hover:to-blue-800">
-                                                            <TableHead className="font-semibold text-blue-900 dark:text-blue-100">{t('orcamento.artigo')}</TableHead>
-                                                            <TableHead className="font-semibold text-blue-900 dark:text-blue-100">{t('orcamento.descricao')}</TableHead>
-                                                            <TableHead className="font-semibold text-blue-900 dark:text-blue-100">{t('orcamento.unit')}</TableHead>
-                                                            <TableHead className="text-right font-semibold text-blue-900 dark:text-blue-100">{t('orcamento.quantity')}</TableHead>
-                                                            <TableHead className="font-semibold text-blue-900 dark:text-blue-100">{t('orcamento.observacoesEmpreiteiro')}</TableHead>
+                                                          <TableRow className="bg-gradient-to-r from-primary/10 to-primary/5 hover:from-primary/15 hover:to-primary/10">
+                                                            <TableHead className="font-bold text-primary w-[120px]">{t('orcamento.artigo')}</TableHead>
+                                                            <TableHead className="font-bold text-primary">{t('orcamento.descricao')}</TableHead>
+                                                            <TableHead className="font-bold text-primary text-center w-[100px]">{t('orcamento.unit')}</TableHead>
+                                                            <TableHead className="font-bold text-primary text-right w-[120px]">{t('orcamento.quantity')}</TableHead>
+                                                            <TableHead className="font-bold text-primary w-[200px]">{t('orcamento.observacoesEmpreiteiro')}</TableHead>
                                                           </TableRow>
                                                         </TableHeader>
                                                         <TableBody>
                                                           {group.items.map((item, itemIndex) => (
                                                             <TableRow 
                                                               key={itemIndex}
-                                                              className={`${itemIndex % 2 === 0 ? 'bg-white dark:bg-gray-950' : 'bg-gray-50 dark:bg-gray-900'} hover:bg-blue-50 dark:hover:bg-blue-950 transition-colors`}
+                                                              className={`${itemIndex % 2 === 0 ? 'bg-white dark:bg-gray-950' : 'bg-gray-50/50 dark:bg-gray-900/50'} hover:bg-primary/5 dark:hover:bg-primary/10 transition-colors border-b border-gray-200 dark:border-gray-800`}
                                                             >
-                                                              <TableCell className="font-medium">{item.artigo}</TableCell>
-                                                              <TableCell>{item.descricao}</TableCell>
+                                                              <TableCell className="font-semibold text-primary">{item.artigo}</TableCell>
+                                                              <TableCell className="font-medium">{item.descricao}</TableCell>
                                                               <TableCell className="text-center">
-                                                                <Badge variant="outline" className="font-mono">
+                                                                <Badge variant="secondary" className="font-mono font-semibold">
                                                                   {item.un}
                                                                 </Badge>
                                                               </TableCell>
-                                                              <TableCell className="text-right font-semibold">
+                                                              <TableCell className="text-right font-bold text-lg">
                                                                 {Number(item.qt).toFixed(2)}
                                                               </TableCell>
                                                               <TableCell className="text-sm text-muted-foreground">
-                                                                {item.observacoes_empreiteiro || '-'}
+                                                                {item.observacoes_empreiteiro ? (
+                                                                  <span className="italic">{item.observacoes_empreiteiro}</span>
+                                                                ) : (
+                                                                  <span className="text-gray-400">-</span>
+                                                                )}
                                                               </TableCell>
                                                             </TableRow>
                                                           ))}
@@ -2926,7 +2972,7 @@ const MapaQuantidades = () => {
                                         )}
                                       </div>
                                     );
-                                  })}
+                                  }))}
                                 </div>
                               </CollapsibleContent>
                             </Collapsible>
