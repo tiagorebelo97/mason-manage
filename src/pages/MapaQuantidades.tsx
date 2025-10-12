@@ -2717,39 +2717,42 @@ const MapaQuantidades = () => {
                               }}
                               className="mb-6"
                             >
-                              <div className="bg-blue-50 dark:bg-blue-950 border-l-4 border-blue-500 rounded-r-lg overflow-hidden">
+                              <div className="bg-gradient-to-r from-primary/5 via-primary/10 to-primary/5 border-l-4 border-primary rounded-r-xl overflow-hidden shadow-md">
                                 <CollapsibleTrigger asChild>
-                                  <div className="flex items-center justify-between p-4 cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900 transition-colors">
-                                    <div className="flex items-center gap-2">
+                                  <div className="flex items-center justify-between p-5 cursor-pointer hover:bg-primary/15 transition-all duration-200">
+                                    <div className="flex items-center gap-3">
                                       <ChevronRight 
-                                        className={`h-5 w-5 text-blue-700 dark:text-blue-300 transition-transform duration-200 ${!isSheetCollapsed ? 'rotate-90' : ''}`}
+                                        className={`h-6 w-6 text-primary transition-transform duration-300 ${!isSheetCollapsed ? 'rotate-90' : ''}`}
                                       />
-                                      <h2 className="text-xl font-bold text-blue-900 dark:text-blue-100">
+                                      <h2 className="text-2xl font-bold text-primary">
                                         📄 {sheetName}
                                       </h2>
                                     </div>
-                                    <Badge variant="secondary" className="bg-blue-200 dark:bg-blue-800 text-blue-900 dark:text-blue-100">
+                                    <Badge variant="default" className="text-sm px-3 py-1">
                                       {chaptersInSheet.length} {chaptersInSheet.length === 1 ? 'chapter' : 'chapters'}
                                     </Badge>
                                   </div>
                                 </CollapsibleTrigger>
                                 
                                 <CollapsibleContent>
-                                  <div className="space-y-6 p-4 pt-0">
+                                  <div className="space-y-6 p-5 pt-0 bg-muted/30">
                                     {/* Chapters in this sheet */}
                                     {chaptersInSheet.map((chapterWithArticles) => (
-                            <Collapsible key={chapterWithArticles.chapter.id} defaultOpen={false} className="border rounded-lg overflow-hidden mb-6">
-                              <div className="bg-muted">
-                                <div className="flex items-center justify-between p-4">
-                                  <div className="flex items-center gap-2">
+                            <Collapsible key={chapterWithArticles.chapter.id} defaultOpen={false} className="border-2 border-primary/10 rounded-xl overflow-hidden mb-6 shadow-md">
+                              <div className="bg-gradient-to-r from-muted to-muted/50">
+                                <div className="flex items-center justify-between p-5">
+                                  <div className="flex items-center gap-3">
                                     <CollapsibleTrigger asChild>
-                                      <Button variant="ghost" size="sm" className="flex items-center gap-2 hover:bg-transparent p-0 h-auto">
-                                        <ChevronDown className="h-5 w-5 transition-transform duration-200 data-[state=open]:rotate-180" />
-                                        <h3 className="text-lg font-semibold">
+                                      <Button variant="ghost" size="sm" className="flex items-center gap-2 hover:bg-primary/10 p-2 h-auto rounded-lg">
+                                        <ChevronDown className="h-6 w-6 transition-transform duration-300 data-[state=open]:rotate-180 text-primary" />
+                                        <h3 className="text-xl font-bold text-primary">
                                           {chapterWithArticles.chapter.chapter_number}. {cleanChapterName(chapterWithArticles.chapter.chapter_name)}
                                         </h3>
                                       </Button>
                                     </CollapsibleTrigger>
+                                    <Badge variant="secondary" className="ml-2">
+                                      {chapterWithArticles.articles.length} {chapterWithArticles.articles.length === 1 ? 'article' : 'articles'}
+                                    </Badge>
                                   </div>
                                   
                                   {/* Move chapter button */}
