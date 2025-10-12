@@ -223,8 +223,8 @@ const MapaQuantidades = () => {
           *,
           orcamento_tabs!inner(orcamento_id)
         `)
-        .eq("orcamento_tabs.orcamento_id", id)
-        .order("chapter_number");
+        .eq("orcamento_tabs.orcamento_id", id);
+        // Removed .order("chapter_number") to preserve insertion order from Excel
       if (error) throw error;
       return data as OrcamentoChapter[];
     },
@@ -243,8 +243,8 @@ const MapaQuantidades = () => {
             orcamento_tabs!inner(orcamento_id)
           )
         `)
-        .eq("orcamento_chapters.orcamento_tabs.orcamento_id", id)
-        .order("artigo");
+        .eq("orcamento_chapters.orcamento_tabs.orcamento_id", id);
+        // Removed .order("artigo") to preserve insertion order from Excel
       if (error) throw error;
       return data as OrcamentoItem[];
     },
@@ -312,25 +312,61 @@ const MapaQuantidades = () => {
       const storedArticles = sessionStorage.getItem(`articles_${id}`);
       if (storedArticles) {
         try {
-          const articlesData = JSON.parse(storedArticles);
+          type ArticleDataType = {
+            sheet_name: string;
+            chapter_number: string;
+            artigo: string;
+            title: string;
+            order_index?: number;
+            contents: Array<{
+              type: 'text' | 'item';
+              data: string | {
+                artigo: string;
+                descricao: string;
+                un: string;
+                qt: number;
+                observacoes_empreiteiro?: string;
+              };
+            }>;
+          };
           
-          // Group articles by chapter
-          const groupedByChapter = new Map<string, typeof articlesData>();
-          articlesData.forEach((article: typeof articlesData[0]) => {
-            if (!groupedByChapter.has(article.chapter_number)) {
-              groupedByChapter.set(article.chapter_number, []);
+          const articlesData: ArticleDataType[] = JSON.parse(storedArticles);
+          
+          // Sort articles by order_index to preserve Excel sheet order
+          articlesData.sort((a, b) => (a.order_index || 0) - (b.order_index || 0));
+          
+          // Group articles by sheet_name + chapter_number to preserve sheet context
+          const groupedByChapter = new Map<string, ArticleDataType[]>();
+          articlesData.forEach((article) => {
+            const key = `${article.sheet_name}_${article.chapter_number}`;
+            if (!groupedByChapter.has(key)) {
+              groupedByChapter.set(key, []);
             }
-            groupedByChapter.get(article.chapter_number)!.push(article);
+            groupedByChapter.get(key)!.push(article);
           });
           
           // Create ChapterWithArticles structure
           const chaptersWithArticlesData: ChapterWithArticles[] = [];
           chapters.forEach((chapter) => {
-            const articlesForChapter = groupedByChapter.get(chapter.chapter_number) || [];
+            // Try to find articles for this chapter from any sheet
+            // First, try to match by sheet_name if available
+            const articlesForChapter: ArticleDataType[] = [];
+            
+            // Collect all articles that match this chapter_number from all sheets
+            groupedByChapter.forEach((articles, key) => {
+              const [sheet_name, chapter_num] = key.split('_');
+              if (chapter_num === chapter.chapter_number) {
+                articlesForChapter.push(...articles);
+              }
+            });
+            
             if (articlesForChapter.length > 0) {
+              // Sort by order_index to maintain Excel order
+              articlesForChapter.sort((a, b) => (a.order_index || 0) - (b.order_index || 0));
+              
               chaptersWithArticlesData.push({
                 chapter,
-                articles: articlesForChapter.map((articleData: typeof articlesData[0]) => ({
+                articles: articlesForChapter.map((articleData) => ({
                   id: `${chapter.id}_${articleData.artigo}`,
                   chapter_id: chapter.id,
                   artigo: articleData.artigo,
@@ -566,6 +602,7 @@ const MapaQuantidades = () => {
         chapter_number: string;
         artigo: string;
         title: string;
+        order_index: number; // Track insertion order to preserve Excel sheet order
         contents: Array<{
           type: 'text' | 'item';
           data: string | {
@@ -796,6 +833,7 @@ const MapaQuantidades = () => {
                     chapter_number: currentChapterNumber,
                     artigo: currentArticleArtigo,
                     title: currentArticleTitle,
+                    order_index: articlesData.length, // Track insertion order
                     contents: [...currentArticleContents]
                   });
                   currentArticleArtigo = null;
@@ -834,6 +872,7 @@ const MapaQuantidades = () => {
                   chapter_number: currentChapterNumber,
                   artigo: currentArticleArtigo,
                   title: currentArticleTitle,
+                  order_index: articlesData.length, // Track insertion order
                   contents: [...currentArticleContents]
                 });
               }
@@ -1127,6 +1166,7 @@ const MapaQuantidades = () => {
               chapter_number: currentChapterNumber,
               artigo: currentArticleArtigo,
               title: currentArticleTitle,
+              order_index: articlesData.length, // Track insertion order
               contents: [...currentArticleContents]
             });
           }
@@ -1397,20 +1437,8 @@ const MapaQuantidades = () => {
       
       // Process article-based view data
       if (data && data.articleBasedView && data.articlesData) {
-        // Group articles by chapter
-        const groupedArticles = new Map<string, typeof data.articlesData>();
-        data.articlesData.forEach((article: typeof data.articlesData[0]) => {
-          const key = article.chapter_number;
-          if (!groupedArticles.has(key)) {
-            groupedArticles.set(key, []);
-          }
-          groupedArticles.get(key)!.push(article);
-        });
-        
-        // Fetch chapters to create the ChapterWithArticles structure
-        // This will be done via the normal query invalidation, but we need to store
-        // the articles data temporarily for the UI to use
-        // For now, we'll store it in localStorage or state
+        // Store articlesData for later use in useEffect
+        // The data already has order_index to preserve Excel sheet order
         sessionStorage.setItem(`articles_${id}`, JSON.stringify(data.articlesData));
       }
       
