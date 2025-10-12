@@ -2263,7 +2263,38 @@ const MapaQuantidades = () => {
           {/* Single-sheet view: no tabs needed */}
           {isAnalyzed && (!tabs || tabs.length <= 1) && chapters && chapters.length > 0 && !isArticleBasedViewActive && (
             <div className="space-y-6">
-              {chapters.map((chapter) => (
+              {(() => {
+                // Group chapters by sheet name for multi-sheet separators
+                const chaptersBySheet = new Map<string, typeof chapters>();
+                chapters.forEach((chapter) => {
+                  const sheetName = chapter.sheet_name || 'Unknown';
+                  if (!chaptersBySheet.has(sheetName)) {
+                    chaptersBySheet.set(sheetName, []);
+                  }
+                  chaptersBySheet.get(sheetName)!.push(chapter);
+                });
+                
+                // Get the sheet names in the original order from Excel
+                const orderedSheets = sheetOrder.length > 0
+                  ? sheetOrder.filter(sheetName => chaptersBySheet.has(sheetName))
+                  : Array.from(chaptersBySheet.keys());
+                
+                // Display chapters grouped by sheet in the correct order
+                return orderedSheets.map((sheetName) => {
+                  const chaptersInSheet = chaptersBySheet.get(sheetName) || [];
+                  return (
+                  <div key={sheetName}>
+                    {/* Sheet separator - only show if there are multiple sheets */}
+                    {chaptersBySheet.size > 1 && (
+                      <div className="bg-blue-50 dark:bg-blue-950 border-l-4 border-blue-500 p-4 mb-6 rounded-r-lg">
+                        <h2 className="text-xl font-bold text-blue-900 dark:text-blue-100">
+                          📄 {sheetName}
+                        </h2>
+                      </div>
+                    )}
+                    
+                    {/* Chapters in this sheet */}
+                    {chaptersInSheet.map((chapter) => (
                 <Collapsible key={chapter.id} defaultOpen={false} className="border rounded-lg overflow-hidden">
                   <div className="bg-muted">
                     <div className="flex items-center gap-2 p-4">
@@ -2527,6 +2558,10 @@ const MapaQuantidades = () => {
                   </CollapsibleContent>
                 </Collapsible>
               ))}
+                  </div>
+                );
+              });
+            })()}
             </div>
           )}
           
