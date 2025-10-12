@@ -1068,10 +1068,13 @@ const MapaQuantidades = () => {
             sheetNameToTabId.set(tab.name, tab.id);
           });
         } else {
-          // Map the single sheet to the "Principal" tab
+          // Map ALL sheets to the "Principal" tab
+          // This handles multi-sheet Excel files in article-based view or single-sheet mode
           const principalTab = insertedTabs.find(tab => tab.name === "Principal");
-          if (principalTab && workbook.SheetNames.length > 0) {
-            sheetNameToTabId.set(workbook.SheetNames[0], principalTab.id);
+          if (principalTab) {
+            workbook.SheetNames.forEach(sheetName => {
+              sheetNameToTabId.set(sheetName, principalTab.id);
+            });
           }
         }
       }
@@ -1099,21 +1102,13 @@ const MapaQuantidades = () => {
         
         // Create a map of (sheet_name + chapter_number) to chapter IDs
         const chapterMap = new Map<string, string>();
-        insertedChapters.forEach(chapter => {
-          if (hasMultipleSheets) {
-            // For multi-sheet files, find the corresponding tab to get sheet name
-            const tab = insertedTabs.find(t => t.id === chapter.tab_id);
-            if (tab) {
-              const key = `${tab.name}_${chapter.chapter_number}`;
-              chapterMap.set(key, chapter.id);
-            }
-          } else {
-            // For single-sheet files, use the original sheet name
-            // Since we mapped the sheet to Principal tab, we need to use the original sheet name
-            if (workbook.SheetNames.length > 0) {
-              const key = `${workbook.SheetNames[0]}_${chapter.chapter_number}`;
-              chapterMap.set(key, chapter.id);
-            }
+        insertedChapters.forEach((chapter, index) => {
+          const originalChapter = chaptersToInsert[index];
+          if (originalChapter && originalChapter.sheet_name) {
+            // Use the original sheet_name from chaptersToInsert to create the key
+            // This ensures correct mapping for both single-sheet and multi-sheet files
+            const key = `${originalChapter.sheet_name}_${chapter.chapter_number}`;
+            chapterMap.set(key, chapter.id);
           }
         });
         
