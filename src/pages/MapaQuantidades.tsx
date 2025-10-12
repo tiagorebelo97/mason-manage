@@ -2476,45 +2476,25 @@ const MapaQuantidades = () => {
           {/* Article-based view: show articles grouped by chapters */}
           {isAnalyzed && isArticleBasedViewActive && tabs && tabs.length > 0 && (
             <div className="space-y-8">
-              <Tabs defaultValue={tabs[0]?.id} className="w-full">
-                <TabsList className="w-full justify-start overflow-x-auto flex-wrap h-auto">
-                  {tabs.map((tab) => (
-                    <TabsTrigger key={tab.id} value={tab.id}>
-                      {tab.name}
-                    </TabsTrigger>
-                  ))}
-                </TabsList>
+              {/* Display all tabs in order with tab separators */}
+              {tabs.map((tab) => {
+                const chaptersForTab = chaptersWithArticles.filter((cwa) => cwa.chapter.tab_id === tab.id);
                 
-                {tabs.map((tab) => (
-                  <TabsContent key={tab.id} value={tab.id} className="space-y-6">
-                    {(() => {
-                      const chaptersForTab = chaptersWithArticles.filter((cwa) => cwa.chapter.tab_id === tab.id);
-                      
-                      // Group chapters by sheet name for multi-sheet separators
-                      const chaptersBySheet = new Map<string, typeof chaptersForTab>();
-                      chaptersForTab.forEach((cwa) => {
-                        const sheetName = cwa.sheet_name || 'Unknown';
-                        if (!chaptersBySheet.has(sheetName)) {
-                          chaptersBySheet.set(sheetName, []);
-                        }
-                        chaptersBySheet.get(sheetName)!.push(cwa);
-                      });
-                      
-                      // Display chapters grouped by sheet
-                      return Array.from(chaptersBySheet.entries()).map(([sheetName, chaptersInSheet]) => (
-                        <div key={sheetName}>
-                          {/* Sheet separator - only show if there are multiple sheets */}
-                          {chaptersBySheet.size > 1 && (
-                            <div className="bg-blue-50 dark:bg-blue-950 border-l-4 border-blue-500 p-4 mb-6 rounded-r-lg">
-                              <h2 className="text-xl font-bold text-blue-900 dark:text-blue-100">
-                                📄 {sheetName}
-                              </h2>
-                            </div>
-                          )}
-                          
-                          {/* Chapters in this sheet */}
-                          {chaptersInSheet.map((chapterWithArticles) => (
-                            <Collapsible key={chapterWithArticles.chapter.id} defaultOpen={false} className="border rounded-lg overflow-hidden mb-6">
+                // Skip tabs with no chapters
+                if (chaptersForTab.length === 0) return null;
+                
+                return (
+                  <div key={tab.id}>
+                    {/* Tab separator - shows the tab name */}
+                    <div className="bg-blue-50 dark:bg-blue-950 border-l-4 border-blue-500 p-4 mb-6 rounded-r-lg">
+                      <h2 className="text-xl font-bold text-blue-900 dark:text-blue-100">
+                        📑 {tab.name}
+                      </h2>
+                    </div>
+                    
+                    {/* Chapters in this tab */}
+                    {chaptersForTab.map((chapterWithArticles) => (
+                      <Collapsible key={chapterWithArticles.chapter.id} defaultOpen={false} className="border rounded-lg overflow-hidden mb-6">
                               <div className="bg-muted">
                                 <div className="flex items-center justify-between p-4">
                                   <div className="flex items-center gap-2">
@@ -2698,12 +2678,9 @@ const MapaQuantidades = () => {
                               </CollapsibleContent>
                             </Collapsible>
                           ))}
-                        </div>
-                      ));
-                    })()}
-                  </TabsContent>
-                ))}
-              </Tabs>
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
