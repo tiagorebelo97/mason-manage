@@ -65,6 +65,7 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { MultiSelect } from "@/components/ui/multi-select";
+import { Checkbox } from "@/components/ui/checkbox";
 
 type OrcamentoFile = {
   id: string;
@@ -167,6 +168,10 @@ const MapaQuantidades = () => {
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [pendingItemSpecialities, setPendingItemSpecialities] = useState<string[]>([]);
   const [collapsedArticles, setCollapsedArticles] = useState<Set<string>>(new Set());
+  const [sheetSelectionOpen, setSheetSelectionOpen] = useState(false);
+  const [availableSheets, setAvailableSheets] = useState<string[]>([]);
+  const [selectedSheets, setSelectedSheets] = useState<string[]>([]);
+  const [collapsedSheetSeparators, setCollapsedSheetSeparators] = useState<Set<string>>(new Set());
 
   const { data: orcamento } = useQuery({
     queryKey: ["orcamento", id, import.meta.env.VITE_SUPABASE_URL],
@@ -395,7 +400,7 @@ const MapaQuantidades = () => {
   });
 
   const analyzeMutation = useMutation({
-    mutationFn: async ({ fileId, treatAsSingleSheet, articleBasedView }: { fileId: string; treatAsSingleSheet: boolean; articleBasedView: boolean }) => {
+    mutationFn: async ({ fileId, treatAsSingleSheet, articleBasedView, selectedSheets }: { fileId: string; treatAsSingleSheet: boolean; articleBasedView: boolean; selectedSheets: string[] }) => {
       try {
         // Get file info from database
         const { data: fileData, error: fileQueryError } = await supabase
@@ -601,7 +606,12 @@ const MapaQuantidades = () => {
         );
       }
       
-      workbook.SheetNames.forEach((sheetName, index) => {
+      // Filter sheets to process based on selectedSheets (only for article-based view)
+      const sheetsToProcess = (articleBasedView && selectedSheets.length > 0) 
+        ? workbook.SheetNames.filter(name => selectedSheets.includes(name))
+        : workbook.SheetNames;
+      
+      sheetsToProcess.forEach((sheetName, index) => {
         if (hasMultipleSheets) {
           tabsToInsert.push({
             orcamento_id: id!,
@@ -1674,16 +1684,84 @@ const MapaQuantidades = () => {
     }
   };
 
-  const handleAnalyze = () => {
+  const handleAnalyze = async () => {
     if (currentFile) {
       console.log("Starting analysis for file:", currentFile.id, currentFile.file_name);
       console.log("File URL:", currentFile.file_url);
       console.log("Settings - treatAsSingleSheet:", treatAsSingleSheet, "articleBasedView:", articleBasedView);
-      setIsAnalyzing(true);
-      analyzeMutation.mutate({ fileId: currentFile.id, treatAsSingleSheet, articleBasedView });
+      
+      // If article-based view is enabled, show sheet selection dialog first
+      if (articleBasedView) {
+        try {
+          // Read the file to get available sheets
+          const { data: fileData, error: fileQueryError } = await supabase
+            .from("orcamento_files")
+            .select("*")
+            .eq("id", currentFile.id)
+            .single();
+          
+          if (fileQueryError || !fileData || !fileData.file_url) {
+            toast.error("Failed to load file information");
+            return;
+          }
+          
+          // Extract file path and download
+          let filePath: string;
+          if (fileData.file_url.includes('/orcamento-files/')) {
+            const urlParts = fileData.file_url.split('/orcamento-files/');
+            filePath = urlParts[1];
+          } else if (fileData.file_url.includes('/object/public/orcamento-files/')) {
+            const urlParts = fileData.file_url.split('/object/public/orcamento-files/');
+            filePath = urlParts[1];
+          } else {
+            const urlObj = new URL(fileData.file_url);
+            const pathParts = urlObj.pathname.split('/');
+            if (pathParts.length >= 2) {
+              filePath = `${pathParts[pathParts.length - 2]}/${pathParts[pathParts.length - 1]}`;
+            } else {
+              toast.error("Invalid file URL format");
+              return;
+            }
+          }
+          
+          const { data: fileBlob, error: downloadError } = await supabase.storage
+            .from('orcamento-files')
+            .download(filePath);
+          
+          if (downloadError || !fileBlob) {
+            toast.error("Failed to download file");
+            return;
+          }
+          
+          const arrayBuffer = await fileBlob.arrayBuffer();
+          const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+          
+          // Set available sheets and select all by default
+          setAvailableSheets(workbook.SheetNames);
+          setSelectedSheets(workbook.SheetNames);
+          setSheetSelectionOpen(true);
+        } catch (error) {
+          console.error("Error reading file:", error);
+          toast.error("Failed to read file");
+        }
+      } else {
+        // Normal analysis without sheet selection
+        setIsAnalyzing(true);
+        analyzeMutation.mutate({ fileId: currentFile.id, treatAsSingleSheet, articleBasedView, selectedSheets: [] });
+      }
     } else {
       console.error("handleAnalyze called but currentFile is null");
       toast.error("No file selected for analysis");
+    }
+  };
+  
+  const handleConfirmAnalysis = () => {
+    if (currentFile) {
+      setSheetSelectionOpen(false);
+      setIsAnalyzing(true);
+      analyzeMutation.mutate({ fileId: currentFile.id, treatAsSingleSheet, articleBasedView, selectedSheets });
+      // Initialize all sheet separators as collapsed (minimized)
+      setCollapsedSheetSeparators(new Set(selectedSheets));
     }
   };
 
@@ -1979,6 +2057,67 @@ const MapaQuantidades = () => {
               </AlertDialog>
             </div>
           </div>
+          
+          {/* Sheet Selection Dialog for Article-Based View */}
+          <Dialog open={sheetSelectionOpen} onOpenChange={setSheetSelectionOpen}>
+            <DialogContent className="max-w-md">
+              <DialogHeader>
+                <DialogTitle>Select Sheets to Analyze</DialogTitle>
+                <DialogDescription>
+                  Choose which sheets from the Excel file should be analyzed. All sheets are selected by default.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4 py-4">
+                <div className="flex items-center space-x-2 mb-4">
+                  <Checkbox
+                    id="select-all"
+                    checked={selectedSheets.length === availableSheets.length}
+                    onCheckedChange={(checked) => {
+                      if (checked) {
+                        setSelectedSheets([...availableSheets]);
+                      } else {
+                        setSelectedSheets([]);
+                      }
+                    }}
+                  />
+                  <Label htmlFor="select-all" className="font-semibold cursor-pointer">
+                    Select All
+                  </Label>
+                </div>
+                <div className="space-y-2 max-h-[400px] overflow-y-auto">
+                  {availableSheets.map((sheetName) => (
+                    <div key={sheetName} className="flex items-center space-x-2 p-2 hover:bg-muted rounded">
+                      <Checkbox
+                        id={`sheet-${sheetName}`}
+                        checked={selectedSheets.includes(sheetName)}
+                        onCheckedChange={(checked) => {
+                          if (checked) {
+                            setSelectedSheets([...selectedSheets, sheetName]);
+                          } else {
+                            setSelectedSheets(selectedSheets.filter(s => s !== sheetName));
+                          }
+                        }}
+                      />
+                      <Label htmlFor={`sheet-${sheetName}`} className="flex-1 cursor-pointer">
+                        📄 {sheetName}
+                      </Label>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setSheetSelectionOpen(false)}>
+                  Cancel
+                </Button>
+                <Button 
+                  onClick={handleConfirmAnalysis}
+                  disabled={selectedSheets.length === 0}
+                >
+                  Analyze Selected Sheets ({selectedSheets.length})
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
 
           {isAnalyzed && tabs && tabs.length > 1 && !isArticleBasedViewActive && (
             <Tabs defaultValue={tabs[0]?.id} className="w-full">
@@ -2558,19 +2697,47 @@ const MapaQuantidades = () => {
                       });
                       
                       // Display chapters grouped by sheet
-                      return Array.from(chaptersBySheet.entries()).map(([sheetName, chaptersInSheet]) => (
+                      return Array.from(chaptersBySheet.entries()).map(([sheetName, chaptersInSheet]) => {
+                        const isSheetCollapsed = collapsedSheetSeparators.has(sheetName);
+                        
+                        return (
                         <div key={sheetName}>
                           {/* Sheet separator - only show if there are multiple sheets */}
                           {chaptersBySheet.size > 1 && (
-                            <div className="bg-blue-50 dark:bg-blue-950 border-l-4 border-blue-500 p-4 mb-6 rounded-r-lg">
-                              <h2 className="text-xl font-bold text-blue-900 dark:text-blue-100">
-                                📄 {sheetName}
-                              </h2>
-                            </div>
-                          )}
-                          
-                          {/* Chapters in this sheet */}
-                          {chaptersInSheet.map((chapterWithArticles) => (
+                            <Collapsible 
+                              open={!isSheetCollapsed}
+                              onOpenChange={(open) => {
+                                const newCollapsed = new Set(collapsedSheetSeparators);
+                                if (open) {
+                                  newCollapsed.delete(sheetName);
+                                } else {
+                                  newCollapsed.add(sheetName);
+                                }
+                                setCollapsedSheetSeparators(newCollapsed);
+                              }}
+                              className="mb-6"
+                            >
+                              <div className="bg-blue-50 dark:bg-blue-950 border-l-4 border-blue-500 rounded-r-lg overflow-hidden">
+                                <CollapsibleTrigger asChild>
+                                  <div className="flex items-center justify-between p-4 cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900 transition-colors">
+                                    <div className="flex items-center gap-2">
+                                      <ChevronRight 
+                                        className={`h-5 w-5 text-blue-700 dark:text-blue-300 transition-transform duration-200 ${!isSheetCollapsed ? 'rotate-90' : ''}`}
+                                      />
+                                      <h2 className="text-xl font-bold text-blue-900 dark:text-blue-100">
+                                        📄 {sheetName}
+                                      </h2>
+                                    </div>
+                                    <Badge variant="secondary" className="bg-blue-200 dark:bg-blue-800 text-blue-900 dark:text-blue-100">
+                                      {chaptersInSheet.length} {chaptersInSheet.length === 1 ? 'chapter' : 'chapters'}
+                                    </Badge>
+                                  </div>
+                                </CollapsibleTrigger>
+                                
+                                <CollapsibleContent>
+                                  <div className="space-y-6 p-4 pt-0">
+                                    {/* Chapters in this sheet */}
+                                    {chaptersInSheet.map((chapterWithArticles) => (
                             <Collapsible key={chapterWithArticles.chapter.id} defaultOpen={false} className="border rounded-lg overflow-hidden mb-6">
                               <div className="bg-muted">
                                 <div className="flex items-center justify-between p-4">
@@ -2716,32 +2883,41 @@ const MapaQuantidades = () => {
                                                   {group.type === 'text' ? (
                                                     <p className="text-sm whitespace-pre-line">{group.data}</p>
                                                   ) : (
-                                                    <Table className="border">
-                                                      <TableHeader>
-                                                        <TableRow>
-                                                          <TableHead>{t('orcamento.artigo')}</TableHead>
-                                                          <TableHead>{t('orcamento.descricao')}</TableHead>
-                                                          <TableHead>{t('orcamento.unit')}</TableHead>
-                                                          <TableHead className="text-right">{t('orcamento.quantity')}</TableHead>
-                                                          <TableHead>{t('orcamento.observacoesEmpreiteiro')}</TableHead>
-                                                        </TableRow>
-                                                      </TableHeader>
-                                                      <TableBody>
-                                                        {group.items.map((item, itemIndex) => (
-                                                          <TableRow key={itemIndex}>
-                                                            <TableCell>{item.artigo}</TableCell>
-                                                            <TableCell>{item.descricao}</TableCell>
-                                                            <TableCell>{item.un}</TableCell>
-                                                            <TableCell className="text-right">
-                                                              {Number(item.qt).toFixed(2)}
-                                                            </TableCell>
-                                                            <TableCell>
-                                                              {item.observacoes_empreiteiro || '-'}
-                                                            </TableCell>
+                                                    <div className="rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden shadow-sm">
+                                                      <Table>
+                                                        <TableHeader>
+                                                          <TableRow className="bg-gradient-to-r from-blue-50 to-blue-100 dark:from-blue-950 dark:to-blue-900 hover:from-blue-100 hover:to-blue-200 dark:hover:from-blue-900 dark:hover:to-blue-800">
+                                                            <TableHead className="font-semibold text-blue-900 dark:text-blue-100">{t('orcamento.artigo')}</TableHead>
+                                                            <TableHead className="font-semibold text-blue-900 dark:text-blue-100">{t('orcamento.descricao')}</TableHead>
+                                                            <TableHead className="font-semibold text-blue-900 dark:text-blue-100">{t('orcamento.unit')}</TableHead>
+                                                            <TableHead className="text-right font-semibold text-blue-900 dark:text-blue-100">{t('orcamento.quantity')}</TableHead>
+                                                            <TableHead className="font-semibold text-blue-900 dark:text-blue-100">{t('orcamento.observacoesEmpreiteiro')}</TableHead>
                                                           </TableRow>
-                                                        ))}
-                                                      </TableBody>
-                                                    </Table>
+                                                        </TableHeader>
+                                                        <TableBody>
+                                                          {group.items.map((item, itemIndex) => (
+                                                            <TableRow 
+                                                              key={itemIndex}
+                                                              className={`${itemIndex % 2 === 0 ? 'bg-white dark:bg-gray-950' : 'bg-gray-50 dark:bg-gray-900'} hover:bg-blue-50 dark:hover:bg-blue-950 transition-colors`}
+                                                            >
+                                                              <TableCell className="font-medium">{item.artigo}</TableCell>
+                                                              <TableCell>{item.descricao}</TableCell>
+                                                              <TableCell className="text-center">
+                                                                <Badge variant="outline" className="font-mono">
+                                                                  {item.un}
+                                                                </Badge>
+                                                              </TableCell>
+                                                              <TableCell className="text-right font-semibold">
+                                                                {Number(item.qt).toFixed(2)}
+                                                              </TableCell>
+                                                              <TableCell className="text-sm text-muted-foreground">
+                                                                {item.observacoes_empreiteiro || '-'}
+                                                              </TableCell>
+                                                            </TableRow>
+                                                          ))}
+                                                        </TableBody>
+                                                      </Table>
+                                                    </div>
                                                   )}
                                                 </div>
                                               ));
@@ -2755,8 +2931,14 @@ const MapaQuantidades = () => {
                               </CollapsibleContent>
                             </Collapsible>
                           ))}
+                                  </div>
+                                </CollapsibleContent>
+                              </div>
+                            </Collapsible>
+                          )}
                         </div>
-                      ));
+                      );
+                      });
                     })()}
                   </TabsContent>
                 ))}
