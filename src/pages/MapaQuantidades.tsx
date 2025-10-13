@@ -2516,30 +2516,20 @@ const MapaQuantidades = () => {
                     {(() => {
                       const chaptersForTab = chaptersWithArticles.filter((cwa) => cwa.chapter.tab_id === tab.id);
                       
-                      // Group chapters by sheet name for multi-sheet separators
-                      const chaptersBySheet = new Map<string, typeof chaptersForTab>();
-                      chaptersForTab.forEach((cwa) => {
-                        const sheetName = cwa.sheet_name || 'Unknown';
-                        if (!chaptersBySheet.has(sheetName)) {
-                          chaptersBySheet.set(sheetName, []);
-                        }
-                        chaptersBySheet.get(sheetName)!.push(cwa);
-                      });
-                      
-                      // Display chapters grouped by sheet
-                      return Array.from(chaptersBySheet.entries()).map(([sheetName, chaptersInSheet]) => (
-                        <div key={sheetName}>
-                          {/* Sheet separator - only show if there are multiple sheets */}
-                          {chaptersBySheet.size > 1 && (
-                            <div className="bg-blue-50 dark:bg-blue-950 border-l-4 border-blue-500 p-4 mb-6 rounded-r-lg">
-                              <h2 className="text-xl font-bold text-blue-900 dark:text-blue-100">
-                                📄 {sheetName}
-                              </h2>
-                            </div>
-                          )}
-                          
-                          {/* Chapters in this sheet */}
-                          {chaptersInSheet.map((chapterWithArticles) => (
+                      // Display all chapters in this tab
+                      // Articles within each chapter will be grouped by sheet
+                      return chaptersForTab.map((chapterWithArticles) => {
+                        // Group articles by sheet name for multi-sheet separators within each chapter
+                        const articlesBySheet = new Map<string, typeof chapterWithArticles.articles>();
+                        chapterWithArticles.articles.forEach((article) => {
+                          const sheetName = article.sheet_name || 'Unknown';
+                          if (!articlesBySheet.has(sheetName)) {
+                            articlesBySheet.set(sheetName, []);
+                          }
+                          articlesBySheet.get(sheetName)!.push(article);
+                        });
+                        
+                        return (
                             <Collapsible key={chapterWithArticles.chapter.id} defaultOpen={false} className="border rounded-lg overflow-hidden mb-6">
                               <div className="bg-muted">
                                 <div className="flex items-center justify-between p-4">
@@ -2595,9 +2585,22 @@ const MapaQuantidades = () => {
                               </div>
                               
                               <CollapsibleContent>
-                                {/* Articles displayed inline with collapsible feature */}
-                                <div className="p-4 space-y-4">
-                                  {chapterWithArticles.articles.map((article) => {
+                                {/* Articles displayed inline with collapsible feature, grouped by sheet */}
+                                <div className="p-4 space-y-6">
+                                  {Array.from(articlesBySheet.entries()).map(([sheetName, articlesInSheet]) => (
+                                    <div key={sheetName}>
+                                      {/* Sheet separator - only show if there are multiple sheets */}
+                                      {articlesBySheet.size > 1 && (
+                                        <div className="bg-blue-50 dark:bg-blue-950 border-l-4 border-blue-500 p-3 mb-4 rounded-r-lg">
+                                          <h4 className="text-sm font-bold text-blue-900 dark:text-blue-100">
+                                            📄 {sheetName}
+                                          </h4>
+                                        </div>
+                                      )}
+                                      
+                                      {/* Articles from this sheet */}
+                                      <div className="space-y-4">
+                                        {articlesInSheet.map((article) => {
                                     const isCollapsed = collapsedArticles.has(article.id);
                                     
                                     // Check if the article has UN and QT by checking if first item has same artigo as article
@@ -2720,14 +2723,16 @@ const MapaQuantidades = () => {
                                       </div>
                                     );
                                   })}
+                                      </div>
+                                    </div>
+                                  ))}
                                 </div>
                               </CollapsibleContent>
                             </Collapsible>
-                          ))}
-                        </div>
-                      ));
-                    })()}
-                  </TabsContent>
+                          );
+                        });
+                      })()}
+                    </TabsContent>
                 ))}
               </Tabs>
             </div>
