@@ -577,8 +577,8 @@ const MapaQuantidades = () => {
       // For single-sheet files, create 3 default tabs: Principal, Arquitetura, Instalações Especiais
       // For multi-sheet files, create tabs from sheet names
       // Allow user to force single-sheet treatment via treatAsSingleSheet flag
-      // For article-based view, always create 3 tabs regardless of sheet count
-      const hasMultipleSheets = (articleBasedView || treatAsSingleSheet) ? false : workbook.SheetNames.length > 1;
+      // For article-based view with multiple sheets, create tabs for each sheet to maintain separator context
+      const hasMultipleSheets = treatAsSingleSheet ? false : workbook.SheetNames.length > 1;
       
       if (!hasMultipleSheets) {
         // Create 3 default tabs for single-sheet files
@@ -1145,46 +1145,9 @@ const MapaQuantidades = () => {
         chapter_comments: chapter.chapter_comments || null,
       }));
 
-      // MULTI-SHEET FIX: When article-based view is enabled and we have multiple sheets
-      // with the same chapter numbers, we need to deduplicate chapters to avoid
-      // unique constraint violations on (tab_id, chapter_number)
-      let uniqueChaptersWithTabIds = chaptersWithTabIds;
-      if (articleBasedView && workbook.SheetNames.length > 1) {
-        // Create a map to track unique (tab_id, chapter_number) combinations
-        const seenChapterKeys = new Map<string, number>();
-        const deduplicatedChapters: typeof chaptersWithTabIds = [];
-        
-        chaptersWithTabIds.forEach((chapter, index) => {
-          const key = `${chapter.tab_id}_${chapter.chapter_number}`;
-          
-          if (!seenChapterKeys.has(key)) {
-            // First occurrence of this chapter in this tab - keep it
-            seenChapterKeys.set(key, index);
-            deduplicatedChapters.push(chapter);
-          } else {
-            // Duplicate chapter found - merge comments if they exist
-            const firstIndex = seenChapterKeys.get(key)!;
-            const firstChapter = deduplicatedChapters.find(c => 
-              c.tab_id === chapter.tab_id && c.chapter_number === chapter.chapter_number
-            );
-            
-            if (firstChapter && chapter.chapter_comments) {
-              // Merge comments from duplicate chapter
-              if (firstChapter.chapter_comments) {
-                firstChapter.chapter_comments += '\n' + chapter.chapter_comments;
-              } else {
-                firstChapter.chapter_comments = chapter.chapter_comments;
-              }
-            }
-          }
-        });
-        
-        uniqueChaptersWithTabIds = deduplicatedChapters;
-        
-        if (deduplicatedChapters.length < chaptersWithTabIds.length) {
-          console.log(`Multi-sheet deduplication: ${chaptersWithTabIds.length} chapters reduced to ${deduplicatedChapters.length} unique chapters`);
-        }
-      }
+      // Note: Chapter deduplication is no longer needed since we maintain separate tabs
+      // for each sheet, even in article-based view. Each sheet's chapters are kept separate.
+      const uniqueChaptersWithTabIds = chaptersWithTabIds;
 
       // Insert chapters into database
       if (uniqueChaptersWithTabIds.length > 0) {
@@ -1200,32 +1163,17 @@ const MapaQuantidades = () => {
         console.log("Successfully inserted", insertedChapters?.length || 0, "chapters");
         
         // Create a map of (sheet_name + chapter_number) to chapter IDs
-        // For article-based view with multiple sheets, we need to handle deduplication
+        // Each sheet maintains its own chapters, so we map using sheet_name + chapter_number
         const chapterMap = new Map<string, string>();
         
-        if (articleBasedView && workbook.SheetNames.length > 1) {
-          // For deduplicated chapters, map all original sheets to the same chapter ID
-          insertedChapters.forEach((chapter) => {
-            // Find all original chapters that match this tab_id and chapter_number
-            chaptersToInsert.forEach((originalChapter) => {
-              const originalTabId = sheetNameToTabId.get(originalChapter.sheet_name!);
-              if (originalTabId === chapter.tab_id && originalChapter.chapter_number === chapter.chapter_number) {
-                const key = `${originalChapter.sheet_name}_${chapter.chapter_number}`;
-                chapterMap.set(key, chapter.id);
-              }
-            });
-          });
-        } else {
-          // Original logic for non-deduplicated case
-          // The insertedChapters array should be in the same order as uniqueChaptersWithTabIds
-          insertedChapters.forEach((chapter, index) => {
-            const originalChapter = chaptersToInsert[index];
-            if (originalChapter && originalChapter.sheet_name) {
-              const key = `${originalChapter.sheet_name}_${chapter.chapter_number}`;
-              chapterMap.set(key, chapter.id);
-            }
-          });
-        }
+        // The insertedChapters array should be in the same order as uniqueChaptersWithTabIds
+        insertedChapters.forEach((chapter, index) => {
+          const originalChapter = chaptersToInsert[index];
+          if (originalChapter && originalChapter.sheet_name) {
+            const key = `${originalChapter.sheet_name}_${chapter.chapter_number}`;
+            chapterMap.set(key, chapter.id);
+          }
+        });
         
         // Update items with chapter IDs
         const itemsWithChapterIds = itemsToInsert.map(item => {
