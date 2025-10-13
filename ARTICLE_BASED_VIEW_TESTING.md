@@ -23,8 +23,8 @@
 ```
 
 **Expected Result:**
-- 3 tabs created: Principal, Arquitetura, Instalações Especiais
-- Under "Principal" tab:
+- One tab created with the sheet name (e.g., "Sheet1")
+- Under the tab:
   - Chapter "1. Trabalhos Preliminares" with 2 article pages
   - Chapter "2. Fundações" with 1 article page
 - Article "1.1" contains:
@@ -57,9 +57,10 @@ Create an Excel file with 3 sheets:
 - Sheet3: Contains chapter 3 with articles
 
 **Expected Result:**
-- All sheets are processed
-- All chapters appear in the "Principal" tab
-- Articles from all sheets are accessible
+- 3 tabs created: "Sheet1", "Sheet2", "Sheet3"
+- Each sheet's chapters appear in their respective tab
+- Each tab contains only the chapters and articles from that specific sheet
+- Articles from all sheets are accessible via their respective tabs
 
 **Steps:**
 1. Upload multi-sheet Excel file
@@ -234,7 +235,8 @@ Include special characters, line breaks, and formatting:
    - Verify toggle state is independent of "Treat as single sheet"
 
 4. **Tab Behavior:**
-   - Verify 3 tabs always created in article-based view
+   - Verify tabs are created for each Excel sheet (one tab per sheet)
+   - Verify tab names match sheet names
    - Verify tab switching works correctly
    - Verify correct chapters appear in each tab
 

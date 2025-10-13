@@ -577,8 +577,8 @@ const MapaQuantidades = () => {
       // For single-sheet files, create 3 default tabs: Principal, Arquitetura, Instalações Especiais
       // For multi-sheet files, create tabs from sheet names
       // Allow user to force single-sheet treatment via treatAsSingleSheet flag
-      // For article-based view, always create 3 tabs regardless of sheet count
-      const hasMultipleSheets = (articleBasedView || treatAsSingleSheet) ? false : workbook.SheetNames.length > 1;
+      // For article-based view, create one tab per sheet (using sheet names)
+      const hasMultipleSheets = treatAsSingleSheet ? false : (articleBasedView || workbook.SheetNames.length > 1);
       
       if (!hasMultipleSheets) {
         // Create 3 default tabs for single-sheet files
@@ -1152,7 +1152,7 @@ const MapaQuantidades = () => {
         // Create a map of sheet names to tab IDs
         // For single-sheet files, map the single sheet to "Principal" tab
         // For multi-sheet files, map each sheet to its corresponding tab
-        // For article-based view, map ALL sheets to "Principal" tab
+        // For article-based view, map each sheet to its corresponding tab (one tab per sheet)
         if (hasMultipleSheets) {
           insertedTabs.forEach(tab => {
             sheetNameToTabId.set(tab.name, tab.id);
@@ -2503,8 +2503,8 @@ const MapaQuantidades = () => {
                       // Display chapters grouped by sheet
                       return Array.from(chaptersBySheet.entries()).map(([sheetName, chaptersInSheet]) => (
                         <div key={sheetName}>
-                          {/* Sheet separator - only show if there are multiple sheets */}
-                          {chaptersBySheet.size > 1 && (
+                          {/* Sheet separator - only show if there are multiple sheets in the same tab (not in article-based view) */}
+                          {chaptersBySheet.size > 1 && !isArticleBasedViewActive && (
                             <div className="bg-blue-50 dark:bg-blue-950 border-l-4 border-blue-500 p-4 mb-6 rounded-r-lg">
                               <h2 className="text-xl font-bold text-blue-900 dark:text-blue-100">
                                 📄 {sheetName}

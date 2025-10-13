@@ -30,7 +30,7 @@
 │ Mapa de Quantidades                                            [Back]       │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                              │
-│ [Principal] [Arquitetura] [Instalações Especiais]    ← Tabs                │
+│ [Sheet1] [Sheet2] [Sheet3]    ← Tabs (one per Excel sheet)                 │
 │                                                                              │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                              │
@@ -67,7 +67,7 @@
 ```
 
 **Key Elements:**
-- **Tabs**: 3 tabs always created (Principal, Arquitetura, Instalações Especiais)
+- **Tabs**: One tab per Excel sheet (tab names match sheet names)
 - **Chapter Boxes**: Each chapter is a separate box with header
 - **Article Page Grid**: Articles displayed as clickable boxes, 4 per row
 - **Responsive**: Adjusts to 1-4 columns based on screen size
@@ -153,7 +153,7 @@
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│ [Principal] [Arquitetura] [Instalações Especiais]                   │
+│ [Sheet1] [Sheet2] [Sheet3] ← One tab per Excel sheet                │
 ├─────────────────────────────────────────────────────────────────────┤
 │                                                                      │
 │ 1. Trabalhos Preliminares                                           │
@@ -216,7 +216,7 @@
 ```
 [ ] Treat as single sheet    [✓] Article-based view
 ```
-- Always creates 3 default tabs (regardless of sheet count)
+- Creates one tab per Excel sheet (using sheet names)
 - View: Article-based page view
 - Captures all content between articles
 
@@ -224,8 +224,8 @@
 ```
 [✓] Treat as single sheet    [✓] Article-based view
 ```
-- Same as article-based only
-- Single-sheet toggle is redundant when article-based is on
+- Creates one tab per Excel sheet (using sheet names)
+- "Treat as single sheet" toggle doesn't affect behavior when article-based is on
 
 ## Color Scheme (Using Tailwind Classes)
 
