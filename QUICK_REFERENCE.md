@@ -1,146 +1,51 @@
-# Contact Management Update - Quick Reference
+# Quick Reference: Sheet Separator Update
 
-## 🚀 Quick Start
+## What Changed?
 
-### 1️⃣ Run Database Migration First
-```sql
-ALTER TABLE people RENAME COLUMN middle_name TO last_name;
+Sheet separators in article-based view now **always appear** in the Principal tab, for both single-sheet and multi-sheet Excel files.
+
+## Visual Example
+
 ```
-👉 See [MIGRATION_INSTRUCTIONS.md](MIGRATION_INSTRUCTIONS.md) for details
+Principal Tab (Article-Based View):
 
-### 2️⃣ Deploy Code
-Deploy the updated application after migration is complete.
+┌─────────────────────────────────────────────────┐
+│ 📄 Sheet1                                        │ <- Always shown now
+└─────────────────────────────────────────────────┘
 
-### 3️⃣ Test
-Follow [TESTING_GUIDE.md](TESTING_GUIDE.md) checklist.
-
----
-
-## 📋 What Changed?
-
-### Contacts Page
-```
-Before:                          After:
-┌─────────────────┐             ┌─────────────────┐
-│ Search          │             │ Search  [Export]│
-│                 │             │ [All][Person][Co]│ ← Filter buttons
-├─────────────────┤             ├─────────────────┤
-│ Owner   Email   │             │ Name   Company  │ ← Company column
-│ ↑               │             │ Email   Mobile  │
-│ Click row       │             │ [👁] [✏] [🗑]  │ ← Eye icon
-│ to view         │             │                 │
-└─────────────────┘             └─────────────────┘
+▼ 1. Chapter Name
+  └─ 1.1 - Article Title
+      └─ Items...
 ```
 
-### Add Contact Form
-```
-Before:                          After:
-┌─────────────────┐             ┌─────────────────┐
-│ ○ Person        │             │ ○ Person        │
-│ Select Person   │             │ [Select][Create]│ ← New toggle
-│ ○ Company       │             │                 │
-│                 │             │ When "Create":  │
-│ Email           │             │ • First Name *  │ ← New fields
-│ Country: +1     │             │ • Last Name     │
-│ Mobile          │             │ • Company       │
-│ Website         │             │                 │
-│ Address         │             │ Email           │
-└─────────────────┘             │ Country: +351   │ ← Default PT
-                                │ Mobile          │
-                                │ Website         │
-                                │ Address         │
-                                └─────────────────┘
-```
+## Key Points
 
-### Sidebar
-```
-Before:              After:
-• Dashboard          • Dashboard
-• Companies          • Companies
-• Specialities       • Specialities
-• Main Specialties   • Main Specialties
-• Brands             • Brands
-• Locations          • Locations
-• People       ←     ✗ Removed
-• Contacts           • Contacts
-```
+1. ✅ **3 fixed tabs maintained**: Principal, Arquitetura, Instalações Especiais
+2. ✅ **All sheets in Principal tab**: No more per-sheet tabs in article-based view
+3. ✅ **One separator per sheet**: Each sheet gets its own separator with name
+4. ✅ **Works with any number of sheets**: 1 sheet, 2 sheets, or 10 sheets - all show separators
 
----
+## Code Change
 
-## 🔑 Key Features
+**File**: `src/pages/MapaQuantidades.tsx`  
+**Line**: 2507  
+**Change**: From `chaptersBySheet.size > 1` to `tab.name === "Principal"`
 
-| Feature | Description |
-|---------|-------------|
-| **Filters** | All / Person / Company buttons |
-| **Export** | Excel export with formatting |
-| **Eye Icon** | View-only mode, no edit |
-| **Create Person** | Add people directly in contact form |
-| **Last Name** | Changed from Middle Name |
-| **PT Default** | +351 country code |
+## Testing
 
----
+1. Enable "Article-based view" toggle
+2. Analyze any Excel file (1+ sheets)
+3. Check Principal tab → You'll see separators for each sheet
+4. Check other tabs → No separators (as expected)
 
-## 📖 Full Documentation
+## Documentation
 
-- **[MIGRATION_INSTRUCTIONS.md](MIGRATION_INSTRUCTIONS.md)** - Database setup
-- **[CONTACTS_UPDATE_SUMMARY.md](CONTACTS_UPDATE_SUMMARY.md)** - Detailed changes
-- **[TESTING_GUIDE.md](TESTING_GUIDE.md)** - Complete test checklist
+- `TASK_COMPLETE_SHEET_SEPARATORS.md` - Complete details
+- `SHEET_SEPARATOR_UPDATE.md` - Technical explanation
+- `VISUAL_COMPARISON_SEPARATOR.txt` - Before/after visual
+- `ARTICLE_VIEW_ENHANCEMENTS.md` - Updated feature docs
+- `ENHANCEMENTS_README.md` - Updated testing guide
 
----
+## Questions?
 
-## ❓ Common Questions
-
-**Q: Do I lose any data?**  
-A: No, the migration only renames a column. All data is preserved.
-
-**Q: Can I still access the People page?**  
-A: Yes, via direct URL `/people`, but it's removed from the sidebar.
-
-**Q: What if the migration fails?**  
-A: See rollback instructions in [MIGRATION_INSTRUCTIONS.md](MIGRATION_INSTRUCTIONS.md)
-
-**Q: Does this work in Portuguese?**  
-A: Yes, all text is fully translated to Portuguese.
-
-**Q: Can I create companies through contacts?**  
-A: No, only people. Companies must be created on the Companies page.
-
----
-
-## 🐛 Troubleshooting
-
-| Issue | Solution |
-|-------|----------|
-| "middle_name not found" | Run database migration |
-| Country code not +351 | Clear cache, reload page |
-| Export fails | Check console for errors |
-| Person creation fails | Ensure First Name is filled |
-
----
-
-## ✅ Checklist for Go-Live
-
-- [ ] Database migration executed and verified
-- [ ] Code deployed to production
-- [ ] Test contact creation (person + company)
-- [ ] Test filters (All/Person/Company)
-- [ ] Test Excel export
-- [ ] Verify translations (EN + PT)
-- [ ] Check sidebar (no People menu)
-- [ ] Test on mobile devices
-
----
-
-## 📞 Support
-
-For issues or questions:
-1. Check [TESTING_GUIDE.md](TESTING_GUIDE.md) troubleshooting section
-2. Review browser console for errors
-3. Verify database migration completed
-4. Check Supabase logs
-
----
-
-**Version**: 1.0.0  
-**Last Updated**: {{ current_date }}  
-**Status**: ✅ Ready for Production
+All documentation is in the repository root directory.
