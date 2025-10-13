@@ -87,6 +87,7 @@ type OrcamentoChapter = {
   chapter_number: string;
   chapter_name: string;
   chapter_comments: string | null;
+  sheet_name?: string | null; // Track original sheet name
 };
 
 type OrcamentoItem = {
@@ -573,42 +574,27 @@ const MapaQuantidades = () => {
         }>;
       }> = [];
 
-      // Process each sheet and create tabs
-      // For single-sheet files, create 3 default tabs: Principal, Arquitetura, Instalações Especiais
-      // For multi-sheet files, create tabs from sheet names
-      // Allow user to force single-sheet treatment via treatAsSingleSheet flag
-      // For article-based view with multiple sheets, create tabs for each sheet to maintain separator context
-      const hasMultipleSheets = treatAsSingleSheet ? false : workbook.SheetNames.length > 1;
-      
-      if (!hasMultipleSheets) {
-        // Create 3 default tabs for single-sheet files
-        tabsToInsert.push(
-          {
-            orcamento_id: id!,
-            name: "Principal",
-            display_order: 0,
-          },
-          {
-            orcamento_id: id!,
-            name: "Arquitetura",
-            display_order: 1,
-          },
-          {
-            orcamento_id: id!,
-            name: "Instalações Especiais",
-            display_order: 2,
-          }
-        );
-      }
+      // Always create 3 fixed tabs: Principal, Arquitetura, Instalações Especiais
+      // All sheets will be mapped to the Principal tab and displayed with separators
+      tabsToInsert.push(
+        {
+          orcamento_id: id!,
+          name: "Principal",
+          display_order: 0,
+        },
+        {
+          orcamento_id: id!,
+          name: "Arquitetura",
+          display_order: 1,
+        },
+        {
+          orcamento_id: id!,
+          name: "Instalações Especiais",
+          display_order: 2,
+        }
+      );
       
       workbook.SheetNames.forEach((sheetName, index) => {
-        if (hasMultipleSheets) {
-          tabsToInsert.push({
-            orcamento_id: id!,
-            name: sheetName,
-            display_order: index,
-          });
-        }
         
         const worksheet = workbook.Sheets[sheetName];
         const jsonData = XLSX.utils.sheet_to_json<unknown[]>(worksheet, { header: 1 });
@@ -1118,31 +1104,22 @@ const MapaQuantidades = () => {
         insertedTabs = data || [];
         console.log("Successfully inserted", insertedTabs.length, "tabs");
         
-        // Create a map of sheet names to tab IDs
-        // For single-sheet files, map the single sheet to "Principal" tab
-        // For multi-sheet files, map each sheet to its corresponding tab
-        // For article-based view, map ALL sheets to "Principal" tab
-        if (hasMultipleSheets) {
-          insertedTabs.forEach(tab => {
-            sheetNameToTabId.set(tab.name, tab.id);
+        // Map all sheets to the "Principal" tab
+        const principalTab = insertedTabs.find(tab => tab.name === "Principal");
+        if (principalTab) {
+          workbook.SheetNames.forEach(sheetName => {
+            sheetNameToTabId.set(sheetName, principalTab.id);
           });
-        } else {
-          // Map all sheets to the "Principal" tab
-          const principalTab = insertedTabs.find(tab => tab.name === "Principal");
-          if (principalTab) {
-            workbook.SheetNames.forEach(sheetName => {
-              sheetNameToTabId.set(sheetName, principalTab.id);
-            });
-          }
         }
       }
       
-      // Update chapters with tab IDs
+      // Update chapters with tab IDs and sheet names
       const chaptersWithTabIds = chaptersToInsert.map(chapter => ({
         tab_id: sheetNameToTabId.get(chapter.sheet_name!) || null,
         chapter_number: chapter.chapter_number,
         chapter_name: chapter.chapter_name,
         chapter_comments: chapter.chapter_comments || null,
+        sheet_name: chapter.sheet_name, // Store sheet name for separators
       }));
 
       // Note: Chapter deduplication is no longer needed since we maintain separate tabs
@@ -1908,7 +1885,39 @@ const MapaQuantidades = () => {
               </TabsList>
               {tabs.map((tab) => (
                 <TabsContent key={tab.id} value={tab.id} className="space-y-6">
-                  {chaptersByTab[tab.id]?.map((chapter) => (
+                  {(() => {
+                    const chaptersForTab = chaptersByTab[tab.id] || [];
+                    
+                    // Group chapters by sheet name for multi-sheet separators
+                    const chaptersBySheet = new Map<string, typeof chaptersForTab>();
+                    const sheetOrder: string[] = [];
+                    
+                    chaptersForTab.forEach((chapter) => {
+                      const sheetName = chapter.sheet_name || 'Unknown';
+                      if (!chaptersBySheet.has(sheetName)) {
+                        chaptersBySheet.set(sheetName, []);
+                        sheetOrder.push(sheetName);
+                      }
+                      chaptersBySheet.get(sheetName)!.push(chapter);
+                    });
+                    
+                    // Display chapters grouped by sheet
+                    return sheetOrder.map((sheetName) => {
+                      const chaptersInSheet = chaptersBySheet.get(sheetName)!;
+                      
+                      return (
+                        <div key={sheetName}>
+                          {/* Sheet separator - only show if there are multiple sheets */}
+                          {chaptersBySheet.size > 1 && (
+                            <div className="bg-blue-50 dark:bg-blue-950 border-l-4 border-blue-500 p-4 mb-6 rounded-r-lg">
+                              <h2 className="text-xl font-bold text-blue-900 dark:text-blue-100">
+                                📄 {sheetName}
+                              </h2>
+                            </div>
+                          )}
+                          
+                          {/* Chapters in this sheet */}
+                          {chaptersInSheet.map((chapter) => (
                     <Collapsible key={chapter.id} defaultOpen={false} className="border rounded-lg overflow-hidden">
                       <div className="bg-muted">
                         <div className="flex items-center gap-2 p-4">
@@ -2172,6 +2181,10 @@ const MapaQuantidades = () => {
                       </CollapsibleContent>
                     </Collapsible>
                   ))}
+                        </div>
+                      );
+                    });
+                  })()}
                 </TabsContent>
               ))}
             </Tabs>
