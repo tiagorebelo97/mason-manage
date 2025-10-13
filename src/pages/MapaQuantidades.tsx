@@ -309,19 +309,56 @@ const MapaQuantidades = () => {
         try {
           const articlesData = JSON.parse(storedArticles);
           
-          // Group articles by chapter
+          // Group articles by composite key: sheet_name + chapter_number
+          // This ensures articles from different sheets with same chapter numbers don't get mixed
           const groupedByChapter = new Map<string, typeof articlesData>();
           articlesData.forEach((article: typeof articlesData[0]) => {
-            if (!groupedByChapter.has(article.chapter_number)) {
-              groupedByChapter.set(article.chapter_number, []);
+            const key = `${article.sheet_name}_${article.chapter_number}`;
+            if (!groupedByChapter.has(key)) {
+              groupedByChapter.set(key, []);
             }
-            groupedByChapter.get(article.chapter_number)!.push(article);
+            groupedByChapter.get(key)!.push(article);
+          });
+          
+          // Create a map of chapter IDs to their sheet names by tracking insertion order
+          // Since we can't get sheet_name from database, we need to reconstruct it from articlesData
+          const chapterIdToSheetName = new Map<string, string>();
+          const chapterNumberToSheetNames = new Map<string, Set<string>>();
+          
+          // First, collect all unique sheet names for each chapter number from articles
+          articlesData.forEach((article: typeof articlesData[0]) => {
+            if (!chapterNumberToSheetNames.has(article.chapter_number)) {
+              chapterNumberToSheetNames.set(article.chapter_number, new Set());
+            }
+            chapterNumberToSheetNames.get(article.chapter_number)!.add(article.sheet_name);
+          });
+          
+          // Now match chapters to sheet names based on the order
+          // Group chapters by chapter_number to handle duplicates
+          const chaptersByNumber = new Map<string, typeof chapters>();
+          chapters.forEach(chapter => {
+            if (!chaptersByNumber.has(chapter.chapter_number)) {
+              chaptersByNumber.set(chapter.chapter_number, []);
+            }
+            chaptersByNumber.get(chapter.chapter_number)!.push(chapter);
+          });
+          
+          // Match each chapter to its sheet name
+          chaptersByNumber.forEach((chaptersWithSameNumber, chapterNumber) => {
+            const sheetNamesForThisChapter = Array.from(chapterNumberToSheetNames.get(chapterNumber) || []);
+            chaptersWithSameNumber.forEach((chapter, index) => {
+              // Assign sheet names in order - if we have more chapters than sheet names, reuse the last one
+              const sheetName = sheetNamesForThisChapter[Math.min(index, sheetNamesForThisChapter.length - 1)];
+              chapterIdToSheetName.set(chapter.id, sheetName);
+            });
           });
           
           // Create ChapterWithArticles structure
           const chaptersWithArticlesData: ChapterWithArticles[] = [];
           chapters.forEach((chapter) => {
-            const articlesForChapter = groupedByChapter.get(chapter.chapter_number) || [];
+            const sheetName = chapterIdToSheetName.get(chapter.id);
+            const key = `${sheetName}_${chapter.chapter_number}`;
+            const articlesForChapter = groupedByChapter.get(key) || [];
             if (articlesForChapter.length > 0) {
               chaptersWithArticlesData.push({
                 chapter,
@@ -1330,10 +1367,11 @@ const MapaQuantidades = () => {
       
       // Process article-based view data
       if (data && data.articleBasedView && data.articlesData) {
-        // Group articles by chapter
+        // Group articles by composite key: sheet_name + chapter_number
+        // This ensures articles from different sheets with same chapter numbers don't get mixed
         const groupedArticles = new Map<string, typeof data.articlesData>();
         data.articlesData.forEach((article: typeof data.articlesData[0]) => {
-          const key = article.chapter_number;
+          const key = `${article.sheet_name}_${article.chapter_number}`;
           if (!groupedArticles.has(key)) {
             groupedArticles.set(key, []);
           }
