@@ -341,7 +341,7 @@ const MapaQuantidades = () => {
                 chaptersWithArticlesData.push({
                   chapter,
                   articles: articlesForChapter.map((articleData: typeof articlesData[0]) => ({
-                    id: `${chapter.id}_${articleData.artigo}`,
+                    id: articleData.id, // Use the unique ID generated during analysis
                     chapter_id: chapter.id,
                     artigo: articleData.artigo,
                     title: articleData.title,
@@ -573,6 +573,7 @@ const MapaQuantidades = () => {
       
       // Article-based view data structure
       const articlesData: Array<{
+        id: string; // Unique ID for each article row
         sheet_name: string;
         chapter_number: string;
         artigo: string;
@@ -802,6 +803,7 @@ const MapaQuantidades = () => {
                 // Article-based view: save previous article if exists
                 if (articleBasedView && currentArticleArtigo && currentChapterNumber) {
                   articlesData.push({
+                    id: crypto.randomUUID(), // Generate unique ID for this article
                     sheet_name: sheetName,
                     chapter_number: currentChapterNumber,
                     artigo: currentArticleArtigo,
@@ -840,6 +842,7 @@ const MapaQuantidades = () => {
               // Save previous article if exists
               if (currentArticleArtigo && currentChapterNumber) {
                 articlesData.push({
+                  id: crypto.randomUUID(), // Generate unique ID for this article
                   sheet_name: sheetName,
                   chapter_number: currentChapterNumber,
                   artigo: currentArticleArtigo,
@@ -1133,6 +1136,7 @@ const MapaQuantidades = () => {
           // Article-based view: save the last article if exists
           if (articleBasedView && currentArticleArtigo && currentChapterNumber) {
             articlesData.push({
+              id: crypto.randomUUID(), // Generate unique ID for this article
               sheet_name: sheetName,
               chapter_number: currentChapterNumber,
               artigo: currentArticleArtigo,
