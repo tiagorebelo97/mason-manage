@@ -43,16 +43,16 @@ ALTER TABLE orcamento_chapters ADD CONSTRAINT
   UNIQUE(tab_id, chapter_number);
 ```
 
-### Article-Based View Behavior
-- When article-based view is enabled, all sheets are mapped to "Principal" tab
-- This is by design to show all articles together in one view
+### Article-Based View and Single-Sheet Mode Behavior
+- When article-based view OR treatAsSingleSheet is enabled, all sheets are mapped to "Principal" tab
+- This is by design to show all content together in one view
 - However, this means all chapters from all sheets have the SAME `tab_id`
 - If two sheets have the same chapter number, the unique constraint is violated
 
 ## Solution
 
 ### Approach
-Prefix the chapter_number with the sheet name when in article-based view with multiple sheets. This ensures uniqueness in the database while maintaining correct item-to-chapter mapping.
+Prefix the chapter_number with the sheet name when in article-based view OR treatAsSingleSheet mode with multiple sheets. This ensures uniqueness in the database while maintaining correct item-to-chapter mapping.
 
 ### Implementation Details
 
@@ -61,9 +61,10 @@ Prefix the chapter_number with the sheet name when in article-based view with mu
 **Lines:** ~827-836
 
 ```typescript
-// In article-based view with multiple sheets, prefix chapter number with sheet name
-// to ensure uniqueness in the database (unique constraint on tab_id + chapter_number)
-const chapterNumberForDB = (articleBasedView && workbook.SheetNames.length > 1) 
+// In article-based view or treatAsSingleSheet mode with multiple sheets, 
+// prefix chapter number with sheet name to ensure uniqueness in the database 
+// (unique constraint on tab_id + chapter_number)
+const chapterNumberForDB = ((articleBasedView || treatAsSingleSheet) && workbook.SheetNames.length > 1) 
   ? `${sheetName}_${artigoCell}`
   : artigoCell;
 
@@ -94,8 +95,9 @@ insertedChapters.forEach((chapter, index) => {
   const originalChapter = chaptersToInsert[index];
   if (originalChapter && originalChapter.sheet_name) {
     // Extract the original chapter number (without prefix)
-    // In article-based view with multiple sheets, chapter_number in DB is "SheetName_OriginalNumber"
-    const originalChapterNumber = (articleBasedView && workbook.SheetNames.length > 1)
+    // In article-based view or treatAsSingleSheet mode with multiple sheets, 
+    // chapter_number in DB is "SheetName_OriginalNumber"
+    const originalChapterNumber = ((articleBasedView || treatAsSingleSheet) && workbook.SheetNames.length > 1)
       ? chapter.chapter_number.replace(`${originalChapter.sheet_name}_`, '')
       : chapter.chapter_number;
     
@@ -119,7 +121,7 @@ Fixed three locations where chapter comments are saved. The issue was that `last
 
 ```typescript
 // Extract original chapter number for comparison (may be prefixed in DB)
-const lastChapterOriginalNumber = (articleBasedView && workbook.SheetNames.length > 1 && lastChapter?.chapter_number)
+const lastChapterOriginalNumber = ((articleBasedView || treatAsSingleSheet) && workbook.SheetNames.length > 1 && lastChapter?.chapter_number)
   ? lastChapter.chapter_number.replace(`${sheetName}_`, '')
   : lastChapter?.chapter_number;
 
@@ -208,10 +210,11 @@ if (lastChapter && lastChapterOriginalNumber === currentChapterNumber) {
 - All items linked correctly
 - Analysis succeeds (NO ERROR!)
 
-### Test Case 4: Non-Article-Based View (No Change)
+### Test Case 4: Non-Article-Based View, Non-Single-Sheet Mode (No Change)
 **Setup:**
 - Upload Excel file with 2 sheets
 - DO NOT enable article-based view
+- DO NOT enable treatAsSingleSheet
 - Both sheets have chapter "1"
 
 **Expected:**
@@ -220,11 +223,24 @@ if (lastChapter && lastChapterOriginalNumber === currentChapterNumber) {
 - No prefixing needed
 - Analysis succeeds (unchanged behavior)
 
+### Test Case 5: treatAsSingleSheet Mode with Duplicate Chapter Numbers
+**Setup:**
+- Upload Excel file with 2 sheets
+- Enable treatAsSingleSheet (but NOT article-based view)
+- Folha1 has chapters "1", "2"
+- Folha2 has chapters "1", "2" (DUPLICATES!)
+
+**Expected:**
+- 3 default tabs created (Principal, Arquitetura, Instalações Especiais)
+- Chapters stored as "Folha1_1", "Folha1_2", "Folha2_1", "Folha2_2"
+- All items linked correctly
+- Analysis succeeds (NO ERROR!)
+
 ## Benefits
 
-1. **Fixes the Error:** Multi-sheet files with duplicate chapter numbers no longer fail
-2. **Maintains Compatibility:** Single-sheet files and non-article-based view work exactly as before
-3. **Minimal Changes:** Only 4 sections of code modified, no database schema changes needed
+1. **Fixes the Error:** Multi-sheet files with duplicate chapter numbers no longer fail in article-based view OR treatAsSingleSheet mode
+2. **Maintains Compatibility:** Single-sheet files and standard multi-sheet view work exactly as before
+3. **Minimal Changes:** Only 5 sections of code modified, no database schema changes needed
 4. **Transparent to Users:** Users don't see the prefixed chapter numbers in the UI
 
 ## Technical Notes

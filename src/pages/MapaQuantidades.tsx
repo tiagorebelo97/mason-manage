@@ -819,7 +819,7 @@ const MapaQuantidades = () => {
                 if (currentChapterNumber && chapterComments.length > 0) {
                   const lastChapter = chaptersToInsert[chaptersToInsert.length - 1];
                   // Extract original chapter number for comparison (may be prefixed in DB)
-                  const lastChapterOriginalNumber = (articleBasedView && workbook.SheetNames.length > 1 && lastChapter?.chapter_number)
+                  const lastChapterOriginalNumber = ((articleBasedView || treatAsSingleSheet) && workbook.SheetNames.length > 1 && lastChapter?.chapter_number)
                     ? lastChapter.chapter_number.replace(`${sheetName}_`, '')
                     : lastChapter?.chapter_number;
                   
@@ -828,9 +828,10 @@ const MapaQuantidades = () => {
                   }
                 }
                 
-                // In article-based view with multiple sheets, prefix chapter number with sheet name
-                // to ensure uniqueness in the database (unique constraint on tab_id + chapter_number)
-                const chapterNumberForDB = (articleBasedView && workbook.SheetNames.length > 1) 
+                // In article-based view or treatAsSingleSheet mode with multiple sheets, 
+                // prefix chapter number with sheet name to ensure uniqueness in the database 
+                // (unique constraint on tab_id + chapter_number)
+                const chapterNumberForDB = ((articleBasedView || treatAsSingleSheet) && workbook.SheetNames.length > 1) 
                   ? `${sheetName}_${artigoCell}`
                   : artigoCell;
                 
@@ -1035,7 +1036,7 @@ const MapaQuantidades = () => {
                 if (chapterComments.length > 0) {
                   const lastChapter = chaptersToInsert[chaptersToInsert.length - 1];
                   // Extract original chapter number for comparison (may be prefixed in DB)
-                  const lastChapterOriginalNumber = (articleBasedView && workbook.SheetNames.length > 1 && lastChapter?.chapter_number)
+                  const lastChapterOriginalNumber = ((articleBasedView || treatAsSingleSheet) && workbook.SheetNames.length > 1 && lastChapter?.chapter_number)
                     ? lastChapter.chapter_number.replace(`${sheetName}_`, '')
                     : lastChapter?.chapter_number;
                   
@@ -1165,7 +1166,7 @@ const MapaQuantidades = () => {
           if (currentChapterNumber && chapterComments.length > 0) {
             const lastChapter = chaptersToInsert[chaptersToInsert.length - 1];
             // Extract original chapter number for comparison (may be prefixed in DB)
-            const lastChapterOriginalNumber = (articleBasedView && workbook.SheetNames.length > 1 && lastChapter?.chapter_number)
+            const lastChapterOriginalNumber = ((articleBasedView || treatAsSingleSheet) && workbook.SheetNames.length > 1 && lastChapter?.chapter_number)
               ? lastChapter.chapter_number.replace(`${sheetName}_`, '')
               : lastChapter?.chapter_number;
             
@@ -1236,7 +1237,8 @@ const MapaQuantidades = () => {
         
         // Create a map of (sheet_name + chapter_number) to chapter IDs
         // We need to use the original sheet_name from chaptersToInsert since it's not in the database
-        // For article-based view with multiple sheets, the chapter_number in DB is prefixed with sheet name
+        // For article-based view or treatAsSingleSheet mode with multiple sheets, 
+        // the chapter_number in DB is prefixed with sheet name
         // but we need to map using the original chapter number for item lookup
         const chapterMap = new Map<string, string>();
         insertedChapters.forEach((chapter, index) => {
@@ -1244,8 +1246,9 @@ const MapaQuantidades = () => {
           const originalChapter = chaptersToInsert[index];
           if (originalChapter && originalChapter.sheet_name) {
             // Extract the original chapter number (without prefix)
-            // In article-based view with multiple sheets, chapter_number in DB is "SheetName_OriginalNumber"
-            const originalChapterNumber = (articleBasedView && workbook.SheetNames.length > 1)
+            // In article-based view or treatAsSingleSheet mode with multiple sheets, 
+            // chapter_number in DB is "SheetName_OriginalNumber"
+            const originalChapterNumber = ((articleBasedView || treatAsSingleSheet) && workbook.SheetNames.length > 1)
               ? chapter.chapter_number.replace(`${originalChapter.sheet_name}_`, '')
               : chapter.chapter_number;
             
