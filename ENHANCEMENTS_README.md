@@ -9,9 +9,9 @@ This PR implements significant enhancements to the article-based view feature in
 All 6 requested features have been successfully implemented:
 
 ### 1. ✅ Sheet Name Separators
-**Problem**: Multi-sheet Excel files had no visual separation between sheets in the Principal tab.
+**Problem**: Excel files needed clear visual separation between sheets in the Principal tab.
 
-**Solution**: Added blue-themed separators with sheet names that appear automatically when analyzing files with 2+ sheets.
+**Solution**: Added blue-themed separators with sheet names that appear for each sheet in the Principal tab, regardless of sheet count.
 
 **Visual**: 
 ```
@@ -181,7 +181,8 @@ npm run lint
 2. Enable "Article-based view"
 3. Click "Analyze"
 4. **Verify**:
-   - No sheet separators (not needed)
+   - Sheet separator appears with the sheet name
+   - Content is organized under the separator
    - All other features work
    - Content displays normally
 
@@ -302,7 +303,7 @@ Potential improvements for future versions:
 - Original feature docs: `ARTICLE_BASED_VIEW_FEATURE.md`
 
 ### Key Features to Remember
-1. Sheet separators only appear for multi-sheet files
+1. Sheet separators appear in the Principal tab for all sheets
 2. Chapters default to expanded state
 3. Article collapse is independent of chapter collapse
 4. Move chapter only shows when 2+ tabs exist

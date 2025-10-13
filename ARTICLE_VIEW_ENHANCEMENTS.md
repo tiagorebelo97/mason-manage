@@ -8,12 +8,12 @@ This document describes the enhancements made to the article-based view feature 
 
 ### 1. Sheet Name Separators
 
-**Description**: When an Excel file has multiple sheets and article-based view is enabled, the system now displays sheet name separators in the Principal tab.
+**Description**: When article-based view is enabled, the system displays sheet name separators for each sheet in the Principal tab.
 
 **Visual Appearance**:
 - Blue-themed banner with left border
 - Shows sheet icon (📄) and sheet name
-- Only appears when there are multiple sheets
+- Always appears in the Principal tab to organize content by sheet
 
 **Example**:
 ```
@@ -151,16 +151,16 @@ const moveChapterMutation = useMutation({
 When analyzing a multi-sheet Excel file with article-based view enabled:
 
 1. All sheets are processed and mapped to the Principal tab
-2. Sheet separators are displayed to organize content
+2. Sheet separators are displayed for each sheet to organize content
 3. Each sheet's chapters and articles are grouped together
 4. Users can see at a glance which content came from which sheet
 
 ### Single-Sheet Excel Files
 
-When analyzing a single-sheet Excel file:
+When analyzing a single-sheet Excel file with article-based view enabled:
 
-1. No sheet separators are shown (not needed)
-2. Content flows naturally without extra visual breaks
+1. Sheet separator is shown with the sheet name for consistency
+2. Content is organized under the sheet separator
 3. All other features work identically
 
 ## Examples
