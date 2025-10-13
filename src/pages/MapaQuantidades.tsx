@@ -577,8 +577,8 @@ const MapaQuantidades = () => {
       // For single-sheet files, create 3 default tabs: Principal, Arquitetura, Instalações Especiais
       // For multi-sheet files, create tabs from sheet names
       // Allow user to force single-sheet treatment via treatAsSingleSheet flag
-      // For article-based view, create one tab per sheet (using sheet names)
-      const hasMultipleSheets = treatAsSingleSheet ? false : (articleBasedView || workbook.SheetNames.length > 1);
+      // For article-based view, always create 3 default tabs (all sheets go to Principal tab)
+      const hasMultipleSheets = (treatAsSingleSheet || articleBasedView) ? false : workbook.SheetNames.length > 1;
       
       if (!hasMultipleSheets) {
         // Create 3 default tabs for single-sheet files
@@ -1152,7 +1152,7 @@ const MapaQuantidades = () => {
         // Create a map of sheet names to tab IDs
         // For single-sheet files, map the single sheet to "Principal" tab
         // For multi-sheet files, map each sheet to its corresponding tab
-        // For article-based view, map each sheet to its corresponding tab (one tab per sheet)
+        // For article-based view, map ALL sheets to the "Principal" tab
         if (hasMultipleSheets) {
           insertedTabs.forEach(tab => {
             sheetNameToTabId.set(tab.name, tab.id);

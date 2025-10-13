@@ -7,7 +7,7 @@ This feature provides an alternative way to analyze and view Excel files by orga
 ## What is Article-Based View?
 
 Article-Based View is a specialized viewing mode that:
-1. Creates one tab per Excel sheet (using sheet names as tab names)
+1. Always creates 3 tabs: **Principal**, **Arquitetura**, and **Instalações Especiais**
 2. Groups content by chapters (pure numbers in ARTIGO column, e.g., "1", "2", "3")
 3. Creates "pages" for each article (rows with exactly ONE dot in ARTIGO, e.g., "1.1", "2.3")
 4. Captures ALL content between articles, including both text rows and item rows
