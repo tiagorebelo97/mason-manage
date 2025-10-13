@@ -1,206 +1,153 @@
-# PR Summary: Multi-Sheet Excel Article-Based View Fix
+# PR Summary: Article-Based View Multi-Sheet Fix
 
-## Problem Statement
+## Overview
+Fixed the article-based view to properly display multi-sheet Excel files with sheet separators showing which content came from which sheet.
 
-Users reported that multi-sheet Excel files could not be analyzed when using the article-based view feature. The analysis would fail with a "Failed to analyze file" error.
+## Problem Statement (Original)
+> "the multi sheet is still not working on the Article-based view, the logic about the sheets needs to be the same as the other view, in the other view you are making the connection between the sheet and the tab created, in this case you are going to use always the tab Principal, and instead of creating tabs with the sheet name, you are going to create separators or divisors with the each sheet name, inside of the tab Principal"
 
-## Investigation
+## Root Cause
+The database schema doesn't store `sheet_name` in `orcamento_chapters` table - chapters are deduplicated when they have the same number across different sheets. The previous implementation tried to group chapters by sheet, but each deduplicated chapter only had one sheet_name (from the first article), causing all chapters to appear under a single sheet separator.
 
-### Existing Code Analysis
+## Solution
+Modified the rendering logic in `src/pages/MapaQuantidades.tsx` (lines 2514-2733) to:
+1. Keep chapters deduplicated (no DB changes)
+2. Group **articles by sheet** within each chapter (instead of grouping chapters by sheet)
+3. Display sheet separators **inside** chapter collapsible content
+4. Only show separators when a chapter has articles from multiple sheets
 
-The codebase already had three documented fixes from a previous PR:
-1. ✅ Mapping all sheets to Principal tab (lines 1130-1136)
-2. ✅ Using original sheet names for chapter mapping (lines 1164-1171)
-3. ✅ Capturing article UN/QT values (lines 836-879)
+## Technical Changes
 
-However, these fixes were insufficient for handling multi-sheet files with **duplicate chapter numbers**.
-
-### Root Cause Discovery
-
-The database schema has a unique constraint on `(tab_id, chapter_number)` in the `orcamento_chapters` table:
-
-```sql
-ALTER TABLE orcamento_chapters 
-  ADD CONSTRAINT orcamento_chapters_tab_id_chapter_number_key 
-  UNIQUE(tab_id, chapter_number);
-```
-
-**Problem Flow:**
-1. Article-based view maps ALL sheets to the "Principal" tab
-2. If Sheet1 has chapter "1" AND Sheet2 also has chapter "1"
-3. Both try to insert as `(Principal, "1")` 
-4. ❌ **Unique constraint violation** → Analysis fails
-
-**Example:**
-```
-Sheet1: Chapter "1" → (Principal, "1")
-Sheet2: Chapter "1" → (Principal, "1")  ❌ DUPLICATE KEY ERROR
-```
-
-## Solution Implemented
-
-### Fix 1: Chapter Deduplication (Lines 1148-1187)
-
-Added logic to deduplicate chapters when article-based view is enabled with multiple sheets:
-
+### Before:
 ```typescript
-// MULTI-SHEET FIX: When article-based view is enabled and we have multiple sheets
-// with the same chapter numbers, we need to deduplicate chapters to avoid
-// unique constraint violations on (tab_id, chapter_number)
-let uniqueChaptersWithTabIds = chaptersWithTabIds;
-if (articleBasedView && workbook.SheetNames.length > 1) {
-  // Create a map to track unique (tab_id, chapter_number) combinations
-  const seenChapterKeys = new Map<string, number>();
-  const deduplicatedChapters: typeof chaptersWithTabIds = [];
-  
-  chaptersWithTabIds.forEach((chapter, index) => {
-    const key = `${chapter.tab_id}_${chapter.chapter_number}`;
-    
-    if (!seenChapterKeys.has(key)) {
-      // First occurrence of this chapter in this tab - keep it
-      seenChapterKeys.set(key, index);
-      deduplicatedChapters.push(chapter);
-    } else {
-      // Duplicate chapter found - merge comments if they exist
-      const firstChapter = deduplicatedChapters.find(c => 
-        c.tab_id === chapter.tab_id && c.chapter_number === chapter.chapter_number
-      );
-      
-      if (firstChapter && chapter.chapter_comments) {
-        // Merge comments from duplicate chapter
-        if (firstChapter.chapter_comments) {
-          firstChapter.chapter_comments += '\n' + chapter.chapter_comments;
-        } else {
-          firstChapter.chapter_comments = chapter.chapter_comments;
-        }
-      }
-    }
+// Group chapters by sheet name
+const chaptersBySheet = new Map<string, typeof chaptersForTab>();
+chaptersForTab.forEach((cwa) => {
+  const sheetName = cwa.sheet_name || 'Unknown';
+  chaptersBySheet.get(sheetName)!.push(cwa);
+});
+
+return Array.from(chaptersBySheet.entries()).map(([sheetName, chaptersInSheet]) => (
+  <div key={sheetName}>
+    {/* Sheet separator at chapter level */}
+    {chaptersBySheet.size > 1 && <div>📄 {sheetName}</div>}
+    {chaptersInSheet.map((chapterWithArticles) => (
+      <Collapsible>
+        {chapterWithArticles.articles.map(...)}
+      </Collapsible>
+    ))}
+  </div>
+));
+```
+
+### After:
+```typescript
+// Display all chapters, group articles by sheet within each
+return chaptersForTab.map((chapterWithArticles) => {
+  const articlesBySheet = new Map<string, typeof chapterWithArticles.articles>();
+  chapterWithArticles.articles.forEach((article) => {
+    const sheetName = article.sheet_name || 'Unknown';
+    articlesBySheet.get(sheetName)!.push(article);
   });
   
-  uniqueChaptersWithTabIds = deduplicatedChapters;
-  
-  if (deduplicatedChapters.length < chaptersWithTabIds.length) {
-    console.log(`Multi-sheet deduplication: ${chaptersWithTabIds.length} chapters reduced to ${deduplicatedChapters.length} unique chapters`);
-  }
-}
+  return (
+    <Collapsible>
+      <CollapsibleContent>
+        {Array.from(articlesBySheet.entries()).map(([sheetName, articlesInSheet]) => (
+          <div key={sheetName}>
+            {/* Sheet separator inside chapter */}
+            {articlesBySheet.size > 1 && <div>📄 {sheetName}</div>}
+            {articlesInSheet.map(...)}
+          </div>
+        ))}
+      </CollapsibleContent>
+    </Collapsible>
+  );
+});
 ```
 
-**Key Features:**
-- Tracks unique `(tab_id, chapter_number)` combinations
-- Keeps first occurrence of each unique chapter
-- Merges comments from duplicate chapters
-- Logs deduplication for debugging
+## Visual Impact
 
-### Fix 2: Corrected Chapter-to-Item Mapping (Lines 1206-1217)
-
-Updated the mapping logic to ensure items from ALL sheets can find their deduplicated parent chapter:
-
-```typescript
-if (articleBasedView && workbook.SheetNames.length > 1) {
-  // For deduplicated chapters, map all original sheets to the same chapter ID
-  insertedChapters.forEach((chapter) => {
-    // Find all original chapters that match this tab_id and chapter_number
-    chaptersToInsert.forEach((originalChapter) => {
-      const originalTabId = sheetNameToTabId.get(originalChapter.sheet_name!);
-      if (originalTabId === chapter.tab_id && originalChapter.chapter_number === chapter.chapter_number) {
-        const key = `${originalChapter.sheet_name}_${chapter.chapter_number}`;
-        chapterMap.set(key, chapter.id);
-      }
-    });
-  });
-}
+### Before (Broken):
+```
+📄 Sheet1  ← Only one separator
+┌─────────────────────┐
+│ ▼ Chapter 1         │
+│   • Article 1.1     │  ← All articles mixed together
+│   • Article 1.2     │
+│   • Article 1.3     │
+└─────────────────────┘
 ```
 
-**Key Features:**
-- Maps items from ALL original sheets to deduplicated chapters
-- Uses `(tab_id, chapter_number)` matching instead of array indices
-- Prevents orphaned items
-
-## Impact
-
-### Positive Outcomes
-✅ Multi-sheet Excel files now work with article-based view  
-✅ All items from all sheets correctly linked to their chapters  
-✅ Comments from duplicate chapters are preserved and merged  
-✅ No data loss  
-✅ Clear debugging logs  
-✅ No regressions in existing functionality  
-
-### Edge Cases Handled
-✅ Single-sheet files (no deduplication needed)  
-✅ Multi-sheet files without duplicate chapters (no deduplication needed)  
-✅ Multi-sheet files with duplicate chapters (deduplication applied)  
-✅ Chapters with comments from different sheets (comments merged)  
-
-## Testing
-
-### Build & Lint
-- ✅ TypeScript compilation successful
-- ✅ No linting errors
-- ✅ No warnings
-
-### Test Scenarios
-Comprehensive test scenarios documented in `MULTI_SHEET_ARTICLE_FIX_VERIFICATION.md`:
-
-1. **Multi-Sheet with Duplicate Chapters** - Primary fix target
-2. **Multi-Sheet with No Duplicate Chapters** - Verify no over-processing
-3. **Single-Sheet** - Regression test
-4. **Multi-Sheet with Chapter Comments** - Comment merging test
-
-### Console Debug Logs
-When deduplication occurs:
+### After (Fixed):
 ```
-Multi-sheet deduplication: X chapters reduced to Y unique chapters
-Inserting Y chapters into database
-Successfully inserted Y chapters
-Processing Z items, W have valid chapter IDs
+┌─────────────────────┐
+│ ▼ Chapter 1         │
+│   📄 Sheet1         │  ← Separator inside chapter
+│   • Article 1.1     │
+│   • Article 1.2     │
+│                     │
+│   📄 Sheet2         │  ← Second separator appears
+│   • Article 1.3     │
+└─────────────────────┘
 ```
+
+## Test Cases
+
+### ✅ Test 1: Single Sheet
+- **Input**: Excel with 1 sheet
+- **Expected**: No separators (articlesBySheet.size = 1)
+- **Result**: Works ✓
+
+### ✅ Test 2: Multi-Sheet with Unique Chapters
+- **Input**: Sheet1 has Ch1, Sheet2 has Ch2
+- **Expected**: No separators (each chapter from one sheet only)
+- **Result**: Works ✓
+
+### ✅ Test 3: Multi-Sheet with Duplicate Chapters
+- **Input**: Sheet1 has Ch1 (Art 1.1, 1.2), Sheet2 has Ch1 (Art 1.3)
+- **Expected**: Separators showing Sheet1 and Sheet2 within Chapter 1
+- **Result**: Works ✓
 
 ## Files Changed
+- `src/pages/MapaQuantidades.tsx` (1 file, ~40 lines modified)
 
-### Modified
-- **`src/pages/MapaQuantidades.tsx`**
-  - Added: ~55 lines
-  - Modified: Chapter insertion and mapping logic
-  - Changes: Lines 1148-1187 (deduplication), Lines 1206-1217 (mapping)
+## Files Added
+- `ARTICLE_VIEW_MULTISHEET_FIX_2.md` - Technical documentation
+- `MULTISHEET_FIX_VISUAL_GUIDE.md` - Visual guide with examples
 
-### Added
-- **`MULTI_SHEET_ARTICLE_FIX_VERIFICATION.md`** - Comprehensive test guide with 4 test scenarios
-- **`QUICK_FIX_SUMMARY.md`** - Quick reference for the fix
+## Build & Test Status
+- ✅ **Build**: Success (vite build)
+- ✅ **Lint**: No new errors
+- ✅ **Type Check**: No TypeScript errors
+- ✅ **Backwards Compatibility**: Maintained
 
-## Verification Checklist
+## Benefits
+1. **Minimal Changes**: Only ~40 lines modified in 1 file
+2. **No Schema Changes**: Works with existing database structure
+3. **Preserves Information**: Sheet origin is clearly visible
+4. **Better UX**: Articles logically grouped by source sheet
+5. **Backwards Compatible**: Single-sheet files unchanged
 
-- [x] Root cause identified and documented
-- [x] Solution implemented with minimal changes
-- [x] Code compiles without errors
-- [x] Linter passes
-- [x] Logic trace verified with example
-- [x] Test scenarios documented
-- [x] Debug logging added
-- [x] No regressions in existing functionality
-- [x] Comments preserved from duplicate chapters
-- [x] All items correctly linked after deduplication
+## Risk Assessment
+**Risk Level**: LOW
+- Surgical changes to one component
+- No database modifications
+- No API changes
+- Backwards compatible
+- Build and lint passing
 
-## Next Steps
+## Ready for Merge
+✅ All requirements met
+✅ Code tested and documented
+✅ No breaking changes
+✅ PR description updated
 
-1. **User Testing**: Test with real multi-sheet Excel files from users
-2. **Monitor**: Watch for any deduplication logs in production
-3. **Feedback**: Gather user feedback on merged comments behavior
-4. **Iterate**: Refine if edge cases discovered
+---
 
-## Technical Notes
-
-### Why Deduplication?
-Database constraint requires unique `(tab_id, chapter_number)`. Article-based view maps all sheets to one tab, so duplicate chapter numbers must be deduplicated.
-
-### Why Not Remove Constraint?
-The constraint ensures data integrity. Without it, multiple chapters with the same number in the same tab would cause confusion in the UI and data queries.
-
-### Why Merge Comments?
-When chapters are deduplicated, we don't want to lose information. Merging comments preserves all context from both sheets.
-
-## References
-
-- Original issue documentation: `ARTICLE_BASED_VIEW_MULTISHEET_FIX.md`
-- Database schema: `migration_tabs.sql` (line 69)
-- Previous fixes: PR #111
+**Implementation Date**: 2025-10-13
+**Branch**: `copilot/fix-article-view-multi-sheet`
+**Commits**: 3
+- cf6b1d5: Fix article-based view multi-sheet display by grouping articles by sheet within chapters
+- f79885e: Add comprehensive documentation for article-based view multi-sheet fix
+- 57744b7: Add visual guide for multi-sheet fix
