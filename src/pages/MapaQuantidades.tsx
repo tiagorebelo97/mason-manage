@@ -574,27 +574,44 @@ const MapaQuantidades = () => {
         }>;
       }> = [];
 
-      // Always create 3 fixed tabs: Principal, Arquitetura, Instalações Especiais
-      // All sheets will be mapped to the Principal tab and displayed with separators
-      tabsToInsert.push(
-        {
-          orcamento_id: id!,
-          name: "Principal",
-          display_order: 0,
-        },
-        {
-          orcamento_id: id!,
-          name: "Arquitetura",
-          display_order: 1,
-        },
-        {
-          orcamento_id: id!,
-          name: "Instalações Especiais",
-          display_order: 2,
-        }
-      );
+      // Determine if we should treat this as a multi-sheet file
+      // Multi-sheet mode is used when:
+      // - File has more than one sheet, AND
+      // - User hasn't enabled "Treat as single sheet", AND
+      // - User hasn't enabled "Article-based view"
+      const hasMultipleSheets = (articleBasedView || treatAsSingleSheet) ? false : workbook.SheetNames.length > 1;
+      
+      if (!hasMultipleSheets) {
+        // Create 3 default tabs for single-sheet files or when forced single-sheet mode
+        // All sheets will be mapped to the Principal tab and displayed with separators
+        tabsToInsert.push(
+          {
+            orcamento_id: id!,
+            name: "Principal",
+            display_order: 0,
+          },
+          {
+            orcamento_id: id!,
+            name: "Arquitetura",
+            display_order: 1,
+          },
+          {
+            orcamento_id: id!,
+            name: "Instalações Especiais",
+            display_order: 2,
+          }
+        );
+      }
       
       workbook.SheetNames.forEach((sheetName, index) => {
+        if (hasMultipleSheets) {
+          // For multi-sheet files, create tabs from sheet names
+          tabsToInsert.push({
+            orcamento_id: id!,
+            name: sheetName,
+            display_order: index,
+          });
+        }
         
         const worksheet = workbook.Sheets[sheetName];
         const jsonData = XLSX.utils.sheet_to_json<unknown[]>(worksheet, { header: 1 });
@@ -1104,12 +1121,19 @@ const MapaQuantidades = () => {
         insertedTabs = data || [];
         console.log("Successfully inserted", insertedTabs.length, "tabs");
         
-        // Map all sheets to the "Principal" tab
-        const principalTab = insertedTabs.find(tab => tab.name === "Principal");
-        if (principalTab) {
-          workbook.SheetNames.forEach(sheetName => {
-            sheetNameToTabId.set(sheetName, principalTab.id);
+        if (hasMultipleSheets) {
+          // For multi-sheet files, map each sheet to its corresponding tab
+          insertedTabs.forEach(tab => {
+            sheetNameToTabId.set(tab.name, tab.id);
           });
+        } else {
+          // For single-sheet mode, map all sheets to the "Principal" tab
+          const principalTab = insertedTabs.find(tab => tab.name === "Principal");
+          if (principalTab) {
+            workbook.SheetNames.forEach(sheetName => {
+              sheetNameToTabId.set(sheetName, principalTab.id);
+            });
+          }
         }
       }
       
