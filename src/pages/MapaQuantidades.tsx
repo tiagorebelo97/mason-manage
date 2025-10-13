@@ -818,14 +818,25 @@ const MapaQuantidades = () => {
                 // Save previous chapter with its comments
                 if (currentChapterNumber && chapterComments.length > 0) {
                   const lastChapter = chaptersToInsert[chaptersToInsert.length - 1];
-                  if (lastChapter && lastChapter.chapter_number === currentChapterNumber) {
+                  // Extract original chapter number for comparison (may be prefixed in DB)
+                  const lastChapterOriginalNumber = (articleBasedView && workbook.SheetNames.length > 1 && lastChapter?.chapter_number)
+                    ? lastChapter.chapter_number.replace(`${sheetName}_`, '')
+                    : lastChapter?.chapter_number;
+                  
+                  if (lastChapter && lastChapterOriginalNumber === currentChapterNumber) {
                     lastChapter.chapter_comments = chapterComments.join('\n');
                   }
                 }
                 
+                // In article-based view with multiple sheets, prefix chapter number with sheet name
+                // to ensure uniqueness in the database (unique constraint on tab_id + chapter_number)
+                const chapterNumberForDB = (articleBasedView && workbook.SheetNames.length > 1) 
+                  ? `${sheetName}_${artigoCell}`
+                  : artigoCell;
+                
                 chaptersToInsert.push({
                   sheet_name: sheetName,
-                  chapter_number: artigoCell,
+                  chapter_number: chapterNumberForDB,
                   chapter_name: descricaoCell,
                   chapter_comments: undefined,
                 });
@@ -1023,7 +1034,12 @@ const MapaQuantidades = () => {
                 // Save chapter comments now that we've reached the first item
                 if (chapterComments.length > 0) {
                   const lastChapter = chaptersToInsert[chaptersToInsert.length - 1];
-                  if (lastChapter && lastChapter.chapter_number === currentChapterNumber) {
+                  // Extract original chapter number for comparison (may be prefixed in DB)
+                  const lastChapterOriginalNumber = (articleBasedView && workbook.SheetNames.length > 1 && lastChapter?.chapter_number)
+                    ? lastChapter.chapter_number.replace(`${sheetName}_`, '')
+                    : lastChapter?.chapter_number;
+                  
+                  if (lastChapter && lastChapterOriginalNumber === currentChapterNumber) {
                     lastChapter.chapter_comments = chapterComments.join('\n');
                   }
                   chapterComments = [];
@@ -1148,7 +1164,12 @@ const MapaQuantidades = () => {
           // Save comments for the last chapter
           if (currentChapterNumber && chapterComments.length > 0) {
             const lastChapter = chaptersToInsert[chaptersToInsert.length - 1];
-            if (lastChapter && lastChapter.chapter_number === currentChapterNumber) {
+            // Extract original chapter number for comparison (may be prefixed in DB)
+            const lastChapterOriginalNumber = (articleBasedView && workbook.SheetNames.length > 1 && lastChapter?.chapter_number)
+              ? lastChapter.chapter_number.replace(`${sheetName}_`, '')
+              : lastChapter?.chapter_number;
+            
+            if (lastChapter && lastChapterOriginalNumber === currentChapterNumber) {
               lastChapter.chapter_comments = chapterComments.join('\n');
             }
           }
@@ -1215,12 +1236,20 @@ const MapaQuantidades = () => {
         
         // Create a map of (sheet_name + chapter_number) to chapter IDs
         // We need to use the original sheet_name from chaptersToInsert since it's not in the database
+        // For article-based view with multiple sheets, the chapter_number in DB is prefixed with sheet name
+        // but we need to map using the original chapter number for item lookup
         const chapterMap = new Map<string, string>();
         insertedChapters.forEach((chapter, index) => {
           // The insertedChapters array should be in the same order as chaptersToInsert
           const originalChapter = chaptersToInsert[index];
           if (originalChapter && originalChapter.sheet_name) {
-            const key = `${originalChapter.sheet_name}_${chapter.chapter_number}`;
+            // Extract the original chapter number (without prefix)
+            // In article-based view with multiple sheets, chapter_number in DB is "SheetName_OriginalNumber"
+            const originalChapterNumber = (articleBasedView && workbook.SheetNames.length > 1)
+              ? chapter.chapter_number.replace(`${originalChapter.sheet_name}_`, '')
+              : chapter.chapter_number;
+            
+            const key = `${originalChapter.sheet_name}_${originalChapterNumber}`;
             chapterMap.set(key, chapter.id);
             // Store the inverse mapping for later use in article-based view
             chapterIdToSheetNameMap.set(chapter.id, originalChapter.sheet_name);
