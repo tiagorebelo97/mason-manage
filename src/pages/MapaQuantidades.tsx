@@ -305,9 +305,18 @@ const MapaQuantidades = () => {
   React.useEffect(() => {
     if (chapters && chapters.length > 0 && id) {
       const storedArticles = sessionStorage.getItem(`articles_${id}`);
+      const storedMapping = sessionStorage.getItem(`chapterMapping_${id}`);
+      
       if (storedArticles) {
         try {
           const articlesData = JSON.parse(storedArticles);
+          
+          // Load the chapter ID to sheet name mapping if available
+          let chapterIdToSheetName = new Map<string, string>();
+          if (storedMapping) {
+            const mappingObj = JSON.parse(storedMapping);
+            chapterIdToSheetName = new Map(Object.entries(mappingObj));
+          }
           
           // Group articles by composite key: sheet_name + chapter_number
           // This ensures articles from different sheets with same chapter numbers don't get mixed
@@ -320,58 +329,28 @@ const MapaQuantidades = () => {
             groupedByChapter.get(key)!.push(article);
           });
           
-          // Create a map of chapter IDs to their sheet names by tracking insertion order
-          // Since we can't get sheet_name from database, we need to reconstruct it from articlesData
-          const chapterIdToSheetName = new Map<string, string>();
-          const chapterNumberToSheetNames = new Map<string, Set<string>>();
-          
-          // First, collect all unique sheet names for each chapter number from articles
-          articlesData.forEach((article: typeof articlesData[0]) => {
-            if (!chapterNumberToSheetNames.has(article.chapter_number)) {
-              chapterNumberToSheetNames.set(article.chapter_number, new Set());
-            }
-            chapterNumberToSheetNames.get(article.chapter_number)!.add(article.sheet_name);
-          });
-          
-          // Now match chapters to sheet names based on the order
-          // Group chapters by chapter_number to handle duplicates
-          const chaptersByNumber = new Map<string, typeof chapters>();
-          chapters.forEach(chapter => {
-            if (!chaptersByNumber.has(chapter.chapter_number)) {
-              chaptersByNumber.set(chapter.chapter_number, []);
-            }
-            chaptersByNumber.get(chapter.chapter_number)!.push(chapter);
-          });
-          
-          // Match each chapter to its sheet name
-          chaptersByNumber.forEach((chaptersWithSameNumber, chapterNumber) => {
-            const sheetNamesForThisChapter = Array.from(chapterNumberToSheetNames.get(chapterNumber) || []);
-            chaptersWithSameNumber.forEach((chapter, index) => {
-              // Assign sheet names in order - if we have more chapters than sheet names, reuse the last one
-              const sheetName = sheetNamesForThisChapter[Math.min(index, sheetNamesForThisChapter.length - 1)];
-              chapterIdToSheetName.set(chapter.id, sheetName);
-            });
-          });
-          
           // Create ChapterWithArticles structure
           const chaptersWithArticlesData: ChapterWithArticles[] = [];
           chapters.forEach((chapter) => {
+            // Get the sheet name for this chapter from our mapping
             const sheetName = chapterIdToSheetName.get(chapter.id);
-            const key = `${sheetName}_${chapter.chapter_number}`;
-            const articlesForChapter = groupedByChapter.get(key) || [];
-            if (articlesForChapter.length > 0) {
-              chaptersWithArticlesData.push({
-                chapter,
-                articles: articlesForChapter.map((articleData: typeof articlesData[0]) => ({
-                  id: `${chapter.id}_${articleData.artigo}`,
-                  chapter_id: chapter.id,
-                  artigo: articleData.artigo,
-                  title: articleData.title,
-                  contents: articleData.contents,
-                  sheet_name: articleData.sheet_name
-                })),
-                sheet_name: articlesForChapter[0]?.sheet_name
-              });
+            if (sheetName) {
+              const key = `${sheetName}_${chapter.chapter_number}`;
+              const articlesForChapter = groupedByChapter.get(key) || [];
+              if (articlesForChapter.length > 0) {
+                chaptersWithArticlesData.push({
+                  chapter,
+                  articles: articlesForChapter.map((articleData: typeof articlesData[0]) => ({
+                    id: `${chapter.id}_${articleData.artigo}`,
+                    chapter_id: chapter.id,
+                    artigo: articleData.artigo,
+                    title: articleData.title,
+                    contents: articleData.contents,
+                    sheet_name: articleData.sheet_name
+                  })),
+                  sheet_name: articlesForChapter[0]?.sheet_name
+                });
+              }
             }
           });
           
@@ -609,6 +588,10 @@ const MapaQuantidades = () => {
           };
         }>;
       }> = [];
+      
+      // Map to store chapter ID to sheet name for article-based view
+      // This is needed because sheet_name is not stored in the database
+      const chapterIdToSheetNameMap = new Map<string, string>();
 
       // Process each sheet and create tabs
       // For single-sheet files, create 3 default tabs: Principal, Arquitetura, Instalações Especiais
@@ -1235,6 +1218,8 @@ const MapaQuantidades = () => {
           if (originalChapter && originalChapter.sheet_name) {
             const key = `${originalChapter.sheet_name}_${chapter.chapter_number}`;
             chapterMap.set(key, chapter.id);
+            // Store the inverse mapping for later use in article-based view
+            chapterIdToSheetNameMap.set(chapter.id, originalChapter.sheet_name);
           }
         });
         
@@ -1350,8 +1335,8 @@ const MapaQuantidades = () => {
       
       console.log("File analysis completed successfully");
         
-        // Return articlesData for article-based view processing
-        return { articlesData, articleBasedView };
+        // Return articlesData and chapter mapping for article-based view processing
+        return { articlesData, articleBasedView, chapterIdToSheetNameMap };
       } catch (error) {
         console.error("Error in analyzeMutation:", error);
         // Re-throw to let the onError handler display the toast
@@ -1383,6 +1368,12 @@ const MapaQuantidades = () => {
         // the articles data temporarily for the UI to use
         // For now, we'll store it in localStorage or state
         sessionStorage.setItem(`articles_${id}`, JSON.stringify(data.articlesData));
+        
+        // Store the chapter ID to sheet name mapping for proper article matching
+        if (data.chapterIdToSheetNameMap) {
+          const mappingObj = Object.fromEntries(data.chapterIdToSheetNameMap);
+          sessionStorage.setItem(`chapterMapping_${id}`, JSON.stringify(mappingObj));
+        }
       }
       
       toast.success(t('orcamento.analyzeSuccess'));
