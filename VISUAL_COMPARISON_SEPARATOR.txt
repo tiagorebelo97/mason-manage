@@ -1,0 +1,98 @@
+# Visual Comparison: Sheet Separator Behavior
+
+## BEFORE (Previous Implementation)
+
+Condition: `chaptersBySheet.size > 1`
+Behavior: Separators only showed when there were 2+ sheets
+
+### Single-Sheet Excel File:
+┌─────────────────────────────────────────────────────┐
+│ Principal | Arquitetura | Instalações Especiais    │
+└─────────────────────────────────────────────────────┘
+
+Principal Tab:
+  (NO SEPARATOR - Hard to identify sheet origin)
+  
+  ▼ 1. Chapter Name
+    └─ 1.1 - Article Title
+        └─ Items...
+
+### Multi-Sheet Excel File (2+ sheets):
+┌─────────────────────────────────────────────────────┐
+│ Principal | Arquitetura | Instalações Especiais    │
+└─────────────────────────────────────────────────────┘
+
+Principal Tab:
+  ┌─────────────────────────────────────────────────┐
+  │ 📄 Sheet1                                        │
+  └─────────────────────────────────────────────────┘
+  
+  ▼ 1. Chapter from Sheet1
+    └─ Articles...
+  
+  ┌─────────────────────────────────────────────────┐
+  │ 📄 Sheet2                                        │
+  └─────────────────────────────────────────────────┘
+  
+  ▼ 2. Chapter from Sheet2
+    └─ Articles...
+
+
+## AFTER (Current Implementation)
+
+Condition: `tab.name === "Principal"`
+Behavior: Separators always show in Principal tab for each sheet
+
+### Single-Sheet Excel File:
+┌─────────────────────────────────────────────────────┐
+│ Principal | Arquitetura | Instalações Especiais    │
+└─────────────────────────────────────────────────────┘
+
+Principal Tab:
+  ┌─────────────────────────────────────────────────┐
+  │ 📄 Sheet1                    (✓ NOW APPEARS!)   │
+  └─────────────────────────────────────────────────┘
+  
+  ▼ 1. Chapter Name
+    └─ 1.1 - Article Title
+        └─ Items...
+
+### Multi-Sheet Excel File (2+ sheets):
+┌─────────────────────────────────────────────────────┐
+│ Principal | Arquitetura | Instalações Especiais    │
+└─────────────────────────────────────────────────────┘
+
+Principal Tab:
+  ┌─────────────────────────────────────────────────┐
+  │ 📄 Sheet1                    (✓ STILL APPEARS)  │
+  └─────────────────────────────────────────────────┘
+  
+  ▼ 1. Chapter from Sheet1
+    └─ Articles...
+  
+  ┌─────────────────────────────────────────────────┐
+  │ 📄 Sheet2                    (✓ STILL APPEARS)  │
+  └─────────────────────────────────────────────────┘
+  
+  ▼ 2. Chapter from Sheet2
+    └─ Articles...
+
+
+## Key Improvements
+
+✓ Consistency: Separators always appear in Principal tab
+✓ Clarity: Users always see the sheet origin
+✓ Better UX: No confusion for single-sheet files
+✓ Maintains 3-tab structure as required
+
+## Other Tabs (No Change)
+
+Arquitetura Tab:
+  (No separators - empty by default or moved chapters)
+  
+  ▼ Chapters moved here...
+
+Instalações Especiais Tab:
+  (No separators - empty by default or moved chapters)
+  
+  ▼ Chapters moved here...
