@@ -326,7 +326,8 @@ const MapaQuantidades = () => {
               chaptersWithArticlesData.push({
                 chapter,
                 articles: articlesForChapter.map((articleData: typeof articlesData[0]) => ({
-                  id: `${chapter.id}_${articleData.artigo}`,
+                  // Include sheet_name in the ID to avoid collisions when same ARTIGO exists in different sheets
+                  id: `${chapter.id}_${articleData.sheet_name}_${articleData.artigo}`,
                   chapter_id: chapter.id,
                   artigo: articleData.artigo,
                   title: articleData.title,
@@ -1176,12 +1177,32 @@ const MapaQuantidades = () => {
         chapter_comments: chapter.chapter_comments || null,
       }));
 
+      // In article-based view, deduplicate chapters that have the same (tab_id, chapter_number)
+      // since the database has a unique constraint on these columns
+      const uniqueChaptersMap = new Map<string, typeof chaptersWithTabIds[0]>();
+      const chapterIndexMapping = new Map<number, number>(); // Maps original index to deduplicated index
+      
+      chaptersWithTabIds.forEach((chapter, index) => {
+        const key = `${chapter.tab_id}_${chapter.chapter_number}`;
+        if (!uniqueChaptersMap.has(key)) {
+          uniqueChaptersMap.set(key, chapter);
+          chapterIndexMapping.set(index, uniqueChaptersMap.size - 1);
+        } else {
+          // This chapter is a duplicate, map it to the existing chapter
+          const existingIndex = Array.from(uniqueChaptersMap.keys()).indexOf(key);
+          chapterIndexMapping.set(index, existingIndex);
+        }
+      });
+      
+      const uniqueChapters = Array.from(uniqueChaptersMap.values());
+      console.log("Deduplicated", chaptersWithTabIds.length, "chapters to", uniqueChapters.length, "unique chapters");
+
       // Insert chapters into database
-      if (chaptersWithTabIds.length > 0) {
-        console.log("Inserting", chaptersWithTabIds.length, "chapters into database");
+      if (uniqueChapters.length > 0) {
+        console.log("Inserting", uniqueChapters.length, "chapters into database");
         const { data: insertedChapters, error: chapterError } = await supabase
           .from("orcamento_chapters")
-          .insert(chaptersWithTabIds)
+          .insert(uniqueChapters)
           .select();
         if (chapterError) {
           console.error("Error inserting chapters:", chapterError);
@@ -1192,12 +1213,14 @@ const MapaQuantidades = () => {
         // Create a map of (sheet_name + chapter_number) to chapter IDs
         // We need to use the original sheet_name from chaptersToInsert since it's not in the database
         const chapterMap = new Map<string, string>();
-        insertedChapters.forEach((chapter, index) => {
-          // The insertedChapters array should be in the same order as chaptersToInsert
-          const originalChapter = chaptersToInsert[index];
+        chaptersToInsert.forEach((originalChapter, originalIndex) => {
           if (originalChapter && originalChapter.sheet_name) {
-            const key = `${originalChapter.sheet_name}_${chapter.chapter_number}`;
-            chapterMap.set(key, chapter.id);
+            // Find the corresponding inserted chapter using the index mapping
+            const deduplicatedIndex = chapterIndexMapping.get(originalIndex);
+            if (deduplicatedIndex !== undefined && insertedChapters[deduplicatedIndex]) {
+              const key = `${originalChapter.sheet_name}_${originalChapter.chapter_number}`;
+              chapterMap.set(key, insertedChapters[deduplicatedIndex].id);
+            }
           }
         });
         
