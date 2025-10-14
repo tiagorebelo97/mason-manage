@@ -577,12 +577,12 @@ const MapaQuantidades = () => {
       // For single-sheet files (non-article-based view), create 3 default tabs: Principal, Arquitetura, Instalações Especiais
       // For multi-sheet files, create tabs from sheet names
       // Allow user to force single-sheet treatment via treatAsSingleSheet flag
-      // For article-based view, always create one tab per Excel sheet
-      const shouldCreateTabsFromSheets = articleBasedView || (!treatAsSingleSheet && workbook.SheetNames.length > 1);
+      // For article-based view, always create 3 default tabs and map sheets to them intelligently
+      const shouldCreateTabsFromSheets = !articleBasedView && (!treatAsSingleSheet && workbook.SheetNames.length > 1);
       const hasMultipleSheets = !treatAsSingleSheet && workbook.SheetNames.length > 1;
       
       if (!shouldCreateTabsFromSheets) {
-        // Create 3 default tabs for single-sheet files or when treating as single sheet (only in non-article-based view)
+        // Create 3 default tabs for single-sheet files, article-based view, or when treating as single sheet
         tabsToInsert.push(
           {
             orcamento_id: id!,
@@ -1151,9 +1151,30 @@ const MapaQuantidades = () => {
         console.log("Successfully inserted", insertedTabs.length, "tabs");
         
         // Create a map of sheet names to tab IDs
-        // For article-based view or multi-sheet files, map each sheet to its corresponding tab
+        // For article-based view, map sheets intelligently to the 3 default tabs based on sheet name
+        // For multi-sheet files (non-article-based), map each sheet to its corresponding tab
         // For single-sheet files, map the single sheet to "Principal" tab
-        if (articleBasedView || hasMultipleSheets) {
+        if (articleBasedView) {
+          // Map sheets intelligently to the 3 default tabs
+          const principalTab = insertedTabs.find(tab => tab.name === "Principal");
+          const arquiteturaTab = insertedTabs.find(tab => tab.name === "Arquitetura");
+          const instalacoesTab = insertedTabs.find(tab => tab.name === "Instalações Especiais");
+          
+          workbook.SheetNames.forEach(sheetName => {
+            const sheetNameLower = sheetName.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+            
+            // Map sheets based on their names
+            if (sheetNameLower.includes('arquitetura') && arquiteturaTab) {
+              sheetNameToTabId.set(sheetName, arquiteturaTab.id);
+            } else if ((sheetNameLower.includes('instalacoes') || sheetNameLower.includes('instalações') || 
+                        sheetNameLower.includes('especiais')) && instalacoesTab) {
+              sheetNameToTabId.set(sheetName, instalacoesTab.id);
+            } else if (principalTab) {
+              // Default to Principal tab for all other sheets
+              sheetNameToTabId.set(sheetName, principalTab.id);
+            }
+          });
+        } else if (hasMultipleSheets) {
           insertedTabs.forEach(tab => {
             sheetNameToTabId.set(tab.name, tab.id);
           });
