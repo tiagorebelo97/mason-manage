@@ -309,23 +309,60 @@ const MapaQuantidades = () => {
         try {
           const articlesData = JSON.parse(storedArticles);
           
-          // Group articles by chapter
-          const groupedByChapter = new Map<string, typeof articlesData>();
+          // Group articles by sheet_name + chapter_number to handle duplicate chapter numbers across sheets
+          // Maintain insertion order by storing groups in an array
+          const groupOrder: Array<{ sheetName: string; chapterNumber: string; articles: typeof articlesData }> = [];
+          const seenKeys = new Set<string>();
+          
           articlesData.forEach((article: typeof articlesData[0]) => {
-            if (!groupedByChapter.has(article.chapter_number)) {
-              groupedByChapter.set(article.chapter_number, []);
+            const key = JSON.stringify({ sheet: article.sheet_name, chapter: article.chapter_number });
+            if (!seenKeys.has(key)) {
+              seenKeys.add(key);
+              groupOrder.push({
+                sheetName: article.sheet_name,
+                chapterNumber: article.chapter_number,
+                articles: []
+              });
             }
-            groupedByChapter.get(article.chapter_number)!.push(article);
+            // Find the group and add the article
+            const group = groupOrder.find(g => 
+              g.sheetName === article.sheet_name && 
+              g.chapterNumber === article.chapter_number
+            );
+            if (group) {
+              group.articles.push(article);
+            }
+          });
+          
+          // Group database chapters by chapter_number to handle duplicates
+          const chaptersByNumber = new Map<string, typeof chapters>();
+          chapters.forEach((chapter) => {
+            if (!chaptersByNumber.has(chapter.chapter_number)) {
+              chaptersByNumber.set(chapter.chapter_number, []);
+            }
+            chaptersByNumber.get(chapter.chapter_number)!.push(chapter);
           });
           
           // Create ChapterWithArticles structure
+          // Match articles to chapters by considering sheet_name and chapter_number
+          // Process in the same order as articles were extracted (sheet order)
           const chaptersWithArticlesData: ChapterWithArticles[] = [];
-          chapters.forEach((chapter) => {
-            const articlesForChapter = groupedByChapter.get(chapter.chapter_number) || [];
-            if (articlesForChapter.length > 0) {
+          const usedChapters = new Set<string>();
+          
+          groupOrder.forEach((groupData) => {
+            const { sheetName, chapterNumber, articles: articlesGroup } = groupData;
+            const candidateChapters = chaptersByNumber.get(chapterNumber) || [];
+            
+            // Find the first unused chapter with this chapter_number
+            // This relies on database chapters being ordered by chapter_number, 
+            // and within the same chapter_number, by insertion order (ID)
+            const chapter = candidateChapters.find(ch => !usedChapters.has(ch.id));
+            
+            if (chapter && articlesGroup.length > 0) {
+              usedChapters.add(chapter.id);
               chaptersWithArticlesData.push({
                 chapter,
-                articles: articlesForChapter.map((articleData: typeof articlesData[0]) => ({
+                articles: articlesGroup.map((articleData: typeof articlesData[0]) => ({
                   id: `${chapter.id}_${articleData.artigo}`,
                   chapter_id: chapter.id,
                   artigo: articleData.artigo,
@@ -333,7 +370,7 @@ const MapaQuantidades = () => {
                   contents: articleData.contents,
                   sheet_name: articleData.sheet_name
                 })),
-                sheet_name: articlesForChapter[0]?.sheet_name
+                sheet_name: sheetName
               });
             }
           });
@@ -1346,20 +1383,8 @@ const MapaQuantidades = () => {
       
       // Process article-based view data
       if (data && data.articleBasedView && data.articlesData) {
-        // Group articles by chapter
-        const groupedArticles = new Map<string, typeof data.articlesData>();
-        data.articlesData.forEach((article: typeof data.articlesData[0]) => {
-          const key = article.chapter_number;
-          if (!groupedArticles.has(key)) {
-            groupedArticles.set(key, []);
-          }
-          groupedArticles.get(key)!.push(article);
-        });
-        
-        // Fetch chapters to create the ChapterWithArticles structure
-        // This will be done via the normal query invalidation, but we need to store
-        // the articles data temporarily for the UI to use
-        // For now, we'll store it in localStorage or state
+        // Store articles data in sessionStorage for later processing
+        // The actual grouping and chapter matching will happen in the useEffect
         sessionStorage.setItem(`articles_${id}`, JSON.stringify(data.articlesData));
       }
       
