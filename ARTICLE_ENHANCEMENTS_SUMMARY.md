@@ -4,39 +4,42 @@
 
 The user requested the following enhancements to the article-based view feature:
 
-1. **Sheet Separators**: When an Excel file has multiple sheets, create separators with sheet names inside the "PRINCIPAL" tab
+1. **~~Sheet Separators~~**: ~~When an Excel file has multiple sheets, create separators with sheet names inside the "PRINCIPAL" tab~~ (REMOVED - see update below)
 2. **Comments Support**: Rows without ARTIGO, UN, and QT should appear as text (not tables) between articles and items, with order respected
 3. **Collapsible Chapters**: Add a toggle to minimize/expand chapters
 4. **Collapsible Articles**: Add a toggle to minimize/expand individual articles
 5. **Move Chapter Feature**: Ability to move a chapter to another tab
 6. **Article Background**: Each article should have a light grey background
 
+## Latest Update: Sheet Separators Removed
+
+**Date**: Latest update  
+**Reason**: The sheet separators were redundant and confusing because:
+- In article-based view with multiple sheets, each sheet gets its own tab
+- Chapters are correctly assigned to their corresponding tabs
+- Having sheet separators within tabs was redundant since the tab name already indicates the sheet
+
+**New Behavior**:
+- Each Excel sheet becomes a separate tab
+- Chapters from each sheet are displayed directly within their corresponding tab
+- No sheet separators are shown within tabs
+- Cleaner, more intuitive interface
+
 ## Solution Implemented
 
-All requested features have been successfully implemented with the following changes:
+### 1. ~~Sheet Name Separators~~ (REMOVED) ✓
 
-### 1. Sheet Name Separators ✓
+**Status**: This feature has been removed to eliminate redundancy.
 
-**Implementation:**
+**Previous Implementation** (now removed):
 - Modified the article-based view rendering to group chapters by sheet name
-- Added visual separators that appear only when there are multiple sheets
-- Separators have a distinctive blue theme with an icon
+- Added visual separators that appeared when there were multiple sheets
+- Separators had a distinctive blue theme with an icon
 
-**Code Changes:**
-- Updated `ChapterWithArticles` type to include `sheet_name` field
-- Modified article loading logic to preserve sheet names
-- Added grouping logic in the render section to organize chapters by sheet
-
-**Visual Result:**
-```tsx
-{chaptersBySheet.size > 1 && (
-  <div className="bg-blue-50 dark:bg-blue-950 border-l-4 border-blue-500 p-4 mb-6 rounded-r-lg">
-    <h2 className="text-xl font-bold text-blue-900 dark:text-blue-100">
-      📄 {sheetName}
-    </h2>
-  </div>
-)}
-```
+**Current Implementation**:
+- Chapters are directly filtered by tab_id and displayed within their corresponding tabs
+- No grouping or separators within tabs
+- Each tab shows only chapters that belong to that sheet
 
 ### 2. Comments as Text ✓
 
