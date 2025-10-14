@@ -2503,14 +2503,12 @@ const MapaQuantidades = () => {
                       // Display chapters grouped by sheet
                       return Array.from(chaptersBySheet.entries()).map(([sheetName, chaptersInSheet]) => (
                         <div key={sheetName}>
-                          {/* Sheet separator - only show if there are multiple sheets */}
-                          {chaptersBySheet.size > 1 && (
-                            <div className="bg-blue-50 dark:bg-blue-950 border-l-4 border-blue-500 p-4 mb-6 rounded-r-lg">
-                              <h2 className="text-xl font-bold text-blue-900 dark:text-blue-100">
-                                📄 {sheetName}
-                              </h2>
-                            </div>
-                          )}
+                          {/* Sheet separator - always show to indicate which sheet chapters came from */}
+                          <div className="bg-blue-50 dark:bg-blue-950 border-l-4 border-blue-500 p-4 mb-6 rounded-r-lg">
+                            <h2 className="text-xl font-bold text-blue-900 dark:text-blue-100">
+                              📄 {sheetName}
+                            </h2>
+                          </div>
                           
                           {/* Chapters in this sheet */}
                           {chaptersInSheet.map((chapterWithArticles) => (
