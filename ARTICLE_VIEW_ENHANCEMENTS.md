@@ -6,29 +6,17 @@ This document describes the enhancements made to the article-based view feature 
 
 ## Features Implemented
 
-### 1. Sheet Name Separators
+### 1. ~~Sheet Name Separators~~ (REMOVED)
 
-**Description**: When an Excel file has multiple sheets and article-based view is enabled, the system now displays sheet name separators in the Principal tab.
+**Status**: This feature has been removed as of the latest update.
 
-**Visual Appearance**:
-- Blue-themed banner with left border
-- Shows sheet icon (📄) and sheet name
-- Only appears when there are multiple sheets
+**Reason**: In article-based view, when there are multiple sheets, each sheet gets its own tab. Therefore, showing sheet name separators within tabs was redundant and confusing. Chapters are now directly displayed within their corresponding tabs without separators.
 
-**Example**:
-```
-┌─────────────────────────────────────────┐
-│ 📄 Sheet 1                              │
-└─────────────────────────────────────────┘
-
-[Chapters and articles from Sheet 1]
-
-┌─────────────────────────────────────────┐
-│ 📄 Sheet 2                              │
-└─────────────────────────────────────────┘
-
-[Chapters and articles from Sheet 2]
-```
+**New Behavior**:
+- Each Excel sheet becomes a separate tab
+- Chapters from each sheet are assigned to their corresponding tab
+- No sheet separators are shown within tabs
+- Cleaner, more intuitive interface
 
 ### 2. Comments as Text
 
