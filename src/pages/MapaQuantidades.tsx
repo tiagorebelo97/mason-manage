@@ -574,14 +574,34 @@ const MapaQuantidades = () => {
       }> = [];
 
       // Process each sheet and create tabs
-      // For single-sheet files, create 3 default tabs: Principal, Arquitetura, Instalações Especiais
+      // For single-sheet files (non-article-based view), create 3 default tabs: Principal, Arquitetura, Instalações Especiais
       // For multi-sheet files, create tabs from sheet names
       // Allow user to force single-sheet treatment via treatAsSingleSheet flag
-      // For article-based view, always create 3 tabs regardless of sheet count
-      const hasMultipleSheets = (articleBasedView || treatAsSingleSheet) ? false : workbook.SheetNames.length > 1;
+      // For article-based view, always create one tab per Excel sheet
+      const shouldCreateTabsFromSheets = articleBasedView || workbook.SheetNames.length > 1;
+      const hasMultipleSheets = !treatAsSingleSheet && workbook.SheetNames.length > 1;
       
-      if (!hasMultipleSheets) {
-        // Create 3 default tabs for single-sheet files
+      if (!shouldCreateTabsFromSheets && !treatAsSingleSheet) {
+        // Create 3 default tabs for single-sheet files (only in non-article-based view)
+        tabsToInsert.push(
+          {
+            orcamento_id: id!,
+            name: "Principal",
+            display_order: 0,
+          },
+          {
+            orcamento_id: id!,
+            name: "Arquitetura",
+            display_order: 1,
+          },
+          {
+            orcamento_id: id!,
+            name: "Instalações Especiais",
+            display_order: 2,
+          }
+        );
+      } else if (treatAsSingleSheet && !articleBasedView) {
+        // Create 3 default tabs when treating as single sheet (only in non-article-based view)
         tabsToInsert.push(
           {
             orcamento_id: id!,
@@ -602,7 +622,7 @@ const MapaQuantidades = () => {
       }
       
       workbook.SheetNames.forEach((sheetName, index) => {
-        if (hasMultipleSheets) {
+        if (shouldCreateTabsFromSheets) {
           tabsToInsert.push({
             orcamento_id: id!,
             name: sheetName,
@@ -1150,10 +1170,9 @@ const MapaQuantidades = () => {
         console.log("Successfully inserted", insertedTabs.length, "tabs");
         
         // Create a map of sheet names to tab IDs
+        // For article-based view or multi-sheet files, map each sheet to its corresponding tab
         // For single-sheet files, map the single sheet to "Principal" tab
-        // For multi-sheet files, map each sheet to its corresponding tab
-        // For article-based view, map ALL sheets to "Principal" tab
-        if (hasMultipleSheets) {
+        if (articleBasedView || hasMultipleSheets) {
           insertedTabs.forEach(tab => {
             sheetNameToTabId.set(tab.name, tab.id);
           });
