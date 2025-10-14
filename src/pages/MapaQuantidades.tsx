@@ -580,6 +580,10 @@ const MapaQuantidades = () => {
       // For article-based view, always create 3 tabs regardless of sheet count
       const hasMultipleSheets = (articleBasedView || treatAsSingleSheet) ? false : workbook.SheetNames.length > 1;
       
+      // Track if we need to prefix chapter/article numbers with sheet name for uniqueness
+      // This is needed when article-based view is enabled with multiple sheets
+      const needsSheetPrefix = articleBasedView && workbook.SheetNames.length > 1;
+      
       if (!hasMultipleSheets) {
         // Create 3 default tabs for single-sheet files
         tabsToInsert.push(
@@ -781,10 +785,12 @@ const MapaQuantidades = () => {
                 // This is a new chapter - process normally
                 // Article-based view: save previous article if exists
                 if (articleBasedView && currentArticleArtigo && currentChapterNumber) {
+                  const chapterNumberToStore = needsSheetPrefix ? `${sheetName}_${currentChapterNumber}` : currentChapterNumber;
+                  const artigoToStore = needsSheetPrefix ? `${sheetName}_${currentArticleArtigo}` : currentArticleArtigo;
                   articlesData.push({
                     sheet_name: sheetName,
-                    chapter_number: currentChapterNumber,
-                    artigo: currentArticleArtigo,
+                    chapter_number: chapterNumberToStore,
+                    artigo: artigoToStore,
                     title: currentArticleTitle,
                     contents: [...currentArticleContents]
                   });
@@ -801,9 +807,12 @@ const MapaQuantidades = () => {
                   }
                 }
                 
+                // Prefix chapter_number with sheet name if needed for uniqueness
+                const chapterNumberToStore = needsSheetPrefix ? `${sheetName}_${artigoCell}` : artigoCell;
+                
                 chaptersToInsert.push({
                   sheet_name: sheetName,
-                  chapter_number: artigoCell,
+                  chapter_number: chapterNumberToStore,
                   chapter_name: descricaoCell,
                   chapter_comments: undefined,
                 });
@@ -819,10 +828,12 @@ const MapaQuantidades = () => {
             else if (articleBasedView && artigoCell && /^\d+\.\d+$/.test(artigoCell) && descricaoCell) {
               // Save previous article if exists
               if (currentArticleArtigo && currentChapterNumber) {
+                const chapterNumberToStore = needsSheetPrefix ? `${sheetName}_${currentChapterNumber}` : currentChapterNumber;
+                const artigoToStore = needsSheetPrefix ? `${sheetName}_${currentArticleArtigo}` : currentArticleArtigo;
                 articlesData.push({
                   sheet_name: sheetName,
-                  chapter_number: currentChapterNumber,
-                  artigo: currentArticleArtigo,
+                  chapter_number: chapterNumberToStore,
+                  artigo: artigoToStore,
                   title: currentArticleTitle,
                   contents: [...currentArticleContents]
                 });
@@ -1014,8 +1025,11 @@ const MapaQuantidades = () => {
                 itemArtigo = lastCommentArtigo;
               }
               
+              // Prefix item artigo with sheet name if needed
+              const itemArtigoToStore = (needsSheetPrefix && itemArtigo) ? `${sheetName}_${itemArtigo}` : itemArtigo;
+              
               // Use the current chapter context
-              const chapterNumber = currentChapterNumber;
+              const chapterNumber = needsSheetPrefix ? `${sheetName}_${currentChapterNumber}` : currentChapterNumber;
               
               // Get all values - extract even if empty to ensure proper data flow
               const unValue = unColumnIndex !== -1 && 
@@ -1083,7 +1097,7 @@ const MapaQuantidades = () => {
               itemsToInsert.push({
                 sheet_name: sheetName,
                 chapter_number: chapterNumber,
-                artigo: itemArtigo,
+                artigo: itemArtigoToStore,
                 descricao: descricaoCell,
                 un: unValue || null,
                 qt: (parsedQt !== null && !isNaN(parsedQt)) ? parsedQt : null,
@@ -1099,7 +1113,7 @@ const MapaQuantidades = () => {
                 currentArticleContents.push({
                   type: 'item',
                   data: {
-                    artigo: itemArtigo,
+                    artigo: itemArtigoToStore,
                     descricao: descricaoCell,
                     un: unValue,
                     qt: parsedQt,
@@ -1112,10 +1126,12 @@ const MapaQuantidades = () => {
           
           // Article-based view: save the last article if exists
           if (articleBasedView && currentArticleArtigo && currentChapterNumber) {
+            const chapterNumberToStore = needsSheetPrefix ? `${sheetName}_${currentChapterNumber}` : currentChapterNumber;
+            const artigoToStore = needsSheetPrefix ? `${sheetName}_${currentArticleArtigo}` : currentArticleArtigo;
             articlesData.push({
               sheet_name: sheetName,
-              chapter_number: currentChapterNumber,
-              artigo: currentArticleArtigo,
+              chapter_number: chapterNumberToStore,
+              artigo: artigoToStore,
               title: currentArticleTitle,
               contents: [...currentArticleContents]
             });
@@ -1805,6 +1821,16 @@ const MapaQuantidades = () => {
     return acc;
   }, {} as Record<string, OrcamentoItem[]>) || {};
 
+  // Helper function to display chapter/article numbers without sheet prefix
+  const displayNumber = (fullNumber: string): string => {
+    // If number contains underscore (e.g., "Sheet1_1"), extract the part after underscore
+    if (fullNumber.includes('_')) {
+      const parts = fullNumber.split('_');
+      return parts[parts.length - 1]; // Return the last part after underscore
+    }
+    return fullNumber; // Return as-is if no prefix
+  };
+
   return (
     <div className="container mx-auto py-8">
       <div className="mb-8">
@@ -1942,7 +1968,7 @@ const MapaQuantidades = () => {
                             <Button variant="ghost" size="sm" className="flex items-center gap-2 hover:bg-transparent p-0 h-auto">
                               <ChevronDown className="h-5 w-5 transition-transform duration-200 data-[state=open]:rotate-180" />
                               <h3 className="text-lg font-semibold">
-                                {chapter.chapter_number}. {cleanChapterName(chapter.chapter_name)}
+                                {displayNumber(chapter.chapter_number)}. {cleanChapterName(chapter.chapter_name)}
                               </h3>
                             </Button>
                           </CollapsibleTrigger>
@@ -1995,7 +2021,7 @@ const MapaQuantidades = () => {
                             {itemsByChapter[chapter.id] && itemsByChapter[chapter.id].length > 0 ? (
                               itemsByChapter[chapter.id].map((item) => (
                                 <TableRow key={item.id}>
-                                  <TableCell>{item.artigo}</TableCell>
+                                  <TableCell>{displayNumber(item.artigo)}</TableCell>
                                   <TableCell>{item.descricao}</TableCell>
                                   <TableCell>{item.un || '-'}</TableCell>
                                   <TableCell className="text-right">{item.qt !== null ? Number(item.qt).toFixed(2) : '-'}</TableCell>
@@ -2214,7 +2240,7 @@ const MapaQuantidades = () => {
                         <Button variant="ghost" size="sm" className="flex items-center gap-2 hover:bg-transparent p-0 h-auto">
                           <ChevronDown className="h-5 w-5 transition-transform duration-200 data-[state=open]:rotate-180" />
                           <h3 className="text-lg font-semibold">
-                            {chapter.chapter_number}. {cleanChapterName(chapter.chapter_name)}
+                            {displayNumber(chapter.chapter_number)}. {cleanChapterName(chapter.chapter_name)}
                           </h3>
                         </Button>
                       </CollapsibleTrigger>
@@ -2267,7 +2293,7 @@ const MapaQuantidades = () => {
                         {itemsByChapter[chapter.id] && itemsByChapter[chapter.id].length > 0 ? (
                           itemsByChapter[chapter.id].map((item) => (
                             <TableRow key={item.id}>
-                              <TableCell>{item.artigo}</TableCell>
+                              <TableCell>{displayNumber(item.artigo)}</TableCell>
                               <TableCell>{item.descricao}</TableCell>
                               <TableCell>{item.un || '-'}</TableCell>
                               <TableCell className="text-right">{item.qt !== null ? Number(item.qt).toFixed(2) : '-'}</TableCell>
@@ -2522,7 +2548,7 @@ const MapaQuantidades = () => {
                                       <Button variant="ghost" size="sm" className="flex items-center gap-2 hover:bg-transparent p-0 h-auto">
                                         <ChevronDown className="h-5 w-5 transition-transform duration-200 data-[state=open]:rotate-180" />
                                         <h3 className="text-lg font-semibold">
-                                          {chapterWithArticles.chapter.chapter_number}. {cleanChapterName(chapterWithArticles.chapter.chapter_name)}
+                                          {displayNumber(chapterWithArticles.chapter.chapter_number)}. {cleanChapterName(chapterWithArticles.chapter.chapter_name)}
                                         </h3>
                                       </Button>
                                     </CollapsibleTrigger>
@@ -2600,7 +2626,7 @@ const MapaQuantidades = () => {
                                                 className={`h-5 w-5 transition-transform duration-200 ${isCollapsed ? '-rotate-90' : ''}`}
                                               />
                                               <h4 className="text-base font-semibold text-primary">
-                                                {article.artigo} - {article.title}
+                                                {displayNumber(article.artigo)} - {article.title}
                                               </h4>
                                             </div>
                                           </div>
@@ -2672,7 +2698,7 @@ const MapaQuantidades = () => {
                                                       <TableBody>
                                                         {group.items.map((item, itemIndex) => (
                                                           <TableRow key={itemIndex}>
-                                                            <TableCell>{item.artigo}</TableCell>
+                                                            <TableCell>{displayNumber(item.artigo)}</TableCell>
                                                             <TableCell>{item.descricao}</TableCell>
                                                             <TableCell>{item.un}</TableCell>
                                                             <TableCell className="text-right">
