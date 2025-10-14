@@ -305,36 +305,48 @@ const MapaQuantidades = () => {
   React.useEffect(() => {
     if (chapters && chapters.length > 0 && id) {
       const storedArticles = sessionStorage.getItem(`articles_${id}`);
+      const storedChapterSheets = sessionStorage.getItem(`chapterSheets_${id}`);
+      
       if (storedArticles) {
         try {
           const articlesData = JSON.parse(storedArticles);
+          const chapterIdToSheetName: Record<string, string> = storedChapterSheets ? JSON.parse(storedChapterSheets) : {};
           
-          // Group articles by chapter
-          const groupedByChapter = new Map<string, typeof articlesData>();
+          // Group articles by sheet_name + chapter_number to handle duplicate chapter numbers across sheets
+          const groupedBySheetAndChapter = new Map<string, typeof articlesData>();
           articlesData.forEach((article: typeof articlesData[0]) => {
-            if (!groupedByChapter.has(article.chapter_number)) {
-              groupedByChapter.set(article.chapter_number, []);
+            const key = `${article.sheet_name}_${article.chapter_number}`;
+            if (!groupedBySheetAndChapter.has(key)) {
+              groupedBySheetAndChapter.set(key, []);
             }
-            groupedByChapter.get(article.chapter_number)!.push(article);
+            groupedBySheetAndChapter.get(key)!.push(article);
           });
           
           // Create ChapterWithArticles structure
           const chaptersWithArticlesData: ChapterWithArticles[] = [];
           chapters.forEach((chapter) => {
-            const articlesForChapter = groupedByChapter.get(chapter.chapter_number) || [];
-            if (articlesForChapter.length > 0) {
-              chaptersWithArticlesData.push({
-                chapter,
-                articles: articlesForChapter.map((articleData: typeof articlesData[0]) => ({
-                  id: `${chapter.id}_${articleData.artigo}`,
-                  chapter_id: chapter.id,
-                  artigo: articleData.artigo,
-                  title: articleData.title,
-                  contents: articleData.contents,
-                  sheet_name: articleData.sheet_name
-                })),
-                sheet_name: articlesForChapter[0]?.sheet_name
-              });
+            // Get the sheet name for this chapter from the mapping
+            const sheetName = chapterIdToSheetName[chapter.id];
+            
+            if (sheetName) {
+              // Look up articles using sheet_name + chapter_number
+              const key = `${sheetName}_${chapter.chapter_number}`;
+              const articlesForChapter = groupedBySheetAndChapter.get(key) || [];
+              
+              if (articlesForChapter.length > 0) {
+                chaptersWithArticlesData.push({
+                  chapter,
+                  articles: articlesForChapter.map((articleData: typeof articlesData[0]) => ({
+                    id: `${chapter.id}_${articleData.artigo}`,
+                    chapter_id: chapter.id,
+                    artigo: articleData.artigo,
+                    title: articleData.title,
+                    contents: articleData.contents,
+                    sheet_name: articleData.sheet_name
+                  })),
+                  sheet_name: sheetName
+                });
+              }
             }
           });
           
@@ -1313,8 +1325,19 @@ const MapaQuantidades = () => {
       
       console.log("File analysis completed successfully");
         
-        // Return articlesData for article-based view processing
-        return { articlesData, articleBasedView };
+        // Return articlesData for article-based view processing, along with chapter-to-sheet mapping
+        // Convert the chapterMap Map to an object for serialization, storing chapter_id -> sheet_name
+        const chapterIdToSheetName: Record<string, string> = {};
+        if (chapterMap && insertedChapters) {
+          insertedChapters.forEach((chapter, index) => {
+            const originalChapter = chaptersToInsert[index];
+            if (originalChapter && originalChapter.sheet_name) {
+              chapterIdToSheetName[chapter.id] = originalChapter.sheet_name;
+            }
+          });
+        }
+        
+        return { articlesData, articleBasedView, chapterIdToSheetName };
       } catch (error) {
         console.error("Error in analyzeMutation:", error);
         // Re-throw to let the onError handler display the toast
@@ -1330,21 +1353,11 @@ const MapaQuantidades = () => {
       
       // Process article-based view data
       if (data && data.articleBasedView && data.articlesData) {
-        // Group articles by chapter
-        const groupedArticles = new Map<string, typeof data.articlesData>();
-        data.articlesData.forEach((article: typeof data.articlesData[0]) => {
-          const key = article.chapter_number;
-          if (!groupedArticles.has(key)) {
-            groupedArticles.set(key, []);
-          }
-          groupedArticles.get(key)!.push(article);
-        });
-        
-        // Fetch chapters to create the ChapterWithArticles structure
-        // This will be done via the normal query invalidation, but we need to store
-        // the articles data temporarily for the UI to use
-        // For now, we'll store it in localStorage or state
+        // Store both articles data and chapter-to-sheet mapping in sessionStorage
         sessionStorage.setItem(`articles_${id}`, JSON.stringify(data.articlesData));
+        if (data.chapterIdToSheetName) {
+          sessionStorage.setItem(`chapterSheets_${id}`, JSON.stringify(data.chapterIdToSheetName));
+        }
       }
       
       toast.success(t('orcamento.analyzeSuccess'));
