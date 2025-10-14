@@ -219,7 +219,8 @@ const MapaQuantidades = () => {
           orcamento_tabs!inner(orcamento_id)
         `)
         .eq("orcamento_tabs.orcamento_id", id)
-        .order("chapter_number");
+        .order("chapter_number")
+        .order("id"); // Ensure insertion order for chapters with same number (multi-sheet)
       if (error) throw error;
       return data as OrcamentoChapter[];
     },
