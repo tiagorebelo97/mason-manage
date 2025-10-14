@@ -1132,6 +1132,22 @@ const MapaQuantidades = () => {
         }
       });
 
+      // Delete existing tabs (which will cascade delete chapters and items) before re-analyzing
+      // This ensures that re-analysis starts with a clean slate
+      console.log("Deleting existing tabs for orcamento_id:", id);
+      const { error: deleteTabsError } = await supabase
+        .from("orcamento_tabs")
+        .delete()
+        .eq("orcamento_id", id!);
+      
+      if (deleteTabsError) {
+        console.error("Error deleting existing tabs:", deleteTabsError);
+        // Don't throw - it's okay if there are no existing tabs to delete
+      }
+      
+      // Delete articles data from sessionStorage to ensure clean state
+      sessionStorage.removeItem(`articles_${id}`);
+      
       // Insert tabs into database
       let insertedTabs: OrcamentoTab[] = [];
       const sheetNameToTabId = new Map<string, string>();
