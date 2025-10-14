@@ -578,30 +578,11 @@ const MapaQuantidades = () => {
       // For multi-sheet files, create tabs from sheet names
       // Allow user to force single-sheet treatment via treatAsSingleSheet flag
       // For article-based view, always create one tab per Excel sheet
-      const shouldCreateTabsFromSheets = articleBasedView || workbook.SheetNames.length > 1;
+      const shouldCreateTabsFromSheets = articleBasedView || (!treatAsSingleSheet && workbook.SheetNames.length > 1);
       const hasMultipleSheets = !treatAsSingleSheet && workbook.SheetNames.length > 1;
       
-      if (!shouldCreateTabsFromSheets && !treatAsSingleSheet) {
-        // Create 3 default tabs for single-sheet files (only in non-article-based view)
-        tabsToInsert.push(
-          {
-            orcamento_id: id!,
-            name: "Principal",
-            display_order: 0,
-          },
-          {
-            orcamento_id: id!,
-            name: "Arquitetura",
-            display_order: 1,
-          },
-          {
-            orcamento_id: id!,
-            name: "Instalações Especiais",
-            display_order: 2,
-          }
-        );
-      } else if (treatAsSingleSheet && !articleBasedView) {
-        // Create 3 default tabs when treating as single sheet (only in non-article-based view)
+      if (!shouldCreateTabsFromSheets) {
+        // Create 3 default tabs for single-sheet files or when treating as single sheet (only in non-article-based view)
         tabsToInsert.push(
           {
             orcamento_id: id!,
