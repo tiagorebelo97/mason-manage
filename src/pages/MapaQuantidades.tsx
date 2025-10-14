@@ -2624,6 +2624,11 @@ const MapaQuantidades = () => {
                                               />
                                               <h4 className="text-base font-semibold text-primary">
                                                 {article.artigo} - {article.title}
+                                                {article.sheet_name && (
+                                                  <span className="ml-2 text-xs font-normal text-muted-foreground">
+                                                    ({article.sheet_name})
+                                                  </span>
+                                                )}
                                               </h4>
                                             </div>
                                           </div>
