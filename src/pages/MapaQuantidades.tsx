@@ -2530,7 +2530,15 @@ const MapaQuantidades = () => {
                   ))}
                 </TabsList>
                 
-                {tabs.map((tab) => (
+                {tabs.map((tab) => {
+                  // Calculate total unique sheets across all chapters (not just current tab)
+                  const totalUniqueSheets = new Set(
+                    chaptersWithArticles
+                      .filter(cwa => cwa.sheet_name)
+                      .map(cwa => cwa.sheet_name)
+                  ).size;
+                  
+                  return (
                   <TabsContent key={tab.id} value={tab.id} className="space-y-6">
                     {(() => {
                       const chaptersForTab = chaptersWithArticles.filter((cwa) => cwa.chapter.tab_id === tab.id);
@@ -2552,8 +2560,8 @@ const MapaQuantidades = () => {
                         
                         return (
                         <div key={sheetName}>
-                          {/* Sheet separator - only show if there are multiple sheets */}
-                          {chaptersBySheet.size > 1 && (
+                          {/* Sheet separator - only show if there are multiple sheets in the original file */}
+                          {totalUniqueSheets > 1 && (
                             <Collapsible open={!isSheetCollapsed} onOpenChange={(open) => {
                               const newCollapsed = new Set(collapsedSheets);
                               if (open) {
@@ -2617,7 +2625,7 @@ const MapaQuantidades = () => {
                           )}
                           
                           {/* Chapters in this sheet */}
-                          {(!isSheetCollapsed || chaptersBySheet.size === 1) && chaptersInSheet.map((chapterWithArticles) => (
+                          {(!isSheetCollapsed || totalUniqueSheets === 1) && chaptersInSheet.map((chapterWithArticles) => (
                             <Collapsible key={chapterWithArticles.chapter.id} defaultOpen={false} className="border rounded-lg overflow-hidden mb-6">
                               <div className="bg-muted">
                                 <div className="flex items-center justify-between p-4">
@@ -2807,7 +2815,8 @@ const MapaQuantidades = () => {
                       });
                     })()}
                   </TabsContent>
-                ))}
+                  );
+                })}
               </Tabs>
             </div>
           )}
