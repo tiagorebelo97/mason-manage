@@ -338,6 +338,27 @@ const MapaQuantidades = () => {
     enabled: !!id && tabs && tabs.length > 0,
   });
 
+  // Query for articles from database
+  const { data: articlesFromDB } = useQuery({
+    queryKey: ["orcamento_articles", id, import.meta.env.VITE_SUPABASE_URL],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("orcamento_articles")
+        .select(`
+          *,
+          orcamento_chapters!inner(
+            tab_id,
+            orcamento_tabs!inner(orcamento_id)
+          )
+        `)
+        .eq("orcamento_chapters.orcamento_tabs.orcamento_id", id)
+        .order("artigo");
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!id && chapters && chapters.length > 0,
+  });
+
   // Query for article specialities
   const { data: articleSpecialities } = useQuery({
     queryKey: ["article_specialities", id, import.meta.env.VITE_SUPABASE_URL],
@@ -359,27 +380,6 @@ const MapaQuantidades = () => {
       return data as { article_id: string; speciality_id: string }[];
     },
     enabled: !!id && articlesFromDB && articlesFromDB.length > 0,
-  });
-
-  // Query for articles from database
-  const { data: articlesFromDB } = useQuery({
-    queryKey: ["orcamento_articles", id, import.meta.env.VITE_SUPABASE_URL],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("orcamento_articles")
-        .select(`
-          *,
-          orcamento_chapters!inner(
-            tab_id,
-            orcamento_tabs!inner(orcamento_id)
-          )
-        `)
-        .eq("orcamento_chapters.orcamento_tabs.orcamento_id", id)
-        .order("artigo");
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!id && chapters && chapters.length > 0,
   });
   
   // Initialize collapsed sheets with all sheet names on first load
