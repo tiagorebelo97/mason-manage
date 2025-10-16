@@ -1995,7 +1995,7 @@ const MapaQuantidades = () => {
 
           
           {/* Display articles grouped by chapters */}
-          {isAnalyzed && isArticleBasedViewActive && tabs && tabs.length > 0 && (
+          {isAnalyzed && tabs && tabs.length > 0 && (
             <div className="space-y-8">
               <Tabs defaultValue={tabs[0]?.id} className="w-full">
                 <TabsList className="w-full justify-start overflow-x-auto flex-wrap h-auto">
@@ -2017,7 +2017,150 @@ const MapaQuantidades = () => {
                   return (
                   <TabsContent key={tab.id} value={tab.id} className="space-y-6">
                     {(() => {
-                      const chaptersForTab = chaptersWithArticles.filter((cwa) => cwa.chapter.tab_id === tab.id);
+                      const chaptersForTab = isArticleBasedViewActive 
+                        ? chaptersWithArticles.filter((cwa) => cwa.chapter.tab_id === tab.id)
+                        : [];
+                      
+                      // If article-based view is not active, fall back to item-based display
+                      if (!isArticleBasedViewActive && chapters && items) {
+                        const chaptersForThisTab = chapters.filter(ch => ch.tab_id === tab.id);
+                        
+                        return (
+                          <div className="space-y-6">
+                            {chaptersForThisTab.map((chapter) => {
+                              const chapterItems = itemsByChapter[chapter.id] || [];
+                              
+                              if (chapterItems.length === 0) return null;
+                              
+                              return (
+                                <Collapsible key={chapter.id} defaultOpen={false} className="border rounded-lg overflow-hidden">
+                                  <div className="bg-muted">
+                                    <div className="flex items-center justify-between p-4">
+                                      <div className="flex items-center gap-2">
+                                        <CollapsibleTrigger asChild>
+                                          <Button variant="ghost" size="sm" className="flex items-center gap-2 hover:bg-transparent p-0 h-auto">
+                                            <ChevronDown className="h-5 w-5 transition-transform duration-200 data-[state=open]:rotate-180" />
+                                            <h3 className="text-lg font-semibold">
+                                              {displayNumber(chapter.chapter_number)}. {cleanChapterName(chapter.chapter_name)}
+                                            </h3>
+                                          </Button>
+                                        </CollapsibleTrigger>
+                                      </div>
+                                      
+                                      {/* Move chapter button */}
+                                      {tabs && tabs.length > 1 && (
+                                        <Sheet>
+                                          <SheetTrigger asChild>
+                                            <Button variant="ghost" size="sm" className="gap-2">
+                                              <MoveRight className="h-4 w-4" />
+                                              Move to tab
+                                            </Button>
+                                          </SheetTrigger>
+                                          <SheetContent>
+                                            <SheetHeader>
+                                              <SheetTitle>Move Chapter</SheetTitle>
+                                              <SheetDescription>
+                                                Select a tab to move this chapter to
+                                              </SheetDescription>
+                                            </SheetHeader>
+                                            <div className="mt-6 space-y-2">
+                                              {tabs.filter(t => t.id !== chapter.tab_id).map((targetTab) => (
+                                                <Button
+                                                  key={targetTab.id}
+                                                  variant="outline"
+                                                  className="w-full justify-start"
+                                                  onClick={() => {
+                                                    moveChapterMutation.mutate({
+                                                      chapterId: chapter.id,
+                                                      newTabId: targetTab.id
+                                                    });
+                                                  }}
+                                                >
+                                                  <ChevronRight className="mr-2 h-4 w-4" />
+                                                  {targetTab.name}
+                                                </Button>
+                                              ))}
+                                            </div>
+                                          </SheetContent>
+                                        </Sheet>
+                                      )}
+                                    </div>
+                                    
+                                    {/* Chapter comments */}
+                                    {chapter.chapter_comments && (
+                                      <div className="px-4 pb-2">
+                                        <p className="text-sm text-muted-foreground italic whitespace-pre-line">
+                                          {chapter.chapter_comments}
+                                        </p>
+                                      </div>
+                                    )}
+                                  </div>
+                                  
+                                  <CollapsibleContent>
+                                    <div className="p-4">
+                                      <Table>
+                                        <TableHeader>
+                                          <TableRow>
+                                            <TableHead>{t('orcamento.artigo')}</TableHead>
+                                            <TableHead>{t('orcamento.descricao')}</TableHead>
+                                            <TableHead>{t('orcamento.unit')}</TableHead>
+                                            <TableHead className="text-right">{t('orcamento.quantity')}</TableHead>
+                                            <TableHead>{t('orcamento.observacoesEmpreiteiro')}</TableHead>
+                                          </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                          {chapterItems.map((item) => (
+                                            <TableRow key={item.id}>
+                                              <TableCell>
+                                                <div className="flex flex-col">
+                                                  <span className="font-medium">{displayNumber(item.artigo)}</span>
+                                                  {item.item_comments && (
+                                                    <span className="text-xs text-muted-foreground italic mt-1 whitespace-pre-line">
+                                                      {item.item_comments}
+                                                    </span>
+                                                  )}
+                                                </div>
+                                              </TableCell>
+                                              <TableCell>{item.descricao}</TableCell>
+                                              <TableCell>{item.un || '-'}</TableCell>
+                                              <TableCell className="text-right">
+                                                {item.qt !== null ? Number(item.qt).toFixed(2) : '-'}
+                                              </TableCell>
+                                              <TableCell>
+                                                <div className="flex items-center gap-2">
+                                                  {item.observacoes_empreiteiro && (
+                                                    <span className="text-sm whitespace-pre-line">{item.observacoes_empreiteiro}</span>
+                                                  )}
+                                                  {item.observacoes_image_url && (
+                                                    <HoverCard>
+                                                      <HoverCardTrigger asChild>
+                                                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                                                          <ImageIcon className="h-4 w-4" />
+                                                        </Button>
+                                                      </HoverCardTrigger>
+                                                      <HoverCardContent className="w-auto p-0">
+                                                        <img 
+                                                          src={item.observacoes_image_url} 
+                                                          alt="Observação"
+                                                          className="max-w-md max-h-96 object-contain"
+                                                        />
+                                                      </HoverCardContent>
+                                                    </HoverCard>
+                                                  )}
+                                                </div>
+                                              </TableCell>
+                                            </TableRow>
+                                          ))}
+                                        </TableBody>
+                                      </Table>
+                                    </div>
+                                  </CollapsibleContent>
+                                </Collapsible>
+                              );
+                            })}
+                          </div>
+                        );
+                      }
                       
                       // Group chapters by sheet name for multi-sheet separators
                       const chaptersBySheet = new Map<string, typeof chaptersForTab>();
