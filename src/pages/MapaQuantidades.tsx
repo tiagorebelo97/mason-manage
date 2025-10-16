@@ -1412,10 +1412,12 @@ const MapaQuantidades = () => {
         // Store articles data in database for persistence
         if (articleBasedView && articlesData.length > 0) {
           // Create a map of chapter_number to chapter_id
+          // Get all inserted chapters (not just for first tab)
+          const tabIds = insertedTabs.map(t => t.id);
           const { data: insertedChapters } = await supabase
             .from("orcamento_chapters")
             .select("id, chapter_number")
-            .eq("tab_id", insertedTabs[0]?.id);
+            .in("tab_id", tabIds);
           
           if (insertedChapters) {
             const chapterMap = new Map<string, string>();
