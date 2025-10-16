@@ -163,7 +163,20 @@ const MapaQuantidades = () => {
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [pendingItemSpecialities, setPendingItemSpecialities] = useState<string[]>([]);
   const [collapsedArticles, setCollapsedArticles] = useState<Set<string>>(new Set());
-  const [collapsedSheets, setCollapsedSheets] = useState<Set<string>>(new Set());
+  const [collapsedSheets, setCollapsedSheets] = useState<Set<string>>(() => {
+    // Load collapsed sheets state from localStorage
+    if (id) {
+      const stored = localStorage.getItem(`collapsedSheets_${id}`);
+      if (stored) {
+        try {
+          return new Set(JSON.parse(stored));
+        } catch (e) {
+          console.error('Error loading collapsed sheets state:', e);
+        }
+      }
+    }
+    return new Set();
+  });
 
   const { data: orcamento } = useQuery({
     queryKey: ["orcamento", id, import.meta.env.VITE_SUPABASE_URL],
@@ -343,8 +356,16 @@ const MapaQuantidades = () => {
     }
   }, [chapters, id]);
 
-
-
+  // Save collapsed sheets state to localStorage whenever it changes
+  React.useEffect(() => {
+    if (id && collapsedSheets) {
+      try {
+        localStorage.setItem(`collapsedSheets_${id}`, JSON.stringify(Array.from(collapsedSheets)));
+      } catch (e) {
+        console.error('Error saving collapsed sheets state:', e);
+      }
+    }
+  }, [collapsedSheets, id]);
 
   const uploadMutation = useMutation({
     mutationFn: async (file: File) => {
