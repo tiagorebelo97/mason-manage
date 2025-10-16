@@ -310,22 +310,44 @@ const MapaQuantidades = () => {
     },
     enabled: !!id && items && items.length > 0,
   });
+
+  // Query for articles from database
+  const { data: articlesFromDB } = useQuery({
+    queryKey: ["orcamento_articles", id, import.meta.env.VITE_SUPABASE_URL],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("orcamento_articles")
+        .select(`
+          *,
+          orcamento_chapters!inner(
+            tab_id,
+            orcamento_tabs!inner(orcamento_id)
+          )
+        `)
+        .eq("orcamento_chapters.orcamento_tabs.orcamento_id", id)
+        .order("artigo");
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!id && chapters && chapters.length > 0,
+  });
   
-  // Load articles data from sessionStorage when chapters are loaded
+  // Load articles data from database or sessionStorage when chapters are loaded
   React.useEffect(() => {
     if (chapters && chapters.length > 0 && id) {
-      const storedArticles = sessionStorage.getItem(`articles_${id}`);
-      if (storedArticles) {
+      // First, try to load from database
+      if (articlesFromDB && articlesFromDB.length > 0) {
         try {
-          const articlesData = JSON.parse(storedArticles);
-          
           // Group articles by chapter
-          const groupedByChapter = new Map<string, typeof articlesData>();
-          articlesData.forEach((article: typeof articlesData[0]) => {
-            if (!groupedByChapter.has(article.chapter_number)) {
-              groupedByChapter.set(article.chapter_number, []);
+          const groupedByChapter = new Map<string, typeof articlesFromDB>();
+          articlesFromDB.forEach((article) => {
+            const chapterNumber = chapters.find(c => c.id === article.chapter_id)?.chapter_number;
+            if (chapterNumber) {
+              if (!groupedByChapter.has(chapterNumber)) {
+                groupedByChapter.set(chapterNumber, []);
+              }
+              groupedByChapter.get(chapterNumber)!.push(article);
             }
-            groupedByChapter.get(article.chapter_number)!.push(article);
           });
           
           // Create ChapterWithArticles structure
@@ -335,7 +357,7 @@ const MapaQuantidades = () => {
             if (articlesForChapter.length > 0) {
               chaptersWithArticlesData.push({
                 chapter,
-                articles: articlesForChapter.map((articleData: typeof articlesData[0]) => ({
+                articles: articlesForChapter.map((articleData) => ({
                   id: `${chapter.id}_${articleData.artigo}`,
                   chapter_id: chapter.id,
                   artigo: articleData.artigo,
@@ -350,11 +372,52 @@ const MapaQuantidades = () => {
           
           setChaptersWithArticles(chaptersWithArticlesData);
         } catch (error) {
-          console.error('Error loading articles data:', error);
+          console.error('Error loading articles data from database:', error);
+        }
+      } else {
+        // Fallback to sessionStorage for backward compatibility
+        const storedArticles = sessionStorage.getItem(`articles_${id}`);
+        if (storedArticles) {
+          try {
+            const articlesData = JSON.parse(storedArticles);
+            
+            // Group articles by chapter
+            const groupedByChapter = new Map<string, typeof articlesData>();
+            articlesData.forEach((article: typeof articlesData[0]) => {
+              if (!groupedByChapter.has(article.chapter_number)) {
+                groupedByChapter.set(article.chapter_number, []);
+              }
+              groupedByChapter.get(article.chapter_number)!.push(article);
+            });
+            
+            // Create ChapterWithArticles structure
+            const chaptersWithArticlesData: ChapterWithArticles[] = [];
+            chapters.forEach((chapter) => {
+              const articlesForChapter = groupedByChapter.get(chapter.chapter_number) || [];
+              if (articlesForChapter.length > 0) {
+                chaptersWithArticlesData.push({
+                  chapter,
+                  articles: articlesForChapter.map((articleData: typeof articlesData[0]) => ({
+                    id: `${chapter.id}_${articleData.artigo}`,
+                    chapter_id: chapter.id,
+                    artigo: articleData.artigo,
+                    title: articleData.title,
+                    contents: articleData.contents,
+                    sheet_name: articleData.sheet_name
+                  })),
+                  sheet_name: articlesForChapter[0]?.sheet_name
+                });
+              }
+            });
+            
+            setChaptersWithArticles(chaptersWithArticlesData);
+          } catch (error) {
+            console.error('Error loading articles data from sessionStorage:', error);
+          }
         }
       }
     }
-  }, [chapters, id]);
+  }, [chapters, id, articlesFromDB]);
 
   // Save collapsed sheets state to localStorage whenever it changes
   React.useEffect(() => {
@@ -1346,6 +1409,52 @@ const MapaQuantidades = () => {
       
       console.log("File analysis completed successfully");
         
+        // Store articles data in database for persistence
+        if (articleBasedView && articlesData.length > 0) {
+          // Create a map of chapter_number to chapter_id
+          const { data: insertedChapters } = await supabase
+            .from("orcamento_chapters")
+            .select("id, chapter_number")
+            .eq("tab_id", insertedTabs[0]?.id);
+          
+          if (insertedChapters) {
+            const chapterMap = new Map<string, string>();
+            insertedChapters.forEach(chapter => {
+              chapterMap.set(chapter.chapter_number, chapter.id);
+            });
+            
+            // Prepare articles for insertion
+            const articlesToInsert = articlesData.map(article => {
+              const chapterId = chapterMap.get(article.chapter_number);
+              if (!chapterId) {
+                console.warn(`No chapter_id found for chapter_number: ${article.chapter_number}`);
+                return null;
+              }
+              return {
+                chapter_id: chapterId,
+                artigo: article.artigo,
+                title: article.title,
+                sheet_name: article.sheet_name,
+                contents: article.contents
+              };
+            }).filter(a => a !== null);
+            
+            // Insert articles into database
+            if (articlesToInsert.length > 0) {
+              const { error: articlesError } = await supabase
+                .from("orcamento_articles")
+                .insert(articlesToInsert);
+              
+              if (articlesError) {
+                console.error("Error inserting articles:", articlesError);
+                // Don't throw - articles in sessionStorage can still work as fallback
+              } else {
+                console.log("Successfully inserted", articlesToInsert.length, "articles into database");
+              }
+            }
+          }
+        }
+        
         // Return articlesData for article-based view processing
         return { articlesData, articleBasedView };
       } catch (error) {
@@ -1360,23 +1469,10 @@ const MapaQuantidades = () => {
       queryClient.invalidateQueries({ queryKey: ["orcamento_tabs", id, import.meta.env.VITE_SUPABASE_URL] });
       queryClient.invalidateQueries({ queryKey: ["orcamento_chapters", id, import.meta.env.VITE_SUPABASE_URL] });
       queryClient.invalidateQueries({ queryKey: ["orcamento_items", id, import.meta.env.VITE_SUPABASE_URL] });
+      queryClient.invalidateQueries({ queryKey: ["orcamento_articles", id, import.meta.env.VITE_SUPABASE_URL] });
       
-      // Process article-based view data
+      // Keep sessionStorage as fallback for backward compatibility
       if (data && data.articleBasedView && data.articlesData) {
-        // Group articles by chapter
-        const groupedArticles = new Map<string, typeof data.articlesData>();
-        data.articlesData.forEach((article: typeof data.articlesData[0]) => {
-          const key = article.chapter_number;
-          if (!groupedArticles.has(key)) {
-            groupedArticles.set(key, []);
-          }
-          groupedArticles.get(key)!.push(article);
-        });
-        
-        // Fetch chapters to create the ChapterWithArticles structure
-        // This will be done via the normal query invalidation, but we need to store
-        // the articles data temporarily for the UI to use
-        // For now, we'll store it in localStorage or state
         sessionStorage.setItem(`articles_${id}`, JSON.stringify(data.articlesData));
       }
       
@@ -1489,6 +1585,11 @@ const MapaQuantidades = () => {
         .eq("orcamento_id", id);
       if (tabsError) throw tabsError;
 
+      // Clean up sessionStorage
+      if (id) {
+        sessionStorage.removeItem(`articles_${id}`);
+      }
+
       // Delete the file record
       const { error: fileError } = await supabase
         .from("orcamento_files")
@@ -1501,6 +1602,7 @@ const MapaQuantidades = () => {
       queryClient.invalidateQueries({ queryKey: ["orcamento_tabs", id, import.meta.env.VITE_SUPABASE_URL] });
       queryClient.invalidateQueries({ queryKey: ["orcamento_chapters", id, import.meta.env.VITE_SUPABASE_URL] });
       queryClient.invalidateQueries({ queryKey: ["orcamento_items", id, import.meta.env.VITE_SUPABASE_URL] });
+      queryClient.invalidateQueries({ queryKey: ["orcamento_articles", id, import.meta.env.VITE_SUPABASE_URL] });
       toast.success(t('orcamento.deleteSuccess') || 'File deleted successfully');
     },
     onError: () => {
