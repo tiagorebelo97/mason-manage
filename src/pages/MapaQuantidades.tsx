@@ -392,7 +392,7 @@ const MapaQuantidades = () => {
       );
       setCollapsedSheets(allSheetNames);
     }
-  }, [chaptersWithArticles]);
+  }, [chaptersWithArticles, collapsedSheets]);
 
   // Load articles data from database or sessionStorage when chapters are loaded
   React.useEffect(() => {
@@ -2338,7 +2338,7 @@ const MapaQuantidades = () => {
       if (separatorDialog.open) {
         setName(separatorDialog.data?.name || '');
       }
-    }, [separatorDialog]);
+    }, [separatorDialog.open, separatorDialog.data]);
 
     const handleSubmit = () => {
       if (!name.trim()) {
@@ -2401,7 +2401,7 @@ const MapaQuantidades = () => {
         setChapterName(chapterDialog.data?.chapter_name || '');
         setChapterComments(chapterDialog.data?.chapter_comments || '');
       }
-    }, [chapterDialog]);
+    }, [chapterDialog.open, chapterDialog.data]);
 
     const handleSubmit = () => {
       if (!chapterName.trim()) {
@@ -2499,7 +2499,7 @@ const MapaQuantidades = () => {
         setArtigo(articleDialog.data?.artigo || '');
         setTitle(articleDialog.data?.title || '');
       }
-    }, [articleDialog]);
+    }, [articleDialog.open, articleDialog.data]);
 
     const handleSubmit = () => {
       if (!title.trim()) {
@@ -2602,7 +2602,7 @@ const MapaQuantidades = () => {
         setPrecoUnitario(itemDialog.data?.preco_unitario?.toString() || '');
         setItemComments(itemDialog.data?.item_comments || '');
       }
-    }, [itemDialog]);
+    }, [itemDialog.open, itemDialog.data]);
 
     const handleSubmit = () => {
       if (!descricao.trim()) {
