@@ -2111,72 +2111,70 @@ const MapaQuantidades = () => {
                         
                         return (
                         <div key={sheetName}>
-                          {/* Sheet separator - only show if there are multiple sheets in the original file */}
-                          {totalUniqueSheets > 1 && (
-                            <Collapsible open={!isSheetCollapsed} onOpenChange={(open) => {
-                              const newCollapsed = new Set(collapsedSheets);
-                              if (open) {
-                                newCollapsed.delete(sheetName);
-                              } else {
-                                newCollapsed.add(sheetName);
-                              }
-                              setCollapsedSheets(newCollapsed);
-                            }}>
-                              <div className="bg-blue-50 dark:bg-blue-950 border-l-4 border-blue-500 rounded-r-lg mb-6 overflow-hidden">
-                                <div className="flex items-center justify-between p-4">
-                                  <CollapsibleTrigger asChild>
-                                    <Button variant="ghost" size="sm" className="flex items-center gap-2 hover:bg-transparent p-0 h-auto">
-                                      <ChevronDown className={`h-5 w-5 transition-transform duration-200 ${isSheetCollapsed ? '-rotate-90' : ''}`} />
-                                      <h2 className="text-xl font-bold text-blue-900 dark:text-blue-100">
-                                        📄 {sheetName}
-                                      </h2>
-                                    </Button>
-                                  </CollapsibleTrigger>
-                                  
-                                  {/* Move sheet button */}
-                                  {tabs && tabs.length > 1 && (
-                                    <Sheet>
-                                      <SheetTrigger asChild>
-                                        <Button variant="ghost" size="sm" className="gap-2 text-blue-900 dark:text-blue-100 hover:bg-blue-100 dark:hover:bg-blue-900">
-                                          <MoveRight className="h-4 w-4" />
-                                          Move to tab
-                                        </Button>
-                                      </SheetTrigger>
-                                      <SheetContent>
-                                        <SheetHeader>
-                                          <SheetTitle>Move Sheet</SheetTitle>
-                                          <SheetDescription>
-                                            Select a tab to move all chapters from "{sheetName}" to
-                                          </SheetDescription>
-                                        </SheetHeader>
-                                        <div className="mt-6 space-y-2">
-                                          {tabs.filter(t => t.id !== tab.id).map((targetTab) => (
-                                            <Button
-                                              key={targetTab.id}
-                                              variant="outline"
-                                              className="w-full justify-start"
-                                              onClick={() => {
-                                                moveSheetMutation.mutate({
-                                                  chapterIds: sheetChapterIds,
-                                                  newTabId: targetTab.id
-                                                });
-                                              }}
-                                            >
-                                              <ChevronRight className="mr-2 h-4 w-4" />
-                                              {targetTab.name}
-                                            </Button>
-                                          ))}
-                                        </div>
-                                      </SheetContent>
-                                    </Sheet>
-                                  )}
-                                </div>
+                          {/* Sheet separator - always show for article-based view */}
+                          <Collapsible open={!isSheetCollapsed} onOpenChange={(open) => {
+                            const newCollapsed = new Set(collapsedSheets);
+                            if (open) {
+                              newCollapsed.delete(sheetName);
+                            } else {
+                              newCollapsed.add(sheetName);
+                            }
+                            setCollapsedSheets(newCollapsed);
+                          }}>
+                            <div className="bg-blue-50 dark:bg-blue-950 border-l-4 border-blue-500 rounded-r-lg mb-6 overflow-hidden">
+                              <div className="flex items-center justify-between p-4">
+                                <CollapsibleTrigger asChild>
+                                  <Button variant="ghost" size="sm" className="flex items-center gap-2 hover:bg-transparent p-0 h-auto">
+                                    <ChevronDown className={`h-5 w-5 transition-transform duration-200 ${isSheetCollapsed ? '-rotate-90' : ''}`} />
+                                    <h2 className="text-xl font-bold text-blue-900 dark:text-blue-100">
+                                      📄 {sheetName}
+                                    </h2>
+                                  </Button>
+                                </CollapsibleTrigger>
+                                
+                                {/* Move sheet button - only show if there are multiple tabs */}
+                                {tabs && tabs.length > 1 && (
+                                  <Sheet>
+                                    <SheetTrigger asChild>
+                                      <Button variant="ghost" size="sm" className="gap-2 text-blue-900 dark:text-blue-100 hover:bg-blue-100 dark:hover:bg-blue-900">
+                                        <MoveRight className="h-4 w-4" />
+                                        Move to tab
+                                      </Button>
+                                    </SheetTrigger>
+                                    <SheetContent>
+                                      <SheetHeader>
+                                        <SheetTitle>Move Sheet</SheetTitle>
+                                        <SheetDescription>
+                                          Select a tab to move all chapters from "{sheetName}" to
+                                        </SheetDescription>
+                                      </SheetHeader>
+                                      <div className="mt-6 space-y-2">
+                                        {tabs.filter(t => t.id !== tab.id).map((targetTab) => (
+                                          <Button
+                                            key={targetTab.id}
+                                            variant="outline"
+                                            className="w-full justify-start"
+                                            onClick={() => {
+                                              moveSheetMutation.mutate({
+                                                chapterIds: sheetChapterIds,
+                                                newTabId: targetTab.id
+                                              });
+                                            }}
+                                          >
+                                            <ChevronRight className="mr-2 h-4 w-4" />
+                                            {targetTab.name}
+                                          </Button>
+                                        ))}
+                                      </div>
+                                    </SheetContent>
+                                  </Sheet>
+                                )}
                               </div>
-                            </Collapsible>
-                          )}
-                          
-                          {/* Chapters in this sheet */}
-                          {(!isSheetCollapsed || totalUniqueSheets === 1) && chaptersInSheet.map((chapterWithArticles) => (
+                            </div>
+                            
+                            {/* Chapters in this sheet */}
+                            <CollapsibleContent>
+                              {chaptersInSheet.map((chapterWithArticles) => (
                             <Collapsible key={chapterWithArticles.chapter.id} defaultOpen={false} className="border rounded-lg overflow-hidden mb-6">
                               <div className="bg-muted">
                                 <div className="flex items-center justify-between p-4">
@@ -2361,6 +2359,8 @@ const MapaQuantidades = () => {
                               </CollapsibleContent>
                             </Collapsible>
                           ))}
+                            </CollapsibleContent>
+                          </Collapsible>
                         </div>
                       );
                       });
