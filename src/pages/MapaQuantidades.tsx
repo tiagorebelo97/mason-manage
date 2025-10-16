@@ -12,7 +12,6 @@ import ExcelJS from "exceljs";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Table,
   TableBody,
@@ -3505,6 +3504,19 @@ const MapaQuantidades = () => {
                                       </div>
                                     );
                                   })}
+                                  
+                                  {/* Add Item button at the end of the chapter */}
+                                  <div className="flex justify-center pt-2">
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => setItemDialog({ open: true, mode: 'create', chapterId: chapterWithArticles.chapter.id })}
+                                      className="gap-2"
+                                    >
+                                      <Plus className="h-4 w-4" />
+                                      Add Item to Chapter
+                                    </Button>
+                                  </div>
                                 </div>
                               </CollapsibleContent>
                             </Collapsible>
