@@ -2392,8 +2392,14 @@ const MapaQuantidades = () => {
             observacoes_empreiteiro?: string;
           };
           
-          if (field === 'artigo' || field === 'descricao' || field === 'un' || field === 'observacoes_empreiteiro') {
-            (itemData as any)[field] = newValue;
+          if (field === 'artigo') {
+            itemData.artigo = newValue;
+          } else if (field === 'descricao') {
+            itemData.descricao = newValue;
+          } else if (field === 'un') {
+            itemData.un = newValue;
+          } else if (field === 'observacoes_empreiteiro') {
+            itemData.observacoes_empreiteiro = newValue;
           } else if (field === 'qt') {
             itemData.qt = parseFloat(newValue) || 0;
           }
