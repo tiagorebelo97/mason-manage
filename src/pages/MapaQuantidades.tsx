@@ -166,6 +166,12 @@ const MapaQuantidades = () => {
   const [pendingItemSpecialities, setPendingItemSpecialities] = useState<string[]>([]);
   const [collapsedArticles, setCollapsedArticles] = useState<Set<string>>(new Set());
   
+  // Inline editing state
+  const [editingTextLine, setEditingTextLine] = useState<{articleId: string; lineIndex: number} | null>(null);
+  const [editingTextValue, setEditingTextValue] = useState<string>('');
+  const [editingItemCell, setEditingItemCell] = useState<{articleId: string; itemIndex: number; field: string} | null>(null);
+  const [editingItemValue, setEditingItemValue] = useState<string>('');
+  
   const [collapsedSheets, setCollapsedSheets] = useState<Set<string>>(() => {
     // Load collapsed sheets state from localStorage
     if (id) {
@@ -2340,6 +2346,74 @@ const MapaQuantidades = () => {
     }
   };
 
+  // Helper function to update article text line
+  const handleUpdateArticleTextLine = (articleId: string, lineIndex: number, newText: string) => {
+    const articleFromDB = articlesFromDB?.find(a => a.id === articleId);
+    if (!articleFromDB) return;
+    
+    const updatedContents = [...articleFromDB.contents];
+    // Find the text content at lineIndex
+    let textLineCount = 0;
+    for (let i = 0; i < updatedContents.length; i++) {
+      if (updatedContents[i].type === 'text') {
+        if (textLineCount === lineIndex) {
+          updatedContents[i] = { type: 'text', data: newText };
+          break;
+        }
+        textLineCount++;
+      }
+    }
+    
+    updateArticleMutation.mutate({
+      articleId,
+      title: articleFromDB.title,
+      contents: updatedContents
+    });
+    setEditingTextLine(null);
+    setEditingTextValue('');
+  };
+
+  // Helper function to update item column
+  const handleUpdateItemColumn = (articleId: string, itemIndex: number, field: string, newValue: string) => {
+    const articleFromDB = articlesFromDB?.find(a => a.id === articleId);
+    if (!articleFromDB) return;
+    
+    const updatedContents = [...articleFromDB.contents];
+    // Find the item at itemIndex
+    let itemCount = 0;
+    for (let i = 0; i < updatedContents.length; i++) {
+      if (updatedContents[i].type === 'item') {
+        if (itemCount === itemIndex) {
+          const itemData = updatedContents[i].data as {
+            artigo: string;
+            descricao: string;
+            un: string;
+            qt: number;
+            observacoes_empreiteiro?: string;
+          };
+          
+          if (field === 'artigo' || field === 'descricao' || field === 'un' || field === 'observacoes_empreiteiro') {
+            (itemData as any)[field] = newValue;
+          } else if (field === 'qt') {
+            itemData.qt = parseFloat(newValue) || 0;
+          }
+          
+          updatedContents[i] = { type: 'item', data: itemData };
+          break;
+        }
+        itemCount++;
+      }
+    }
+    
+    updateArticleMutation.mutate({
+      articleId,
+      title: articleFromDB.title,
+      contents: updatedContents
+    });
+    setEditingItemCell(null);
+    setEditingItemValue('');
+  };
+
 
 
   // Check if article-based view is active
@@ -3074,10 +3148,84 @@ const MapaQuantidades = () => {
                                                 a.artigo === article.artigo
                                               );
                                               
-                                              return groupedContent.map((group, groupIndex) => (
+                                              return groupedContent.map((group, groupIndex) => {
+                                                // Track text line indices separately
+                                                let textLineIndex = 0;
+                                                if (group.type === 'text') {
+                                                  // Count how many text lines we've seen before this one
+                                                  for (let i = 0; i < groupIndex; i++) {
+                                                    if (groupedContent[i].type === 'text') {
+                                                      textLineIndex++;
+                                                    }
+                                                  }
+                                                }
+                                                
+                                                return (
                                                 <div key={groupIndex}>
                                                   {group.type === 'text' ? (
-                                                    <p className="text-sm whitespace-pre-line">{group.data}</p>
+                                                    <div className="flex items-start gap-2 group">
+                                                      {editingTextLine?.articleId === articleFromDB?.id && editingTextLine.lineIndex === textLineIndex ? (
+                                                        <div className="flex-1 flex gap-2">
+                                                          <Textarea
+                                                            value={editingTextValue}
+                                                            onChange={(e) => setEditingTextValue(e.target.value)}
+                                                            className="flex-1 text-sm"
+                                                            rows={3}
+                                                            autoFocus
+                                                          />
+                                                          <div className="flex flex-col gap-1">
+                                                            <Button
+                                                              size="sm"
+                                                              variant="default"
+                                                              onClick={() => {
+                                                                if (articleFromDB) {
+                                                                  handleUpdateArticleTextLine(articleFromDB.id, textLineIndex, editingTextValue);
+                                                                }
+                                                              }}
+                                                            >
+                                                              Save
+                                                            </Button>
+                                                            <Button
+                                                              size="sm"
+                                                              variant="outline"
+                                                              onClick={() => {
+                                                                setEditingTextLine(null);
+                                                                setEditingTextValue('');
+                                                              }}
+                                                            >
+                                                              Cancel
+                                                            </Button>
+                                                          </div>
+                                                        </div>
+                                                      ) : (
+                                                        <>
+                                                          <p 
+                                                            className="text-sm whitespace-pre-line flex-1 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 p-2 rounded"
+                                                            onClick={() => {
+                                                              if (articleFromDB) {
+                                                                setEditingTextLine({ articleId: articleFromDB.id, lineIndex: textLineIndex });
+                                                                setEditingTextValue(group.data);
+                                                              }
+                                                            }}
+                                                          >
+                                                            {group.data}
+                                                          </p>
+                                                          <Button
+                                                            size="sm"
+                                                            variant="ghost"
+                                                            className="opacity-0 group-hover:opacity-100"
+                                                            onClick={() => {
+                                                              if (articleFromDB) {
+                                                                setEditingTextLine({ articleId: articleFromDB.id, lineIndex: textLineIndex });
+                                                                setEditingTextValue(group.data);
+                                                              }
+                                                            }}
+                                                          >
+                                                            <Edit className="h-3 w-3" />
+                                                          </Button>
+                                                        </>
+                                                      )}
+                                                    </div>
                                                   ) : (
                                                     <Table className="border">
                                                       <TableHeader>
@@ -3099,16 +3247,80 @@ const MapaQuantidades = () => {
                                                             articleFromDB?.id
                                                           );
                                                           
+                                                          // Helper function to render editable cell
+                                                          const renderEditableCell = (field: string, value: string | number, type: 'text' | 'number' = 'text') => {
+                                                            const isEditing = editingItemCell?.articleId === articleFromDB?.id && 
+                                                                            editingItemCell.itemIndex === itemIndex && 
+                                                                            editingItemCell.field === field;
+                                                            
+                                                            if (isEditing) {
+                                                              return (
+                                                                <div className="flex gap-2 items-center">
+                                                                  <Input
+                                                                    type={type}
+                                                                    value={editingItemValue}
+                                                                    onChange={(e) => setEditingItemValue(e.target.value)}
+                                                                    className="w-full text-sm"
+                                                                    autoFocus
+                                                                    onKeyDown={(e) => {
+                                                                      if (e.key === 'Enter' && articleFromDB) {
+                                                                        handleUpdateItemColumn(articleFromDB.id, itemIndex, field, editingItemValue);
+                                                                      } else if (e.key === 'Escape') {
+                                                                        setEditingItemCell(null);
+                                                                        setEditingItemValue('');
+                                                                      }
+                                                                    }}
+                                                                  />
+                                                                  <Button
+                                                                    size="sm"
+                                                                    variant="ghost"
+                                                                    onClick={() => {
+                                                                      if (articleFromDB) {
+                                                                        handleUpdateItemColumn(articleFromDB.id, itemIndex, field, editingItemValue);
+                                                                      }
+                                                                    }}
+                                                                  >
+                                                                    ✓
+                                                                  </Button>
+                                                                  <Button
+                                                                    size="sm"
+                                                                    variant="ghost"
+                                                                    onClick={() => {
+                                                                      setEditingItemCell(null);
+                                                                      setEditingItemValue('');
+                                                                    }}
+                                                                  >
+                                                                    ✕
+                                                                  </Button>
+                                                                </div>
+                                                              );
+                                                            }
+                                                            
+                                                            return (
+                                                              <div 
+                                                                className="cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 p-2 rounded"
+                                                                onClick={() => {
+                                                                  if (articleFromDB) {
+                                                                    setEditingItemCell({ articleId: articleFromDB.id, itemIndex, field });
+                                                                    setEditingItemValue(String(value));
+                                                                  }
+                                                                }}
+                                                              >
+                                                                {type === 'number' && field === 'qt' ? Number(value).toFixed(2) : value || '-'}
+                                                              </div>
+                                                            );
+                                                          };
+                                                          
                                                           return (
                                                           <TableRow key={itemIndex}>
-                                                            <TableCell>{displayNumber(item.artigo)}</TableCell>
-                                                            <TableCell>{item.descricao}</TableCell>
-                                                            <TableCell>{item.un}</TableCell>
+                                                            <TableCell>{renderEditableCell('artigo', item.artigo)}</TableCell>
+                                                            <TableCell>{renderEditableCell('descricao', item.descricao)}</TableCell>
+                                                            <TableCell>{renderEditableCell('un', item.un)}</TableCell>
                                                             <TableCell className="text-right">
-                                                              {Number(item.qt).toFixed(2)}
+                                                              {renderEditableCell('qt', item.qt, 'number')}
                                                             </TableCell>
                                                             <TableCell>
-                                                              {item.observacoes_empreiteiro || '-'}
+                                                              {renderEditableCell('observacoes_empreiteiro', item.observacoes_empreiteiro || '')}
                                                             </TableCell>
                                                             <TableCell>
                                                               <div className="flex flex-wrap gap-1">
@@ -3128,13 +3340,13 @@ const MapaQuantidades = () => {
                                                               </div>
                                                             </TableCell>
                                                           </TableRow>
-                                                          );
-                                                        })}
+                                                        )})}
                                                       </TableBody>
                                                     </Table>
                                                   )}
                                                 </div>
-                                              ));
+                                              )
+                                            });
                                             })()}
                                           </div>
                                         )}
