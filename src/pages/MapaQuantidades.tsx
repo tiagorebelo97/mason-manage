@@ -2211,6 +2211,55 @@ const MapaQuantidades = () => {
     return specialities.filter(s => ids.includes(s.id));
   };
 
+  // Get specialities for an article
+  const getArticleSpecialityIds = (articleId: string): string[] => {
+    if (!articleSpecialities) return [];
+    return articleSpecialities
+      .filter(as => as.article_id === articleId)
+      .map(as => as.speciality_id);
+  };
+
+  // Get specialities for an item in an article context (with full inheritance chain)
+  const getItemSpecialitiesInArticle = (
+    itemArtigo: string, 
+    chapterId: string, 
+    articleId?: string
+  ): Speciality[] => {
+    // Find the actual item from the database by artigo and chapter_id
+    const dbItem = items?.find(item => 
+      item.artigo === itemArtigo && item.chapter_id === chapterId
+    );
+
+    if (!dbItem) {
+      // If item not found in DB, try to inherit from article or chapter
+      if (articleId) {
+        const articleSpecIds = getArticleSpecialityIds(articleId);
+        if (articleSpecIds.length > 0) {
+          return getSpecialitiesByIds(articleSpecIds);
+        }
+      }
+      // Fall back to chapter specialities
+      return getSpecialitiesByIds(getChapterSpecialityIds(chapterId));
+    }
+
+    // Check if item has its own specialities
+    const itemSpecIds = getItemOwnSpecialityIds(dbItem.id);
+    if (itemSpecIds.length > 0) {
+      return getSpecialitiesByIds(itemSpecIds);
+    }
+
+    // Inherit from article if available
+    if (articleId) {
+      const articleSpecIds = getArticleSpecialityIds(articleId);
+      if (articleSpecIds.length > 0) {
+        return getSpecialitiesByIds(articleSpecIds);
+      }
+    }
+
+    // Fall back to chapter specialities
+    return getSpecialitiesByIds(getChapterSpecialityIds(chapterId));
+  };
+
   // Group specialities by main specialty for dropdown
   const groupedSpecialityOptions = React.useMemo(() => {
     if (!specialities) return {};
@@ -3464,6 +3513,12 @@ const MapaQuantidades = () => {
                                                 groupedContent.push({ type: 'items', items: currentItemGroup });
                                               }
                                               
+                                              // Get the article ID from the database
+                                              const articleFromDB = articlesFromDB?.find(a => 
+                                                a.chapter_id === article.chapter_id && 
+                                                a.artigo === article.artigo
+                                              );
+                                              
                                               return groupedContent.map((group, groupIndex) => (
                                                 <div key={groupIndex}>
                                                   {group.type === 'text' ? (
@@ -3477,10 +3532,19 @@ const MapaQuantidades = () => {
                                                           <TableHead>{t('orcamento.unit')}</TableHead>
                                                           <TableHead className="text-right">{t('orcamento.quantity')}</TableHead>
                                                           <TableHead>{t('orcamento.observacoesEmpreiteiro')}</TableHead>
+                                                          <TableHead>Specialities</TableHead>
                                                         </TableRow>
                                                       </TableHeader>
                                                       <TableBody>
-                                                        {group.items.map((item, itemIndex) => (
+                                                        {group.items.map((item, itemIndex) => {
+                                                          // Get specialities for this item
+                                                          const itemSpecialities = getItemSpecialitiesInArticle(
+                                                            item.artigo,
+                                                            chapterWithArticles.chapter.id,
+                                                            articleFromDB?.id
+                                                          );
+                                                          
+                                                          return (
                                                           <TableRow key={itemIndex}>
                                                             <TableCell>{displayNumber(item.artigo)}</TableCell>
                                                             <TableCell>{item.descricao}</TableCell>
@@ -3491,8 +3555,26 @@ const MapaQuantidades = () => {
                                                             <TableCell>
                                                               {item.observacoes_empreiteiro || '-'}
                                                             </TableCell>
+                                                            <TableCell>
+                                                              <div className="flex flex-wrap gap-1">
+                                                                {itemSpecialities.length > 0 ? (
+                                                                  itemSpecialities.map((spec) => (
+                                                                    <Badge 
+                                                                      key={spec.id} 
+                                                                      variant="secondary"
+                                                                      className="text-xs"
+                                                                    >
+                                                                      {language === 'pt' ? spec.name_pt : spec.name_en}
+                                                                    </Badge>
+                                                                  ))
+                                                                ) : (
+                                                                  <span className="text-muted-foreground text-sm">-</span>
+                                                                )}
+                                                              </div>
+                                                            </TableCell>
                                                           </TableRow>
-                                                        ))}
+                                                          );
+                                                        })}
                                                       </TableBody>
                                                     </Table>
                                                   )}
