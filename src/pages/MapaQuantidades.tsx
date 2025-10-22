@@ -2456,6 +2456,36 @@ const MapaQuantidades = () => {
     });
   };
 
+  // Helper function to delete a row from an items table
+  const handleDeleteItemFromArticle = (articleId: string, itemIndex: number) => {
+    const articleFromDB = articlesFromDB?.find(a => a.id === articleId);
+    if (!articleFromDB) return;
+    
+    const updatedContents = [...articleFromDB.contents];
+    
+    // Find and remove the item at itemIndex
+    let currentItemIndex = 0;
+    const indexToRemove = updatedContents.findIndex((content) => {
+      if (content.type === 'item') {
+        if (currentItemIndex === itemIndex) {
+          return true;
+        }
+        currentItemIndex++;
+      }
+      return false;
+    });
+    
+    if (indexToRemove !== -1) {
+      updatedContents.splice(indexToRemove, 1);
+      
+      updateArticleMutation.mutate({
+        articleId,
+        title: articleFromDB.title,
+        contents: updatedContents
+      });
+    }
+  };;
+
 
 
   // Check if article-based view is active
@@ -3006,35 +3036,35 @@ const MapaQuantidades = () => {
                                   {chapterWithArticles.articles.map((article) => {
                                     const isCollapsed = collapsedArticles.has(article.id);
                                     
-                                    // Check if the article has UN and QT by checking if first item has same artigo as article
-                                    const hasArticleUnQt = article.contents.length > 0 && 
-                                      article.contents[0].type === 'item' &&
-                                      (article.contents[0].data as {artigo: string; descricao: string; un: string; qt: number}).artigo === article.artigo;
+                                    // Check if the article title matches the first item's description
+                                    const firstItem = article.contents.find(c => c.type === 'item');
+                                    const firstItemData = firstItem?.data as {artigo: string; descricao: string; un: string; qt: number} | undefined;
+                                    const shouldShowSingleArticle = firstItemData && article.title === firstItemData.descricao;
+                                    const displayTitle = shouldShowSingleArticle ? "Single Article" : article.title;
                                     
                                     return (
                                       <div key={article.id} className="border rounded-lg overflow-hidden bg-gray-50 dark:bg-gray-900">
-                                        {/* Article header with toggle - hide if article has UN and QT */}
-                                        {!hasArticleUnQt && (
-                                          <div className="flex items-center justify-between p-4 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
-                                            <div 
-                                              className="flex items-center gap-2 flex-1 cursor-pointer"
-                                              onClick={() => {
-                                                const newCollapsed = new Set(collapsedArticles);
-                                                if (isCollapsed) {
-                                                  newCollapsed.delete(article.id);
-                                                } else {
-                                                  newCollapsed.add(article.id);
-                                                }
-                                                setCollapsedArticles(newCollapsed);
-                                              }}
-                                            >
-                                              <ChevronDown 
-                                                className={`h-5 w-5 transition-transform duration-200 ${isCollapsed ? '-rotate-90' : ''}`}
-                                              />
-                                              <h4 className="text-base font-semibold text-primary">
-                                                {displayNumber(article.artigo)} - {hasArticleUnQt ? "Single Article" : article.title}
-                                              </h4>
-                                            </div>
+                                        {/* Article header with toggle */}
+                                        <div className="flex items-center justify-between p-4 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+                                          <div 
+                                            className="flex items-center gap-2 flex-1 cursor-pointer"
+                                            onClick={() => {
+                                              const newCollapsed = new Set(collapsedArticles);
+                                              if (isCollapsed) {
+                                                newCollapsed.delete(article.id);
+                                              } else {
+                                                newCollapsed.add(article.id);
+                                              }
+                                              setCollapsedArticles(newCollapsed);
+                                            }}
+                                          >
+                                            <ChevronDown 
+                                              className={`h-5 w-5 transition-transform duration-200 ${isCollapsed ? '-rotate-90' : ''}`}
+                                            />
+                                            <h4 className="text-base font-semibold text-primary">
+                                              {displayNumber(article.artigo)} - {displayTitle}
+                                            </h4>
+                                          </div>
                                             
                                             {/* Article action buttons */}
                                             <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
@@ -3110,7 +3140,6 @@ const MapaQuantidades = () => {
                                               </AlertDialog>
                                             </div>
                                           </div>
-                                        )}
                                         
                                         {/* Article Speciality Dialog */}
                                         {(() => {
@@ -3175,7 +3204,7 @@ const MapaQuantidades = () => {
                                         })()}
                                         
                                         {/* Article content */}
-                                        {(!isCollapsed || hasArticleUnQt) && (
+                                        {!isCollapsed && (
                                           <div className="p-4 pt-0 space-y-4">
                                             {(() => {
                                               const groupedContent: Array<{type: 'text', data: string} | {type: 'items', items: Array<{
@@ -3279,17 +3308,20 @@ const MapaQuantidades = () => {
                                                         </div>
                                                       ) : (
                                                         <>
-                                                          <p 
-                                                            className="text-sm whitespace-pre-line flex-1 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 p-2 rounded"
-                                                            onClick={() => {
-                                                              if (articleFromDB) {
-                                                                setEditingTextLine({ articleId: articleFromDB.id, lineIndex: textLineIndex });
-                                                                setEditingTextValue(group.data);
-                                                              }
-                                                            }}
-                                                          >
-                                                            {group.data}
-                                                          </p>
+                                                          <div className="flex-1 flex flex-wrap gap-2 items-center">
+                                                            <Badge 
+                                                              variant="outline" 
+                                                              className="text-sm cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 py-1 px-3"
+                                                              onClick={() => {
+                                                                if (articleFromDB) {
+                                                                  setEditingTextLine({ articleId: articleFromDB.id, lineIndex: textLineIndex });
+                                                                  setEditingTextValue(group.data);
+                                                                }
+                                                              }}
+                                                            >
+                                                              {group.data}
+                                                            </Badge>
+                                                          </div>
                                                           <Button
                                                             size="sm"
                                                             variant="ghost"
@@ -3316,6 +3348,7 @@ const MapaQuantidades = () => {
                                                           <TableHead className="text-right">{t('orcamento.quantity')}</TableHead>
                                                           <TableHead>{t('orcamento.observacoesEmpreiteiro')}</TableHead>
                                                           <TableHead>Specialities</TableHead>
+                                                          <TableHead className="w-[50px]"></TableHead>
                                                         </TableRow>
                                                       </TableHeader>
                                                       <TableBody>
@@ -3419,34 +3452,46 @@ const MapaQuantidades = () => {
                                                                 )}
                                                               </div>
                                                             </TableCell>
+                                                            <TableCell>
+                                                              <Button
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                onClick={() => {
+                                                                  if (articleFromDB) {
+                                                                    handleDeleteItemFromArticle(articleFromDB.id, itemIndex);
+                                                                  }
+                                                                }}
+                                                                className="h-8 w-8 p-0"
+                                                              >
+                                                                <Trash2 className="h-4 w-4 text-destructive" />
+                                                              </Button>
+                                                            </TableCell>
                                                           </TableRow>
                                                         )})}
+                                                        {/* Add row button as a table row */}
+                                                        <TableRow>
+                                                          <TableCell colSpan={7} className="text-center">
+                                                            <Button
+                                                              size="sm"
+                                                              variant="outline"
+                                                              onClick={() => {
+                                                                if (articleFromDB) {
+                                                                  handleAddItemToArticle(articleFromDB.id);
+                                                                }
+                                                              }}
+                                                              className="gap-2"
+                                                            >
+                                                              <Plus className="h-4 w-4" />
+                                                              Add Row
+                                                            </Button>
+                                                          </TableCell>
+                                                        </TableRow>
                                                       </TableBody>
                                                     </Table>
                                                   )}
                                                 </div>
                                               )
                                             });
-                                            })()}
-                                            {/* Add row button - placed after all content */}
-                                            {(() => {
-                                              const articleFromDB = articlesFromDB?.find(a => 
-                                                a.chapter_id === article.chapter_id && 
-                                                a.artigo === article.artigo
-                                              );
-                                              return articleFromDB && (
-                                                <div className="flex justify-end mt-2">
-                                                  <Button
-                                                    size="sm"
-                                                    variant="outline"
-                                                    onClick={() => handleAddItemToArticle(articleFromDB.id)}
-                                                    className="gap-2"
-                                                  >
-                                                    <Plus className="h-4 w-4" />
-                                                    Add Row
-                                                  </Button>
-                                                </div>
-                                              );
                                             })()}
                                           </div>
                                         )}
