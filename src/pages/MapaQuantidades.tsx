@@ -1297,6 +1297,20 @@ const MapaQuantidades = () => {
           }
         }
       });
+      
+      // Log extracted data for debugging
+      console.log("Excel analysis summary:");
+      console.log("- Tabs to insert:", tabsToInsert.length);
+      console.log("- Chapters to insert:", chaptersToInsert.length);
+      console.log("- Items to insert:", itemsToInsert.length);
+      console.log("- Articles extracted:", articlesData.length);
+      if (articlesData.length === 0) {
+        console.warn("⚠️ No articles were extracted from Excel. Article-based view may not work.");
+        console.warn("This could be due to:");
+        console.warn("  1. Excel structure doesn't match expected format (no items with one dot in ARTIGO column)");
+        console.warn("  2. No items with format like '1.1', '2.3' etc. were found");
+        console.warn("  3. All extracted content was classified as items or text, not articles");
+      }
 
       // Insert tabs into database
       let insertedTabs: OrcamentoTab[] = [];
@@ -1514,16 +1528,20 @@ const MapaQuantidades = () => {
             
             // Insert articles into database
             if (articlesToInsert.length > 0) {
+              console.log("Attempting to insert", articlesToInsert.length, "articles into database");
               const { error: articlesError } = await supabase
                 .from("orcamento_articles")
                 .insert(articlesToInsert);
               
               if (articlesError) {
                 console.error("Error inserting articles:", articlesError);
+                console.error("Article insertion failed. Details:", articlesError.message);
                 // Don't throw - articles in sessionStorage can still work as fallback
               } else {
-                console.log("Successfully inserted", articlesToInsert.length, "articles into database");
+                console.log("✅ Successfully inserted", articlesToInsert.length, "articles into database");
               }
+            } else {
+              console.warn("⚠️ No valid articles to insert (all articles may be missing chapter IDs)");
             }
           }
         }
