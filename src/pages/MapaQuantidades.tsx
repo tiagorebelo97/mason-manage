@@ -1297,6 +1297,20 @@ const MapaQuantidades = () => {
           }
         }
       });
+      
+      // Log extracted data for debugging
+      console.log("Excel analysis summary:");
+      console.log("- Tabs to insert:", tabsToInsert.length);
+      console.log("- Chapters to insert:", chaptersToInsert.length);
+      console.log("- Items to insert:", itemsToInsert.length);
+      console.log("- Articles extracted:", articlesData.length);
+      if (articlesData.length === 0) {
+        console.warn("⚠️ No articles were extracted from Excel. Article-based view may not work.");
+        console.warn("This could be due to:");
+        console.warn("  1. Excel structure doesn't match expected format (no items with one dot in ARTIGO column)");
+        console.warn("  2. No items with format like '1.1', '2.3' etc. were found");
+        console.warn("  3. All extracted content was classified as items or text, not articles");
+      }
 
       // Insert tabs into database
       let insertedTabs: OrcamentoTab[] = [];
@@ -1514,16 +1528,20 @@ const MapaQuantidades = () => {
             
             // Insert articles into database
             if (articlesToInsert.length > 0) {
+              console.log("Attempting to insert", articlesToInsert.length, "articles into database");
               const { error: articlesError } = await supabase
                 .from("orcamento_articles")
                 .insert(articlesToInsert);
               
               if (articlesError) {
                 console.error("Error inserting articles:", articlesError);
+                console.error("Article insertion failed. Details:", articlesError.message);
                 // Don't throw - articles in sessionStorage can still work as fallback
               } else {
-                console.log("Successfully inserted", articlesToInsert.length, "articles into database");
+                console.log("✅ Successfully inserted", articlesToInsert.length, "articles into database");
               }
+            } else {
+              console.warn("⚠️ No valid articles to insert (all articles may be missing chapter IDs)");
             }
           }
         }
@@ -2489,7 +2507,9 @@ const MapaQuantidades = () => {
 
 
   // Check if article-based view is active
-  const isArticleBasedViewActive = chaptersWithArticles.length > 0;
+  // Changed: Use tabs and chapters instead of chaptersWithArticles to avoid stuck loading state
+  // Even if no articles exist, we should show the structure (tabs/chapters/items)
+  const isArticleBasedViewActive = (tabs && tabs.length > 0) || chaptersWithArticles.length > 0;
   
   // Group chapters by tab
   const chaptersByTab = chapters?.reduce((acc, chapter) => {
@@ -2783,6 +2803,87 @@ const MapaQuantidades = () => {
                     {(() => {
                       const chaptersForTab = chaptersWithArticles.filter((cwa) => cwa.chapter.tab_id === tab.id);
                       
+                      // Fallback: If no articles exist, use regular chapters
+                      if (chaptersForTab.length === 0 && chapters) {
+                        const regularChaptersForTab = chapters.filter(c => c.tab_id === tab.id);
+                        if (regularChaptersForTab.length > 0) {
+                          return (
+                            <div className="p-4 border rounded-lg bg-card">
+                              <div className="mb-4 text-sm text-muted-foreground">
+                                <p>No articles found in this tab. Showing chapters and items in traditional view.</p>
+                              </div>
+                              {regularChaptersForTab.map((chapter) => {
+                                const chapterItems = itemsByChapter[chapter.id] || [];
+                                const isChapterCollapsed = collapsedChapters.has(chapter.id);
+                                
+                                return (
+                                  <Collapsible 
+                                    key={chapter.id} 
+                                    open={!isChapterCollapsed}
+                                    onOpenChange={(open) => {
+                                      const newCollapsed = new Set(collapsedChapters);
+                                      if (open) {
+                                        newCollapsed.delete(chapter.id);
+                                      } else {
+                                        newCollapsed.add(chapter.id);
+                                      }
+                                      setCollapsedChapters(newCollapsed);
+                                    }}
+                                    className="border rounded-lg overflow-hidden mb-6"
+                                  >
+                                    <div className="bg-muted p-4">
+                                      <div className="flex items-center justify-between">
+                                        <CollapsibleTrigger asChild>
+                                          <Button variant="ghost" size="sm" className="flex items-center gap-2 hover:bg-transparent p-0 h-auto">
+                                            <ChevronDown className={`h-5 w-5 transition-transform duration-200 ${isChapterCollapsed ? '-rotate-90' : ''}`} />
+                                            <h3 className="text-lg font-semibold">
+                                              {displayNumber(chapter.chapter_number)}. {cleanChapterName(chapter.chapter_name)}
+                                            </h3>
+                                          </Button>
+                                        </CollapsibleTrigger>
+                                      </div>
+                                    </div>
+                                    
+                                    <CollapsibleContent>
+                                      <div className="p-4">
+                                        {chapterItems.length > 0 ? (
+                                          <Table className="border">
+                                            <TableHeader>
+                                              <TableRow>
+                                                <TableHead>{t('orcamento.artigo')}</TableHead>
+                                                <TableHead>{t('orcamento.descricao')}</TableHead>
+                                                <TableHead>{t('orcamento.unit')}</TableHead>
+                                                <TableHead className="text-right">{t('orcamento.quantity')}</TableHead>
+                                                <TableHead>{t('orcamento.observacoesEmpreiteiro')}</TableHead>
+                                              </TableRow>
+                                            </TableHeader>
+                                            <TableBody>
+                                              {chapterItems.map((item) => (
+                                                <TableRow key={item.id}>
+                                                  <TableCell>{item.artigo}</TableCell>
+                                                  <TableCell>{item.descricao}</TableCell>
+                                                  <TableCell>{item.un || '-'}</TableCell>
+                                                  <TableCell className="text-right">
+                                                    {item.qt !== null ? Number(item.qt).toFixed(2) : '-'}
+                                                  </TableCell>
+                                                  <TableCell>{item.observacoes_empreiteiro || '-'}</TableCell>
+                                                </TableRow>
+                                              ))}
+                                            </TableBody>
+                                          </Table>
+                                        ) : (
+                                          <div className="text-sm text-muted-foreground">No items in this chapter.</div>
+                                        )}
+                                      </div>
+                                    </CollapsibleContent>
+                                  </Collapsible>
+                                );
+                              })}
+                            </div>
+                          );
+                        }
+                      }
+                      
                       // Group chapters by sheet name for multi-sheet separators
                       const chaptersBySheet = new Map<string, typeof chaptersForTab>();
                       chaptersForTab.forEach((cwa) => {
@@ -2793,7 +2894,7 @@ const MapaQuantidades = () => {
                         chaptersBySheet.get(sheetName)!.push(cwa);
                       });
                       
-                      // Display chapters grouped by sheet
+                      // Display chapters grouped by sheet (article-based view)
                       return Array.from(chaptersBySheet.entries()).map(([sheetName, chaptersInSheet]) => {
                         const isSheetCollapsed = collapsedSheets.has(sheetName);
                         const sheetChapterIds = chaptersInSheet.map(cwa => cwa.chapter.id);
