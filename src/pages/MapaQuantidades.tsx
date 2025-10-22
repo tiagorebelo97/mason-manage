@@ -2552,6 +2552,24 @@ const MapaQuantidades = () => {
           </div>
 
           
+          {/* Loading state after analysis */}
+          {isAnalyzed && !isArticleBasedViewActive && (
+            <div className="flex flex-col items-center justify-center border-2 border-dashed rounded-lg p-12 min-h-[400px]">
+              <Loader2 className="h-16 w-16 text-muted-foreground mb-4 animate-spin" />
+              <h3 className="text-xl font-semibold mb-2">{t('orcamento.loadingData')}</h3>
+              <p className="text-muted-foreground">{t('orcamento.pleaseWait')}</p>
+            </div>
+          )}
+
+          {/* No data found after analysis */}
+          {isAnalyzed && isArticleBasedViewActive && (!tabs || tabs.length === 0) && (
+            <div className="flex flex-col items-center justify-center border-2 border-dashed rounded-lg p-12 min-h-[400px]">
+              <FileSpreadsheet className="h-16 w-16 text-muted-foreground mb-4" />
+              <h3 className="text-xl font-semibold mb-2">{t('orcamento.noDataFound')}</h3>
+              <p className="text-muted-foreground">{t('orcamento.analyzeAgain')}</p>
+            </div>
+          )}
+
           {/* Display articles grouped by chapters */}
           {isAnalyzed && isArticleBasedViewActive && tabs && tabs.length > 0 && (
             <div className="space-y-8">
