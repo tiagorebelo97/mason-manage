@@ -172,6 +172,15 @@ const MapaQuantidades = () => {
   const [editingItemCell, setEditingItemCell] = useState<{articleId: string; itemIndex: number; field: string} | null>(null);
   const [editingItemValue, setEditingItemValue] = useState<string>('');
   
+  // Dialog states for CRUD operations
+  const [chapterDialog, setChapterDialog] = useState<{open: boolean; mode: 'create' | 'edit'; data?: OrcamentoChapter}>({open: false, mode: 'create'});
+  const [separatorDialog, setSeparatorDialog] = useState<{open: boolean; mode: 'create' | 'edit'; data?: OrcamentoTab}>({open: false, mode: 'create'});
+  const [articleDialog, setArticleDialog] = useState<{open: boolean; mode: 'create' | 'edit'; data?: Article}>({open: false, mode: 'create'});
+  const [itemDialog, setItemDialog] = useState<{open: boolean; mode: 'create' | 'edit'; data?: OrcamentoItem}>({open: false, mode: 'create'});
+  
+  // Track collapsed state for chapters
+  const [collapsedChapters, setCollapsedChapters] = useState<Set<string>>(new Set());
+  
   const [collapsedSheets, setCollapsedSheets] = useState<Set<string>>(() => {
     // Load collapsed sheets state from localStorage
     if (id) {
@@ -1964,7 +1973,8 @@ const MapaQuantidades = () => {
       toast.success('Article updated successfully');
       setArticleDialog({ open: false, mode: 'create' });
     },
-    onError: () => {
+    onError: (error) => {
+      console.error('Failed to update article:', error);
       toast.error('Failed to update article');
     },
   });
@@ -2420,6 +2430,32 @@ const MapaQuantidades = () => {
     setEditingItemValue('');
   };
 
+  // Helper function to add a new row to an items table
+  const handleAddItemToArticle = (articleId: string) => {
+    const articleFromDB = articlesFromDB?.find(a => a.id === articleId);
+    if (!articleFromDB) return;
+    
+    const updatedContents = [...articleFromDB.contents];
+    
+    // Add a new item at the end with default values
+    updatedContents.push({
+      type: 'item',
+      data: {
+        artigo: '',
+        descricao: '',
+        un: '',
+        qt: 0,
+        observacoes_empreiteiro: ''
+      }
+    });
+    
+    updateArticleMutation.mutate({
+      articleId,
+      title: articleFromDB.title,
+      contents: updatedContents
+    });
+  };
+
 
 
   // Check if article-based view is active
@@ -2570,9 +2606,13 @@ const MapaQuantidades = () => {
             </div>
           )}
 
-          {/* Display articles grouped by chapters */}
+          {/* Display articles grouped by chapters 
+               NOTE: TABS are the top-level navigation items like "Principal", "Arquitetura", "Instalações Especiais"
+               SEPARATORS are the Excel sheet names that organize chapters within tabs
+          */}
           {isAnalyzed && isArticleBasedViewActive && tabs && tabs.length > 0 && (
             <div className="space-y-8">
+              {/* TABS: Top-level navigation (Principal, Arquitetura, Instalações Especiais) */}
               <Tabs defaultValue={tabs[0]?.id} className="w-full">
                 <div className="flex items-center justify-between mb-4">
                   <TabsList className="overflow-x-auto flex-wrap h-auto">
@@ -2594,10 +2634,10 @@ const MapaQuantidades = () => {
                   
                   return (
                   <TabsContent key={tab.id} value={tab.id} className="space-y-6">
-                    {/* Separator Actions */}
+                    {/* TAB Actions (NOT Separator - this is a top-level tab like "Principal", "Arquitetura", etc.) */}
                     <div className="flex items-center justify-between p-4 border rounded-lg bg-card">
                       <div className="flex items-center gap-2">
-                        <h3 className="font-semibold">Separator: {tab.name}</h3>
+                        <h3 className="font-semibold">Tab: {tab.name}</h3>
                       </div>
                       <div className="flex items-center gap-2">
                         <TooltipProvider>
@@ -2616,7 +2656,7 @@ const MapaQuantidades = () => {
                               </Button>
                             </TooltipTrigger>
                             <TooltipContent>
-                              <p>Manage Specialities for this Separator</p>
+                              <p>Manage Specialities for this Tab</p>
                             </TooltipContent>
                           </Tooltip>
                         </TooltipProvider>
@@ -2635,9 +2675,9 @@ const MapaQuantidades = () => {
                           </AlertDialogTrigger>
                           <AlertDialogContent>
                             <AlertDialogHeader>
-                              <AlertDialogTitle>Delete Separator</AlertDialogTitle>
+                              <AlertDialogTitle>Delete Tab</AlertDialogTitle>
                               <AlertDialogDescription>
-                                Are you sure you want to delete this separator? This will also delete all chapters, articles, and items within it.
+                                Are you sure you want to delete this tab? This will also delete all chapters, articles, and items within it.
                               </AlertDialogDescription>
                             </AlertDialogHeader>
                             <AlertDialogFooter>
@@ -2668,9 +2708,9 @@ const MapaQuantidades = () => {
                       }}>
                         <DialogContent className="max-w-2xl">
                           <DialogHeader>
-                            <DialogTitle>Manage Specialities for Separator</DialogTitle>
+                            <DialogTitle>Manage Specialities for Tab</DialogTitle>
                             <DialogDescription>
-                              Select specialities to apply to all items in this separator
+                              Select specialities to apply to all items in this tab
                             </DialogDescription>
                           </DialogHeader>
                           <div className="py-4">
@@ -2730,7 +2770,7 @@ const MapaQuantidades = () => {
                         
                         return (
                         <div key={sheetName}>
-                          {/* Sheet separator - only show if there are multiple sheets in the original file */}
+                          {/* SEPARATOR (Excel sheet name) - only show if there are multiple sheets in the original file */}
                           {totalUniqueSheets > 1 && (
                             <Collapsible open={!isSheetCollapsed} onOpenChange={(open) => {
                               const newCollapsed = new Set(collapsedSheets);
@@ -2747,7 +2787,7 @@ const MapaQuantidades = () => {
                                     <Button variant="ghost" size="sm" className="flex items-center gap-2 hover:bg-transparent p-0 h-auto">
                                       <ChevronDown className={`h-5 w-5 transition-transform duration-200 ${isSheetCollapsed ? '-rotate-90' : ''}`} />
                                       <h2 className="text-xl font-bold text-blue-900 dark:text-blue-100">
-                                        📄 {sheetName}
+                                        📄 Separator: {sheetName}
                                       </h2>
                                     </Button>
                                   </CollapsibleTrigger>
@@ -2797,14 +2837,30 @@ const MapaQuantidades = () => {
                           )}
                           
                           {/* Chapters in this sheet */}
-                          {(!isSheetCollapsed || totalUniqueSheets === 1) && chaptersInSheet.map((chapterWithArticles) => (
-                            <Collapsible key={chapterWithArticles.chapter.id} defaultOpen={false} className="border rounded-lg overflow-hidden mb-6">
+                          {(!isSheetCollapsed || totalUniqueSheets === 1) && chaptersInSheet.map((chapterWithArticles) => {
+                            const isChapterCollapsed = collapsedChapters.has(chapterWithArticles.chapter.id);
+                            
+                            return (
+                            <Collapsible 
+                              key={chapterWithArticles.chapter.id} 
+                              open={!isChapterCollapsed}
+                              onOpenChange={(open) => {
+                                const newCollapsed = new Set(collapsedChapters);
+                                if (open) {
+                                  newCollapsed.delete(chapterWithArticles.chapter.id);
+                                } else {
+                                  newCollapsed.add(chapterWithArticles.chapter.id);
+                                }
+                                setCollapsedChapters(newCollapsed);
+                              }}
+                              className="border rounded-lg overflow-hidden mb-6"
+                            >
                               <div className="bg-muted">
                                 <div className="flex items-center justify-between p-4">
                                   <div className="flex items-center gap-2">
                                     <CollapsibleTrigger asChild>
                                       <Button variant="ghost" size="sm" className="flex items-center gap-2 hover:bg-transparent p-0 h-auto">
-                                        <ChevronDown className="h-5 w-5 transition-transform duration-200 data-[state=open]:rotate-180" />
+                                        <ChevronDown className={`h-5 w-5 transition-transform duration-200 ${isChapterCollapsed ? '-rotate-90' : ''}`} />
                                         <h3 className="text-lg font-semibold">
                                           {displayNumber(chapterWithArticles.chapter.chapter_number)}. {cleanChapterName(chapterWithArticles.chapter.chapter_name)}
                                         </h3>
@@ -2976,7 +3032,7 @@ const MapaQuantidades = () => {
                                                 className={`h-5 w-5 transition-transform duration-200 ${isCollapsed ? '-rotate-90' : ''}`}
                                               />
                                               <h4 className="text-base font-semibold text-primary">
-                                                {displayNumber(article.artigo)} - {article.title}
+                                                {displayNumber(article.artigo)} - {hasArticleUnQt ? "Single Article" : article.title}
                                               </h4>
                                             </div>
                                             
@@ -3372,6 +3428,26 @@ const MapaQuantidades = () => {
                                               )
                                             });
                                             })()}
+                                            {/* Add row button - placed after all content */}
+                                            {(() => {
+                                              const articleFromDB = articlesFromDB?.find(a => 
+                                                a.chapter_id === article.chapter_id && 
+                                                a.artigo === article.artigo
+                                              );
+                                              return articleFromDB && (
+                                                <div className="flex justify-end mt-2">
+                                                  <Button
+                                                    size="sm"
+                                                    variant="outline"
+                                                    onClick={() => handleAddItemToArticle(articleFromDB.id)}
+                                                    className="gap-2"
+                                                  >
+                                                    <Plus className="h-4 w-4" />
+                                                    Add Row
+                                                  </Button>
+                                                </div>
+                                              );
+                                            })()}
                                           </div>
                                         )}
                                       </div>
@@ -3380,7 +3456,8 @@ const MapaQuantidades = () => {
                                 </div>
                               </CollapsibleContent>
                             </Collapsible>
-                          ))}
+                          );
+                          })}
                         </div>
                       );
                       });
