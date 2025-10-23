@@ -211,7 +211,7 @@ const MapaQuantidades = () => {
     enabled: !!id,
   });
 
-  const { data: files } = useQuery({
+  const { data: files, isLoading: isLoadingFiles, isFetching: isFetchingFiles } = useQuery({
     queryKey: ["orcamento_files", id, import.meta.env.VITE_SUPABASE_URL],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -2639,7 +2639,7 @@ const MapaQuantidades = () => {
 
           
           {/* Loading state after analysis - show loading while queries are fetching */}
-          {isAnalyzed && (isLoadingTabs || isFetchingTabs || isLoadingChapters || isFetchingChapters || isLoadingItems) && (
+          {isAnalyzed && (isLoadingFiles || isFetchingFiles || isLoadingTabs || isFetchingTabs || isLoadingChapters || isFetchingChapters || isLoadingItems) && (
             <div className="flex flex-col items-center justify-center border-2 border-dashed rounded-lg p-12 min-h-[400px]">
               <Loader2 className="h-16 w-16 text-muted-foreground mb-4 animate-spin" />
               <h3 className="text-xl font-semibold mb-2">{t('orcamento.loadingData')}</h3>
@@ -2648,7 +2648,7 @@ const MapaQuantidades = () => {
           )}
 
           {/* Loading state - legacy check for backward compatibility */}
-          {isAnalyzed && !isArticleBasedViewActive && !isLoadingTabs && !isFetchingTabs && !isLoadingChapters && !isFetchingChapters && !isLoadingItems && (
+          {isAnalyzed && !isArticleBasedViewActive && !isLoadingFiles && !isFetchingFiles && !isLoadingTabs && !isFetchingTabs && !isLoadingChapters && !isFetchingChapters && !isLoadingItems && (
             <div className="flex flex-col items-center justify-center border-2 border-dashed rounded-lg p-12 min-h-[400px]">
               <Loader2 className="h-16 w-16 text-muted-foreground mb-4 animate-spin" />
               <h3 className="text-xl font-semibold mb-2">{t('orcamento.loadingData')}</h3>
