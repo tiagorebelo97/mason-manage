@@ -859,11 +859,11 @@ const MapaQuantidades = () => {
         // Find chapters (rows where ARTIGO column has a number without a dot)
         // A chapter is identified by a pure number (e.g., "1", "2") in the ARTIGO column
         // Sub-items with dots (e.g., "1.1", "2.3") are NOT considered chapters
-        // Items are rows that have BOTH UN and QT values
+        // Items are rows that have UN or QT values (at least one must be present)
         // Comments are handled as follows:
         // - Chapter comments: rows without ARTIGO, UN, and QT but with DESCRIÇÃO (accumulated between chapter and first item)
         //                     OR rows with non-numeric ARTIGO (e.g., "Note", "A") before first item
-        // - Item comments: rows with ARTIGO but without BOTH QT and UN (parent for child items)
+        // - Item comments: rows with ARTIGO but without QT or UN (parent for child items)
         // - Multi-line comments: rows without ARTIGO, UN, QT after a comment row are part of that comment
         // - Post-item comments: rows with non-numeric ARTIGO after items are appended to the previous item's comments
         // - Duplicate chapter numbers: In single-sheet files, if a chapter number appears again, treat it as a comment for the next item
@@ -899,7 +899,7 @@ const MapaQuantidades = () => {
             const artigoCell = row[artigoColumnIndex] !== null && row[artigoColumnIndex] !== undefined ? String(row[artigoColumnIndex]).trim() : "";
             const descricaoCell = row[descricaoColumnIndex] !== null && row[descricaoColumnIndex] !== undefined ? String(row[descricaoColumnIndex]).trim() : "";
             
-            // Check if this row has QT AND UN to determine if it's an item
+            // Check if this row has QT or UN to determine if it's an item
             const hasQT = qtColumnIndex !== -1 && 
               typeof row[qtColumnIndex] !== 'undefined' && 
               row[qtColumnIndex] !== null && 
@@ -995,9 +995,9 @@ const MapaQuantidades = () => {
               currentArticleTitle = descricaoCell;
               currentArticleContents = [];
               
-              // Check if the article row itself has UN and QT values
+              // Check if the article row itself has UN or QT values
               // If so, add them to the article contents as an item
-              if (hasUN && hasQT) {
+              if (hasUN || hasQT) {
                 const unValue = unColumnIndex !== -1 && 
                   typeof row[unColumnIndex] !== 'undefined' && 
                   row[unColumnIndex] !== null
@@ -1040,7 +1040,7 @@ const MapaQuantidades = () => {
                 }
               }
             }
-            // Case 2: Row with ARTIGO but no UN and QT (comment parent)
+            // Case 2: Row with ARTIGO but no UN or QT (comment parent)
             else if (artigoCell && /^\d+\./.test(artigoCell) && !hasUN && !hasQT && descricaoCell) {
               // Check if this ARTIGO is a child of the current lastCommentArtigo
               // If so, treat it as a multi-line comment instead of a new parent
@@ -1154,8 +1154,8 @@ const MapaQuantidades = () => {
                 });
               }
             }
-            // Case 6: Item (has BOTH QT AND UN)
-            else if (hasQT && hasUN) {
+            // Case 6: Item (has QT or UN)
+            else if (hasQT || hasUN) {
               // Mark that we found the first item in this chapter
               if (currentChapterNumber && !firstItemFoundInChapter) {
                 firstItemFoundInChapter = true;
@@ -2530,7 +2530,9 @@ const MapaQuantidades = () => {
   }, {} as Record<string, OrcamentoItem[]>) || {};
 
   // Helper function to display chapter/article numbers without sheet prefix
-  const displayNumber = (fullNumber: string): string => {
+  const displayNumber = (fullNumber: string | null | undefined): string => {
+    // Handle null/undefined values
+    if (!fullNumber) return '';
     // If number contains underscore (e.g., "Sheet1_1"), extract the part after underscore
     if (fullNumber.includes('_')) {
       const parts = fullNumber.split('_');
@@ -2869,7 +2871,7 @@ const MapaQuantidades = () => {
                                             <TableBody>
                                               {chapterItems.map((item) => (
                                                 <TableRow key={item.id}>
-                                                  <TableCell>{item.artigo}</TableCell>
+                                                  <TableCell>{displayNumber(item.artigo)}</TableCell>
                                                   <TableCell>{item.descricao}</TableCell>
                                                   <TableCell>{item.un || '-'}</TableCell>
                                                   <TableCell className="text-right">
@@ -3536,7 +3538,7 @@ const MapaQuantidades = () => {
                                                           
                                                           return (
                                                           <TableRow key={itemIndex}>
-                                                            <TableCell>{renderEditableCell('artigo', item.artigo)}</TableCell>
+                                                            <TableCell>{renderEditableCell('artigo', displayNumber(item.artigo))}</TableCell>
                                                             <TableCell>{renderEditableCell('descricao', item.descricao)}</TableCell>
                                                             <TableCell>{renderEditableCell('un', item.un)}</TableCell>
                                                             <TableCell className="text-right">
