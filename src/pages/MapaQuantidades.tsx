@@ -224,7 +224,7 @@ const MapaQuantidades = () => {
     enabled: !!id,
   });
 
-  const { data: tabs } = useQuery({
+  const { data: tabs, isLoading: isLoadingTabs, isFetching: isFetchingTabs } = useQuery({
     queryKey: ["orcamento_tabs", id, import.meta.env.VITE_SUPABASE_URL],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -238,7 +238,7 @@ const MapaQuantidades = () => {
     enabled: !!id && files && files.length > 0 && files[0]?.analyzed,
   });
 
-  const { data: chapters } = useQuery({
+  const { data: chapters, isLoading: isLoadingChapters, isFetching: isFetchingChapters } = useQuery({
     queryKey: ["orcamento_chapters", id, import.meta.env.VITE_SUPABASE_URL],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -255,7 +255,7 @@ const MapaQuantidades = () => {
     enabled: !!id && tabs && tabs.length > 0,
   });
 
-  const { data: items } = useQuery({
+  const { data: items, isLoading: isLoadingItems } = useQuery({
     queryKey: ["orcamento_items", id, import.meta.env.VITE_SUPABASE_URL],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -2638,8 +2638,17 @@ const MapaQuantidades = () => {
           </div>
 
           
-          {/* Loading state after analysis */}
-          {isAnalyzed && !isArticleBasedViewActive && (
+          {/* Loading state after analysis - show loading while queries are fetching */}
+          {isAnalyzed && (isLoadingTabs || isFetchingTabs || isLoadingChapters || isFetchingChapters || isLoadingItems) && (
+            <div className="flex flex-col items-center justify-center border-2 border-dashed rounded-lg p-12 min-h-[400px]">
+              <Loader2 className="h-16 w-16 text-muted-foreground mb-4 animate-spin" />
+              <h3 className="text-xl font-semibold mb-2">{t('orcamento.loadingData')}</h3>
+              <p className="text-muted-foreground">{t('orcamento.pleaseWait')}</p>
+            </div>
+          )}
+
+          {/* Loading state - legacy check for backward compatibility */}
+          {isAnalyzed && !isArticleBasedViewActive && !isLoadingTabs && !isFetchingTabs && !isLoadingChapters && !isFetchingChapters && !isLoadingItems && (
             <div className="flex flex-col items-center justify-center border-2 border-dashed rounded-lg p-12 min-h-[400px]">
               <Loader2 className="h-16 w-16 text-muted-foreground mb-4 animate-spin" />
               <h3 className="text-xl font-semibold mb-2">{t('orcamento.loadingData')}</h3>
@@ -2648,7 +2657,7 @@ const MapaQuantidades = () => {
           )}
 
           {/* No data found after analysis */}
-          {isAnalyzed && isArticleBasedViewActive && (!tabs || tabs.length === 0) && (
+          {isAnalyzed && isArticleBasedViewActive && (!tabs || tabs.length === 0) && !isLoadingTabs && !isFetchingTabs && (
             <div className="flex flex-col items-center justify-center border-2 border-dashed rounded-lg p-12 min-h-[400px]">
               <FileSpreadsheet className="h-16 w-16 text-muted-foreground mb-4" />
               <h3 className="text-xl font-semibold mb-2">{t('orcamento.noDataFound')}</h3>
@@ -2660,7 +2669,7 @@ const MapaQuantidades = () => {
                NOTE: TABS are the top-level navigation items like "Principal", "Arquitetura", "Instalações Especiais"
                SEPARATORS are the Excel sheet names that organize chapters within tabs
           */}
-          {isAnalyzed && isArticleBasedViewActive && tabs && tabs.length > 0 && (
+          {isAnalyzed && isArticleBasedViewActive && tabs && tabs.length > 0 && !isLoadingTabs && !isFetchingTabs && !isLoadingChapters && !isFetchingChapters && (
             <div className="space-y-8">
               {/* TABS: Top-level navigation (Principal, Arquitetura, Instalações Especiais) */}
               <Tabs defaultValue={tabs[0]?.id} className="w-full">
