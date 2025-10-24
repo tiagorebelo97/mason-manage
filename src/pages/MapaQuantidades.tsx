@@ -859,11 +859,11 @@ const MapaQuantidades = () => {
         // Find chapters (rows where ARTIGO column has a number without a dot)
         // A chapter is identified by a pure number (e.g., "1", "2") in the ARTIGO column
         // Sub-items with dots (e.g., "1.1", "2.3") are NOT considered chapters
-        // Items are rows that have UN or QT values (at least one must be present)
+        // Items are rows that have UN value (QT is optional and defaults to 0 if missing)
         // Comments are handled as follows:
         // - Chapter comments: rows without ARTIGO, UN, and QT but with DESCRIÇÃO (accumulated between chapter and first item)
         //                     OR rows with non-numeric ARTIGO (e.g., "Note", "A") before first item
-        // - Item comments: rows with ARTIGO but without QT or UN (parent for child items)
+        // - Item comments: rows with ARTIGO but without UN (parent for child items)
         // - Multi-line comments: rows without ARTIGO, UN, QT after a comment row are part of that comment
         // - Post-item comments: rows with non-numeric ARTIGO after items are appended to the previous item's comments
         // - Duplicate chapter numbers: In single-sheet files, if a chapter number appears again, treat it as a comment for the next item
