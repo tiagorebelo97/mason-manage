@@ -859,11 +859,11 @@ const MapaQuantidades = () => {
         // Find chapters (rows where ARTIGO column has a number without a dot)
         // A chapter is identified by a pure number (e.g., "1", "2") in the ARTIGO column
         // Sub-items with dots (e.g., "1.1", "2.3") are NOT considered chapters
-        // Items are rows that have UN or QT values (at least one must be present)
+        // Items are rows that have UN value (QT is optional and defaults to 0 if missing)
         // Comments are handled as follows:
         // - Chapter comments: rows without ARTIGO, UN, and QT but with DESCRIÇÃO (accumulated between chapter and first item)
         //                     OR rows with non-numeric ARTIGO (e.g., "Note", "A") before first item
-        // - Item comments: rows with ARTIGO but without QT or UN (parent for child items)
+        // - Item comments: rows with ARTIGO but without UN (parent for child items)
         // - Multi-line comments: rows without ARTIGO, UN, QT after a comment row are part of that comment
         // - Post-item comments: rows with non-numeric ARTIGO after items are appended to the previous item's comments
         // - Duplicate chapter numbers: In single-sheet files, if a chapter number appears again, treat it as a comment for the next item
@@ -995,9 +995,9 @@ const MapaQuantidades = () => {
               currentArticleTitle = descricaoCell;
               currentArticleContents = [];
               
-              // Check if the article row itself has UN or QT values
-              // If so, add them to the article contents as an item
-              if (hasUN || hasQT) {
+              // Check if the article row itself has UN value
+              // If so, add it to the article contents as an item
+              if (hasUN) {
                 const unValue = unColumnIndex !== -1 && 
                   typeof row[unColumnIndex] !== 'undefined' && 
                   row[unColumnIndex] !== null
@@ -1026,14 +1026,14 @@ const MapaQuantidades = () => {
                   }
                 }
                 
-                if (unValue && parsedQt !== null && !isNaN(parsedQt)) {
+                if (unValue) {
                   currentArticleContents.push({
                     type: 'item',
                     data: {
                       artigo: artigoCell,
                       descricao: descricaoCell,
                       un: unValue,
-                      qt: parsedQt,
+                      qt: parsedQt !== null && !isNaN(parsedQt) ? parsedQt : 0,
                       observacoes_empreiteiro: observacoesValue || undefined
                     }
                   });
@@ -1154,8 +1154,8 @@ const MapaQuantidades = () => {
                 });
               }
             }
-            // Case 6: Item (has QT or UN)
-            else if (hasQT || hasUN) {
+            // Case 6: Item (has UN - QT is optional)
+            else if (hasUN) {
               // Mark that we found the first item in this chapter
               if (currentChapterNumber && !firstItemFoundInChapter) {
                 firstItemFoundInChapter = true;
@@ -1260,14 +1260,14 @@ const MapaQuantidades = () => {
               });
               
               // Article-based view: add to current article contents as item
-              if (articleBasedView && currentArticleArtigo && unValue && parsedQt !== null && !isNaN(parsedQt)) {
+              if (articleBasedView && currentArticleArtigo && unValue) {
                 currentArticleContents.push({
                   type: 'item',
                   data: {
                     artigo: itemArtigoToStore,
                     descricao: descricaoCell,
                     un: unValue,
-                    qt: parsedQt,
+                    qt: parsedQt !== null && !isNaN(parsedQt) ? parsedQt : 0,
                     observacoes_empreiteiro: observacoesValue || undefined
                   }
                 });
@@ -1554,13 +1554,24 @@ const MapaQuantidades = () => {
         throw error;
       }
     },
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
       setIsAnalyzing(false);
-      queryClient.invalidateQueries({ queryKey: ["orcamento_files", id, import.meta.env.VITE_SUPABASE_URL] });
-      queryClient.invalidateQueries({ queryKey: ["orcamento_tabs", id, import.meta.env.VITE_SUPABASE_URL] });
-      queryClient.invalidateQueries({ queryKey: ["orcamento_chapters", id, import.meta.env.VITE_SUPABASE_URL] });
-      queryClient.invalidateQueries({ queryKey: ["orcamento_items", id, import.meta.env.VITE_SUPABASE_URL] });
-      queryClient.invalidateQueries({ queryKey: ["orcamento_articles", id, import.meta.env.VITE_SUPABASE_URL] });
+      
+      // Invalidate and refetch queries in sequence to ensure data loads properly
+      await queryClient.invalidateQueries({ queryKey: ["orcamento_files", id, import.meta.env.VITE_SUPABASE_URL] });
+      await queryClient.refetchQueries({ queryKey: ["orcamento_files", id, import.meta.env.VITE_SUPABASE_URL] });
+      
+      await queryClient.invalidateQueries({ queryKey: ["orcamento_tabs", id, import.meta.env.VITE_SUPABASE_URL] });
+      await queryClient.refetchQueries({ queryKey: ["orcamento_tabs", id, import.meta.env.VITE_SUPABASE_URL] });
+      
+      await queryClient.invalidateQueries({ queryKey: ["orcamento_chapters", id, import.meta.env.VITE_SUPABASE_URL] });
+      await queryClient.refetchQueries({ queryKey: ["orcamento_chapters", id, import.meta.env.VITE_SUPABASE_URL] });
+      
+      await queryClient.invalidateQueries({ queryKey: ["orcamento_items", id, import.meta.env.VITE_SUPABASE_URL] });
+      await queryClient.refetchQueries({ queryKey: ["orcamento_items", id, import.meta.env.VITE_SUPABASE_URL] });
+      
+      await queryClient.invalidateQueries({ queryKey: ["orcamento_articles", id, import.meta.env.VITE_SUPABASE_URL] });
+      await queryClient.refetchQueries({ queryKey: ["orcamento_articles", id, import.meta.env.VITE_SUPABASE_URL] });
       
       // Keep sessionStorage as fallback for backward compatibility
       if (data && data.articleBasedView && data.articlesData) {
