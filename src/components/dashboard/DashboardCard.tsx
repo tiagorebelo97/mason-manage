@@ -11,6 +11,13 @@ interface DashboardCardProps {
   footer?: ReactNode;
 }
 
+const gradients = [
+  'from-blue-500 to-cyan-500',
+  'from-purple-500 to-pink-500',
+  'from-orange-500 to-red-500',
+  'from-green-500 to-emerald-500',
+];
+
 export const DashboardCard = ({ 
   title, 
   value, 
@@ -19,19 +26,24 @@ export const DashboardCard = ({
   onClick,
   footer 
 }: DashboardCardProps) => {
+  const gradientClass = gradients[Math.floor(Math.random() * gradients.length)];
+  
   return (
     <Card 
-      className={`group transition-all duration-200 border-l-4 border-l-primary/50 ${onClick ? 'cursor-pointer hover:shadow-md hover:border-l-primary hover:-translate-y-0.5' : ''}`}
+      className={`group transition-all duration-300 hover:shadow-2xl backdrop-blur-sm border-2 overflow-hidden ${onClick ? 'cursor-pointer hover:-translate-y-2' : ''}`}
       onClick={onClick}
     >
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-        <CardTitle className="text-sm font-medium text-muted-foreground">{title}</CardTitle>
-        <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
-          <Icon className="h-5 w-5 text-primary" />
+      {/* Gradient overlay on hover */}
+      <div className={`absolute inset-0 bg-gradient-to-br ${gradientClass} opacity-0 group-hover:opacity-5 transition-opacity duration-300`} />
+      
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3 relative">
+        <CardTitle className="text-sm font-semibold text-muted-foreground group-hover:text-foreground transition-colors">{title}</CardTitle>
+        <div className={`h-12 w-12 rounded-xl bg-gradient-to-br ${gradientClass} flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-300`}>
+          <Icon className="h-6 w-6 text-white" />
         </div>
       </CardHeader>
-      <CardContent className="space-y-1">
-        <div className="text-2xl font-bold tracking-tight">{value}</div>
+      <CardContent className="space-y-1 relative">
+        <div className="text-3xl font-bold tracking-tight bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text">{value}</div>
         {subtitle && (
           <p className="text-xs text-muted-foreground">{subtitle}</p>
         )}

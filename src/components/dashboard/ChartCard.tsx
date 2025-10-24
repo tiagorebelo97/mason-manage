@@ -9,12 +9,12 @@ interface ChartCardProps {
 
 export const ChartCard = ({ title, description, children }: ChartCardProps) => {
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{title}</CardTitle>
-        {description && <CardDescription>{description}</CardDescription>}
+    <Card className="overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300 border-2">
+      <CardHeader className="bg-gradient-to-r from-primary/5 to-accent/5 border-b">
+        <CardTitle className="text-xl font-bold">{title}</CardTitle>
+        {description && <CardDescription className="text-sm">{description}</CardDescription>}
       </CardHeader>
-      <CardContent>
+      <CardContent className="pt-6">
         {children}
       </CardContent>
     </Card>
