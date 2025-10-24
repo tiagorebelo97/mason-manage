@@ -995,9 +995,9 @@ const MapaQuantidades = () => {
               currentArticleTitle = descricaoCell;
               currentArticleContents = [];
               
-              // Check if the article row itself has UN or QT values
-              // If so, add them to the article contents as an item
-              if (hasUN || hasQT) {
+              // Check if the article row itself has UN value
+              // If so, add it to the article contents as an item
+              if (hasUN) {
                 const unValue = unColumnIndex !== -1 && 
                   typeof row[unColumnIndex] !== 'undefined' && 
                   row[unColumnIndex] !== null
@@ -1026,14 +1026,14 @@ const MapaQuantidades = () => {
                   }
                 }
                 
-                if (unValue && parsedQt !== null && !isNaN(parsedQt)) {
+                if (unValue) {
                   currentArticleContents.push({
                     type: 'item',
                     data: {
                       artigo: artigoCell,
                       descricao: descricaoCell,
                       un: unValue,
-                      qt: parsedQt,
+                      qt: parsedQt !== null && !isNaN(parsedQt) ? parsedQt : 0,
                       observacoes_empreiteiro: observacoesValue || undefined
                     }
                   });
@@ -1154,8 +1154,8 @@ const MapaQuantidades = () => {
                 });
               }
             }
-            // Case 6: Item (has QT or UN)
-            else if (hasQT || hasUN) {
+            // Case 6: Item (has UN - QT is optional)
+            else if (hasUN) {
               // Mark that we found the first item in this chapter
               if (currentChapterNumber && !firstItemFoundInChapter) {
                 firstItemFoundInChapter = true;
@@ -1260,14 +1260,14 @@ const MapaQuantidades = () => {
               });
               
               // Article-based view: add to current article contents as item
-              if (articleBasedView && currentArticleArtigo && unValue && parsedQt !== null && !isNaN(parsedQt)) {
+              if (articleBasedView && currentArticleArtigo && unValue) {
                 currentArticleContents.push({
                   type: 'item',
                   data: {
                     artigo: itemArtigoToStore,
                     descricao: descricaoCell,
                     un: unValue,
-                    qt: parsedQt,
+                    qt: parsedQt !== null && !isNaN(parsedQt) ? parsedQt : 0,
                     observacoes_empreiteiro: observacoesValue || undefined
                   }
                 });
@@ -1554,13 +1554,24 @@ const MapaQuantidades = () => {
         throw error;
       }
     },
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
       setIsAnalyzing(false);
-      queryClient.invalidateQueries({ queryKey: ["orcamento_files", id, import.meta.env.VITE_SUPABASE_URL] });
-      queryClient.invalidateQueries({ queryKey: ["orcamento_tabs", id, import.meta.env.VITE_SUPABASE_URL] });
-      queryClient.invalidateQueries({ queryKey: ["orcamento_chapters", id, import.meta.env.VITE_SUPABASE_URL] });
-      queryClient.invalidateQueries({ queryKey: ["orcamento_items", id, import.meta.env.VITE_SUPABASE_URL] });
-      queryClient.invalidateQueries({ queryKey: ["orcamento_articles", id, import.meta.env.VITE_SUPABASE_URL] });
+      
+      // Invalidate and refetch queries in sequence to ensure data loads properly
+      await queryClient.invalidateQueries({ queryKey: ["orcamento_files", id, import.meta.env.VITE_SUPABASE_URL] });
+      await queryClient.refetchQueries({ queryKey: ["orcamento_files", id, import.meta.env.VITE_SUPABASE_URL] });
+      
+      await queryClient.invalidateQueries({ queryKey: ["orcamento_tabs", id, import.meta.env.VITE_SUPABASE_URL] });
+      await queryClient.refetchQueries({ queryKey: ["orcamento_tabs", id, import.meta.env.VITE_SUPABASE_URL] });
+      
+      await queryClient.invalidateQueries({ queryKey: ["orcamento_chapters", id, import.meta.env.VITE_SUPABASE_URL] });
+      await queryClient.refetchQueries({ queryKey: ["orcamento_chapters", id, import.meta.env.VITE_SUPABASE_URL] });
+      
+      await queryClient.invalidateQueries({ queryKey: ["orcamento_items", id, import.meta.env.VITE_SUPABASE_URL] });
+      await queryClient.refetchQueries({ queryKey: ["orcamento_items", id, import.meta.env.VITE_SUPABASE_URL] });
+      
+      await queryClient.invalidateQueries({ queryKey: ["orcamento_articles", id, import.meta.env.VITE_SUPABASE_URL] });
+      await queryClient.refetchQueries({ queryKey: ["orcamento_articles", id, import.meta.env.VITE_SUPABASE_URL] });
       
       // Keep sessionStorage as fallback for backward compatibility
       if (data && data.articleBasedView && data.articlesData) {
