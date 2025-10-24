@@ -27,32 +27,33 @@ export const RecentList = ({
   emptyIcon: EmptyIcon
 }: RecentListProps) => {
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{title}</CardTitle>
-        {description && <CardDescription>{description}</CardDescription>}
+    <Card className="overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300 border-2">
+      <CardHeader className="bg-gradient-to-r from-primary/5 to-accent/5 border-b">
+        <CardTitle className="text-xl font-bold">{title}</CardTitle>
+        {description && <CardDescription className="text-sm">{description}</CardDescription>}
       </CardHeader>
-      <CardContent>
+      <CardContent className="pt-4">
         {items && items.length > 0 ? (
-          <div className="space-y-2">
+          <div className="space-y-1">
             {items.map((item, index) => (
               <div key={index}>
                 {renderItem(item)}
               </div>
             ))}
             {onViewAll && totalCount && totalCount > items.length && (
-              <div 
-                className="text-sm text-primary hover:underline cursor-pointer text-center pt-2 font-medium"
+              <Button
+                variant="ghost"
+                className="w-full mt-2 text-primary hover:bg-gradient-to-r hover:from-primary/10 hover:to-accent/10 transition-all duration-200"
                 onClick={onViewAll}
               >
                 {viewAllLabel} ({totalCount})
-              </div>
+              </Button>
             )}
           </div>
         ) : (
           <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-            {EmptyIcon && <EmptyIcon className="h-12 w-12 mb-3 opacity-20" />}
-            <p className="text-sm">{emptyMessage}</p>
+            {EmptyIcon && <EmptyIcon className="h-16 w-16 mb-4 opacity-20" />}
+            <p className="text-sm font-medium">{emptyMessage}</p>
           </div>
         )}
       </CardContent>
