@@ -40,23 +40,37 @@ export function AppSidebar() {
   };
 
   const getNavCls = ({ isActive }: { isActive: boolean }) =>
-    isActive ? "bg-primary text-primary-foreground font-medium" : "hover:bg-muted/50";
+    isActive 
+      ? "bg-gradient-to-r from-primary to-accent text-white font-semibold shadow-lg" 
+      : "hover:bg-sidebar-accent/50 transition-all duration-200";
 
   return (
     <Sidebar
       collapsible="icon"
+      className="border-r-2"
     >
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel>Menu</SidebarGroupLabel>
+          <div className="px-3 py-4 mb-2">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center shadow-lg">
+                <span className="text-lg font-bold text-white">M</span>
+              </div>
+              <div className="group-data-[collapsible=icon]:hidden">
+                <h2 className="text-lg font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">Mason</h2>
+                <p className="text-xs text-sidebar-foreground/60">Management</p>
+              </div>
+            </div>
+          </div>
+          <SidebarGroupLabel className="text-xs font-semibold text-sidebar-foreground/60 uppercase tracking-wider">Menu</SidebarGroupLabel>
           <SidebarGroupContent>
-            <SidebarMenu>
+            <SidebarMenu className="space-y-1">
               {menuItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild>
+                  <SidebarMenuButton asChild className="transition-all duration-200">
                     <NavLink to={item.url} end className={getNavCls}>
-                      <item.icon />
-                      <span>{t(item.title)}</span>
+                      <item.icon className="transition-transform duration-200 group-hover:scale-110" />
+                      <span className="font-medium">{t(item.title)}</span>
                     </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -65,14 +79,14 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
-      <SidebarFooter>
-        <div className="p-2 space-y-2 group-data-[collapsible=icon]:hidden">
+      <SidebarFooter className="border-t-2 border-sidebar-border">
+        <div className="p-3 space-y-3 group-data-[collapsible=icon]:hidden">
           <div className="flex gap-2">
             <Button
               variant={language === 'en' ? 'default' : 'secondary'}
               size="sm"
               onClick={() => setLanguage('en')}
-              className="flex-1"
+              className={`flex-1 transition-all duration-200 ${language === 'en' ? 'bg-gradient-to-r from-primary to-accent shadow-md' : ''}`}
             >
               <Globe className="h-4 w-4 mr-1" />
               EN
@@ -81,7 +95,7 @@ export function AppSidebar() {
               variant={language === 'pt' ? 'default' : 'secondary'}
               size="sm"
               onClick={() => setLanguage('pt')}
-              className="flex-1"
+              className={`flex-1 transition-all duration-200 ${language === 'pt' ? 'bg-gradient-to-r from-primary to-accent shadow-md' : ''}`}
             >
               <Globe className="h-4 w-4 mr-1" />
               PT
@@ -91,7 +105,7 @@ export function AppSidebar() {
             variant="secondary"
             size="sm"
             onClick={handleLogout}
-            className="w-full"
+            className="w-full hover:bg-destructive hover:text-destructive-foreground transition-all duration-200"
           >
             <LogOut className="h-4 w-4 mr-2" />
             {t('auth.logout')}

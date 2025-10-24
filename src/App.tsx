@@ -35,13 +35,13 @@ const queryClient = new QueryClient({
 
 const AppLayout = () => (
   <SidebarProvider>
-    <div className="min-h-screen flex w-full">
+    <div className="min-h-screen flex w-full bg-background">
       <AppSidebar />
       <div className="flex-1 flex flex-col">
-        <header className="h-12 flex items-center border-b px-4 bg-background sticky top-0 z-10">
-          <SidebarTrigger />
+        <header className="h-14 flex items-center border-b-2 px-6 bg-gradient-to-r from-card to-card/50 backdrop-blur-sm sticky top-0 z-10 shadow-sm">
+          <SidebarTrigger className="hover:bg-primary/10 transition-colors rounded-lg" />
         </header>
-        <main className="flex-1">
+        <main className="flex-1 overflow-auto">
           <Routes>
             <Route path="/" element={<Dashboard />} />
             <Route path="/companies" element={<Index />} />
