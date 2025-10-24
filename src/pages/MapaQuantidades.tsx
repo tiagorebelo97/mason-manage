@@ -2565,10 +2565,10 @@ const MapaQuantidades = () => {
           <ArrowLeft className="mr-2 h-4 w-4" />
           {t('orcamento.backToOrcamentos')}
         </Button>
-        <h1 className="text-4xl font-bold text-foreground mb-2">
+        <h1 className="text-4xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent mb-2">
           {orcamento?.name}
         </h1>
-        <p className="text-muted-foreground">{t('orcamento.mapaQuantidades')}</p>
+        <p className="text-base text-muted-foreground">{t('orcamento.mapaQuantidades')}</p>
       </div>
 
       {!hasFile ? (
