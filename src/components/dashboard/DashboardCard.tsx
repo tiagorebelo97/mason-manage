@@ -30,7 +30,7 @@ export const DashboardCard = ({
   
   return (
     <Card 
-      className={`group transition-all duration-300 hover:shadow-2xl backdrop-blur-sm border-2 overflow-hidden ${onClick ? 'cursor-pointer hover:-translate-y-2' : ''}`}
+      className={`group transition-all duration-300 hover:shadow-2xl backdrop-blur-sm border-2 overflow-hidden ${onClick ? 'cursor-pointer motion-safe:hover:-translate-y-2' : ''}`}
       onClick={onClick}
     >
       {/* Gradient overlay on hover */}
@@ -38,7 +38,7 @@ export const DashboardCard = ({
       
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3 relative">
         <CardTitle className="text-sm font-semibold text-muted-foreground group-hover:text-foreground transition-colors">{title}</CardTitle>
-        <div className={`h-12 w-12 rounded-xl bg-gradient-to-br ${gradientClass} flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-300`}>
+        <div className={`h-12 w-12 rounded-xl bg-gradient-to-br ${gradientClass} flex items-center justify-center shadow-lg motion-safe:group-hover:scale-110 transition-transform duration-300`}>
           <Icon className="h-6 w-6 text-white" />
         </div>
       </CardHeader>
