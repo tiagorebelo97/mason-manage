@@ -164,6 +164,8 @@ const MapaQuantidades = () => {
   const [pendingChapterSpecialities, setPendingChapterSpecialities] = useState<string[]>([]);
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [pendingItemSpecialities, setPendingItemSpecialities] = useState<string[]>([]);
+  const [editingIndividualItemId, setEditingIndividualItemId] = useState<string | null>(null);
+  const [pendingIndividualItemSpecialities, setPendingIndividualItemSpecialities] = useState<string[]>([]);
   const [collapsedArticles, setCollapsedArticles] = useState<Set<string>>(new Set());
   
   // Inline editing state
@@ -3219,14 +3221,26 @@ const MapaQuantidades = () => {
                                                 </Tooltip>
                                               </TooltipProvider>
                                               
-                                              {/* Edit article button */}
-                                              <Button
-                                                variant="ghost"
-                                                size="sm"
-                                                onClick={() => setArticleDialog({ open: true, mode: 'edit', data: article })}
-                                              >
-                                                <Edit className="h-3 w-3" />
-                                              </Button>
+                                              {/* Edit article button - only enabled for non-single articles */}
+                                              <TooltipProvider>
+                                                <Tooltip>
+                                                  <TooltipTrigger asChild>
+                                                    <Button
+                                                      variant="ghost"
+                                                      size="sm"
+                                                      onClick={() => setArticleDialog({ open: true, mode: 'edit', data: article })}
+                                                      disabled={shouldShowSingleArticle}
+                                                    >
+                                                      <Edit className="h-3 w-3" />
+                                                    </Button>
+                                                  </TooltipTrigger>
+                                                  {shouldShowSingleArticle && (
+                                                    <TooltipContent>
+                                                      <p>Cannot edit name for single articles</p>
+                                                    </TooltipContent>
+                                                  )}
+                                                </Tooltip>
+                                              </TooltipProvider>
                                               
                                               {/* Delete article button */}
                                               <AlertDialog>
@@ -3325,6 +3339,62 @@ const MapaQuantidades = () => {
                                             </Dialog>
                                           );
                                         })()}
+                                        
+                                        {/* Individual Item Speciality Dialog */}
+                                        {editingIndividualItemId && (
+                                          <Dialog open={true} onOpenChange={(open) => {
+                                            if (!open) {
+                                              updateItemSpecialitiesMutation.mutate({
+                                                itemId: editingIndividualItemId,
+                                                specialityIds: pendingIndividualItemSpecialities,
+                                              });
+                                              setEditingIndividualItemId(null);
+                                              setPendingIndividualItemSpecialities([]);
+                                            }
+                                          }}>
+                                            <DialogContent className="max-w-2xl">
+                                              <DialogHeader>
+                                                <DialogTitle>Manage Specialities for Item</DialogTitle>
+                                                <DialogDescription>
+                                                  Select specialities for this specific item
+                                                </DialogDescription>
+                                              </DialogHeader>
+                                              <div className="py-4">
+                                                <MultiSelect
+                                                  options={Object.entries(groupedSpecialityOptions).flatMap(([group, options]) => 
+                                                    options.map(opt => ({ ...opt, group }))
+                                                  )}
+                                                  selected={pendingIndividualItemSpecialities}
+                                                  onChange={setPendingIndividualItemSpecialities}
+                                                  placeholder="Select specialities..."
+                                                />
+                                              </div>
+                                              <div className="flex justify-end gap-2">
+                                                <Button
+                                                  variant="outline"
+                                                  onClick={() => {
+                                                    setEditingIndividualItemId(null);
+                                                    setPendingIndividualItemSpecialities([]);
+                                                  }}
+                                                >
+                                                  Cancel
+                                                </Button>
+                                                <Button
+                                                  onClick={() => {
+                                                    updateItemSpecialitiesMutation.mutate({
+                                                      itemId: editingIndividualItemId,
+                                                      specialityIds: pendingIndividualItemSpecialities,
+                                                    });
+                                                    setEditingIndividualItemId(null);
+                                                    setPendingIndividualItemSpecialities([]);
+                                                  }}
+                                                >
+                                                  Apply
+                                                </Button>
+                                              </div>
+                                            </DialogContent>
+                                          </Dialog>
+                                        )}
                                         
                                         {/* Article content */}
                                         {!isCollapsed && (
@@ -3490,44 +3560,68 @@ const MapaQuantidades = () => {
                                                                             editingItemCell.field === field;
                                                             
                                                             if (isEditing) {
+                                                              // Use Textarea for descricao field
+                                                              const isDescricao = field === 'descricao';
+                                                              
                                                               return (
-                                                                <div className="flex gap-2 items-center">
-                                                                  <Input
-                                                                    type={type}
-                                                                    value={editingItemValue}
-                                                                    onChange={(e) => setEditingItemValue(e.target.value)}
-                                                                    className="w-full text-sm"
-                                                                    autoFocus
-                                                                    onKeyDown={(e) => {
-                                                                      if (e.key === 'Enter' && articleFromDB) {
-                                                                        handleUpdateItemColumn(articleFromDB.id, itemIndex, field, editingItemValue);
-                                                                      } else if (e.key === 'Escape') {
+                                                                <div className="flex gap-2 items-start">
+                                                                  {isDescricao ? (
+                                                                    <Textarea
+                                                                      value={editingItemValue}
+                                                                      onChange={(e) => setEditingItemValue(e.target.value)}
+                                                                      className="w-full text-sm min-h-[100px]"
+                                                                      rows={4}
+                                                                      autoFocus
+                                                                      onKeyDown={(e) => {
+                                                                        // Allow Enter in textarea, only save on Ctrl+Enter
+                                                                        if (e.key === 'Enter' && e.ctrlKey && articleFromDB) {
+                                                                          handleUpdateItemColumn(articleFromDB.id, itemIndex, field, editingItemValue);
+                                                                        } else if (e.key === 'Escape') {
+                                                                          setEditingItemCell(null);
+                                                                          setEditingItemValue('');
+                                                                        }
+                                                                      }}
+                                                                    />
+                                                                  ) : (
+                                                                    <Input
+                                                                      type={type}
+                                                                      value={editingItemValue}
+                                                                      onChange={(e) => setEditingItemValue(e.target.value)}
+                                                                      className="w-full text-sm"
+                                                                      autoFocus
+                                                                      onKeyDown={(e) => {
+                                                                        if (e.key === 'Enter' && articleFromDB) {
+                                                                          handleUpdateItemColumn(articleFromDB.id, itemIndex, field, editingItemValue);
+                                                                        } else if (e.key === 'Escape') {
+                                                                          setEditingItemCell(null);
+                                                                          setEditingItemValue('');
+                                                                        }
+                                                                      }}
+                                                                    />
+                                                                  )}
+                                                                  <div className="flex flex-col gap-1">
+                                                                    <Button
+                                                                      size="sm"
+                                                                      variant="ghost"
+                                                                      onClick={() => {
+                                                                        if (articleFromDB) {
+                                                                          handleUpdateItemColumn(articleFromDB.id, itemIndex, field, editingItemValue);
+                                                                        }
+                                                                      }}
+                                                                    >
+                                                                      ✓
+                                                                    </Button>
+                                                                    <Button
+                                                                      size="sm"
+                                                                      variant="ghost"
+                                                                      onClick={() => {
                                                                         setEditingItemCell(null);
                                                                         setEditingItemValue('');
-                                                                      }
-                                                                    }}
-                                                                  />
-                                                                  <Button
-                                                                    size="sm"
-                                                                    variant="ghost"
-                                                                    onClick={() => {
-                                                                      if (articleFromDB) {
-                                                                        handleUpdateItemColumn(articleFromDB.id, itemIndex, field, editingItemValue);
-                                                                      }
-                                                                    }}
-                                                                  >
-                                                                    ✓
-                                                                  </Button>
-                                                                  <Button
-                                                                    size="sm"
-                                                                    variant="ghost"
-                                                                    onClick={() => {
-                                                                      setEditingItemCell(null);
-                                                                      setEditingItemValue('');
-                                                                    }}
-                                                                  >
-                                                                    ✕
-                                                                  </Button>
+                                                                      }}
+                                                                    >
+                                                                      ✕
+                                                                    </Button>
+                                                                  </div>
                                                                 </div>
                                                               );
                                                             }
@@ -3559,20 +3653,41 @@ const MapaQuantidades = () => {
                                                               {renderEditableCell('observacoes_empreiteiro', item.observacoes_empreiteiro || '')}
                                                             </TableCell>
                                                             <TableCell>
-                                                              <div className="flex flex-wrap gap-1">
-                                                                {itemSpecialities.length > 0 ? (
-                                                                  itemSpecialities.map((spec) => (
-                                                                    <Badge 
-                                                                      key={spec.id} 
-                                                                      variant="secondary"
-                                                                      className="text-xs"
-                                                                    >
-                                                                      {language === 'pt' ? spec.name_pt : spec.name_en}
-                                                                    </Badge>
-                                                                  ))
-                                                                ) : (
-                                                                  <span className="text-muted-foreground text-sm">-</span>
-                                                                )}
+                                                              <div className="flex items-center gap-2">
+                                                                <div className="flex flex-wrap gap-1 flex-1">
+                                                                  {itemSpecialities.length > 0 ? (
+                                                                    itemSpecialities.map((spec) => (
+                                                                      <Badge 
+                                                                        key={spec.id} 
+                                                                        variant="secondary"
+                                                                        className="text-xs"
+                                                                      >
+                                                                        {language === 'pt' ? spec.name_pt : spec.name_en}
+                                                                      </Badge>
+                                                                    ))
+                                                                  ) : (
+                                                                    <span className="text-muted-foreground text-sm">-</span>
+                                                                  )}
+                                                                </div>
+                                                                <Button
+                                                                  variant="ghost"
+                                                                  size="sm"
+                                                                  onClick={() => {
+                                                                    // Find the database item for this artigo
+                                                                    const dbItem = items?.find(i => 
+                                                                      i.chapter_id === chapterWithArticles.chapter.id && 
+                                                                      i.artigo === item.artigo
+                                                                    );
+                                                                    if (dbItem) {
+                                                                      const itemSpecIds = getItemOwnSpecialityIds(dbItem.id);
+                                                                      setEditingIndividualItemId(dbItem.id);
+                                                                      setPendingIndividualItemSpecialities(itemSpecIds);
+                                                                    }
+                                                                  }}
+                                                                  className="h-8 w-8 p-0"
+                                                                >
+                                                                  <Tag className="h-4 w-4" />
+                                                                </Button>
                                                               </div>
                                                             </TableCell>
                                                             <TableCell>
@@ -3637,6 +3752,67 @@ const MapaQuantidades = () => {
             </div>
           )}
         </div>
+      )}
+      
+      {/* Article Edit Dialog */}
+      {articleDialog.open && articleDialog.data && (
+        <Dialog open={articleDialog.open} onOpenChange={(open) => {
+          if (!open) {
+            setArticleDialog({ open: false, mode: 'create' });
+          }
+        }}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Edit Article Name</DialogTitle>
+              <DialogDescription>
+                Change the name/title of this article
+              </DialogDescription>
+            </DialogHeader>
+            <div className="py-4">
+              <Input
+                value={articleDialog.data.title}
+                onChange={(e) => {
+                  setArticleDialog({
+                    ...articleDialog,
+                    data: {
+                      ...articleDialog.data!,
+                      title: e.target.value
+                    }
+                  });
+                }}
+                placeholder="Article name..."
+                className="w-full"
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setArticleDialog({ open: false, mode: 'create' });
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={() => {
+                  const articleFromDB = articlesFromDB?.find(a => 
+                    a.chapter_id === articleDialog.data?.chapter_id && 
+                    a.artigo === articleDialog.data?.artigo
+                  );
+                  if (articleFromDB && articleDialog.data) {
+                    updateArticleMutation.mutate({
+                      articleId: articleFromDB.id,
+                      title: articleDialog.data.title,
+                      contents: articleDialog.data.contents
+                    });
+                  }
+                }}
+              >
+                Save
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
       )}
     </div>
   );
