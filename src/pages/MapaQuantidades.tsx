@@ -2273,7 +2273,9 @@ const MapaQuantidades = () => {
         : 'Linha aceite e será incluída na análise'
     );
     
-    // TODO: Here we could add the row to the database or trigger a re-analysis
+    // Note: Currently storing accepted rows in state for visual tracking.
+    // Future enhancement: Persist to database and automatically insert into analysis
+    // See GitHub issue for database schema design
     console.log('Accepted row:', row, 'with modified data:', modifiedData);
   };
 

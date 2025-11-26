@@ -220,6 +220,9 @@ Respond in JSON format with the following structure:
       ],
       response_format: { type: 'json_object' },
       temperature: 0.3, // Lower temperature for more consistent results
+      // Increased from 2000 to 3000 to accommodate uncertainRows array
+      // The additional 1000 tokens allow AI to provide detailed uncertainty reasons
+      // and suggestions for up to ~10-15 uncertain rows without truncation
       max_tokens: 3000
     });
 

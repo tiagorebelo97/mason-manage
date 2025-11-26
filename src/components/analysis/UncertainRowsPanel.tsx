@@ -24,6 +24,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -157,17 +163,17 @@ export function UncertainRowsPanel({
           </div>
         </CardHeader>
         <CardContent>
-          <div className="rounded-lg border overflow-hidden">
+          <div className="rounded-lg border overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow className="bg-amber-100 dark:bg-amber-900/20">
-                  <TableHead>{t.sheet}</TableHead>
-                  <TableHead>{t.row}</TableHead>
-                  <TableHead>{t.artigo}</TableHead>
-                  <TableHead className="max-w-[300px]">{t.description}</TableHead>
-                  <TableHead className="max-w-[200px]">{t.reason}</TableHead>
-                  <TableHead>{t.suggestedAction}</TableHead>
-                  <TableHead className="text-right">{t.actions}</TableHead>
+                  <TableHead className="min-w-[100px]">{t.sheet}</TableHead>
+                  <TableHead className="min-w-[60px]">{t.row}</TableHead>
+                  <TableHead className="min-w-[80px]">{t.artigo}</TableHead>
+                  <TableHead className="min-w-[200px] max-w-[300px]">{t.description}</TableHead>
+                  <TableHead className="min-w-[150px] max-w-[200px]">{t.reason}</TableHead>
+                  <TableHead className="min-w-[100px]">{t.suggestedAction}</TableHead>
+                  <TableHead className="text-right min-w-[200px]">{t.actions}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -179,16 +185,36 @@ export function UncertainRowsPanel({
                     <TableCell className="font-medium">{row.sheetName}</TableCell>
                     <TableCell>{row.rowIndex}</TableCell>
                     <TableCell>{row.artigo || '-'}</TableCell>
-                    <TableCell className="max-w-[300px]">
-                      <div className="truncate" title={row.descricao}>
-                        {row.descricao}
-                      </div>
+                    <TableCell className="min-w-[200px] max-w-[300px]">
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <div className="truncate cursor-help">
+                              {row.descricao}
+                            </div>
+                          </TooltipTrigger>
+                          <TooltipContent className="max-w-sm">
+                            <p>{row.descricao}</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
                     </TableCell>
-                    <TableCell className="max-w-[200px]">
-                      <div className="text-sm text-muted-foreground flex items-start gap-1">
-                        <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
-                        <span className="line-clamp-2">{row.reason}</span>
-                      </div>
+                    <TableCell className="min-w-[150px] max-w-[200px]">
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <div className="text-sm text-muted-foreground flex items-start gap-1 cursor-help">
+                              <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                              <span className="overflow-hidden text-ellipsis" style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
+                                {row.reason}
+                              </span>
+                            </div>
+                          </TooltipTrigger>
+                          <TooltipContent className="max-w-sm">
+                            <p>{row.reason}</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
                     </TableCell>
                     <TableCell>
                       <Badge variant={getActionBadgeVariant(row.suggestedAction)}>
