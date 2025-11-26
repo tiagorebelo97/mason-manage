@@ -43,6 +43,22 @@ export interface DataValidationMetrics {
   completenessPercentage: number;
 }
 
+export interface UncertainRow {
+  sheetName: string;
+  rowIndex: number;
+  artigo?: string;
+  descricao: string;
+  reason: string; // Why the AI is uncertain about this row
+  suggestedAction: 'include' | 'exclude' | 'modify'; // What the AI suggests
+  suggestedData?: {
+    artigo?: string;
+    descricao?: string;
+    un?: string;
+    qt?: number;
+    preco_unitario?: number;
+  };
+}
+
 export interface AIAnalysisResult {
   enhancedDescriptions: Record<string, string>; // artigo -> enhanced description
   suggestedSpecialities: Record<string, string[]>; // artigo -> speciality suggestions
@@ -54,6 +70,7 @@ export interface AIAnalysisResult {
   summary: string; // AI-generated summary of the file
   suggestions: string[]; // List of AI suggestions for improvement
   validationMetrics: DataValidationMetrics;
+  uncertainRows: UncertainRow[]; // Rows that AI is uncertain about
 }
 
 /**
@@ -142,7 +159,8 @@ export async function analyzeWithAI(
           'Review items with missing units, quantities, or prices',
           'Ensure all data fields are properly filled'
         ],
-        validationMetrics
+        validationMetrics,
+        uncertainRows: []
       };
     }
 
@@ -163,6 +181,11 @@ You should:
 5. Calculate a quality score (0-100) based on data completeness, organization, and clarity
 6. Provide a summary of the overall file
 7. Give practical suggestions for improvement
+8. **Identify rows/items that are uncertain or ambiguous** - rows where you're not sure how to classify them, rows with unclear descriptions, rows missing critical data, or rows that don't fit the expected pattern. For each uncertain row, provide:
+   - The sheet name and row index
+   - The reason for uncertainty
+   - A suggested action (include, exclude, or modify)
+   - If modifying, suggest the corrected data
 
 Respond in JSON format with the following structure:
 {
@@ -174,7 +197,20 @@ Respond in JSON format with the following structure:
   },
   "qualityScore": 85,
   "summary": "Overall file summary",
-  "suggestions": ["suggestion1", "suggestion2", "suggestion3"]
+  "suggestions": ["suggestion1", "suggestion2", "suggestion3"],
+  "uncertainRows": [
+    {
+      "sheetName": "Sheet1",
+      "rowIndex": 5,
+      "artigo": "1.2.3",
+      "descricao": "Unclear item description",
+      "reason": "Description is too vague to determine the proper category",
+      "suggestedAction": "modify",
+      "suggestedData": {
+        "descricao": "Clearer description suggestion"
+      }
+    }
+  ]
 }`
         },
         {
@@ -184,7 +220,7 @@ Respond in JSON format with the following structure:
       ],
       response_format: { type: 'json_object' },
       temperature: 0.3, // Lower temperature for more consistent results
-      max_tokens: 2000
+      max_tokens: 3000
     });
 
     const responseContent = completion.choices[0]?.message?.content;
@@ -211,7 +247,8 @@ Respond in JSON format with the following structure:
         structureInsights: parsedResult.structureInsights || {
           sheetPurpose: {},
           chapterSummaries: {}
-        }
+        },
+        uncertainRows: parsedResult.uncertainRows || []
       };
     } catch (parseError) {
       console.error('Failed to parse AI response as JSON:', parseError);
@@ -239,7 +276,8 @@ Respond in JSON format with the following structure:
         'Ensure all required fields are filled',
         'Check data consistency across sheets'
       ],
-      validationMetrics
+      validationMetrics,
+      uncertainRows: []
     };
   }
 }

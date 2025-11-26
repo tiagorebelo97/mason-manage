@@ -9,9 +9,10 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
 import ExcelJS from "exceljs";
-import { analyzeWithAI, extractExcelContext, type AIAnalysisResult } from "@/services/aiAnalysisService";
+import { analyzeWithAI, extractExcelContext, type AIAnalysisResult, type UncertainRow } from "@/services/aiAnalysisService";
 import { AIInsightsDisplay } from "@/components/analysis/AIInsightsDisplay";
 import { AISuggestionCard } from "@/components/analysis/AISuggestionCard";
+import { UncertainRowsPanel } from "@/components/analysis/UncertainRowsPanel";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -163,6 +164,9 @@ const MapaQuantidades = () => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isAIAnalysis, setIsAIAnalysis] = useState(false); // Track if using AI analysis
   const [aiInsights, setAiInsights] = useState<AIAnalysisResult | null>(null); // Store AI analysis results
+  const [uncertainRows, setUncertainRows] = useState<UncertainRow[]>([]); // Track uncertain rows
+  const [acceptedRows, setAcceptedRows] = useState<Set<string>>(new Set()); // Track accepted rows by key
+  const [rejectedRows, setRejectedRows] = useState<Set<string>>(new Set()); // Track rejected rows by key
   const [chaptersWithArticles, setChaptersWithArticles] = useState<ChapterWithArticles[]>([]);
   const [selectedArticle, setSelectedArticle] = useState<Article | null>(null);
   const [editingChapterId, setEditingChapterId] = useState<string | null>(null);
@@ -1588,6 +1592,10 @@ const MapaQuantidades = () => {
       // Store AI insights if available
       if (data && data.aiAnalysisResult) {
         setAiInsights(data.aiAnalysisResult);
+        // Store uncertain rows if available
+        if (data.aiAnalysisResult.uncertainRows && data.aiAnalysisResult.uncertainRows.length > 0) {
+          setUncertainRows(data.aiAnalysisResult.uncertainRows);
+        }
       }
       
       // Invalidate and refetch queries in sequence to ensure data loads properly
@@ -2241,6 +2249,49 @@ const MapaQuantidades = () => {
     }
   };
 
+  // Handler for accepting an uncertain row
+  const handleAcceptUncertainRow = (row: UncertainRow, modifiedData?: UncertainRow['suggestedData']) => {
+    const rowKey = `${row.sheetName}-${row.rowIndex}`;
+    setAcceptedRows(prev => new Set(prev).add(rowKey));
+    setRejectedRows(prev => {
+      const newSet = new Set(prev);
+      newSet.delete(rowKey);
+      return newSet;
+    });
+    setUncertainRows(prev => prev.filter(r => `${r.sheetName}-${r.rowIndex}` !== rowKey));
+    
+    // Show success message
+    toast.success(
+      language === 'en' 
+        ? 'Row accepted and will be included in the analysis' 
+        : 'Linha aceite e será incluída na análise'
+    );
+    
+    // TODO: Here we could add the row to the database or trigger a re-analysis
+    console.log('Accepted row:', row, 'with modified data:', modifiedData);
+  };
+
+  // Handler for rejecting an uncertain row
+  const handleRejectUncertainRow = (row: UncertainRow) => {
+    const rowKey = `${row.sheetName}-${row.rowIndex}`;
+    setRejectedRows(prev => new Set(prev).add(rowKey));
+    setAcceptedRows(prev => {
+      const newSet = new Set(prev);
+      newSet.delete(rowKey);
+      return newSet;
+    });
+    setUncertainRows(prev => prev.filter(r => `${r.sheetName}-${r.rowIndex}` !== rowKey));
+    
+    // Show success message
+    toast.success(
+      language === 'en' 
+        ? 'Row rejected and will be excluded from the analysis' 
+        : 'Linha rejeitada e será excluída da análise'
+    );
+    
+    console.log('Rejected row:', row);
+  };
+
   const handleDeleteFile = () => {
     if (currentFile) {
       deleteMutation.mutate(currentFile.id);
@@ -2758,6 +2809,18 @@ const MapaQuantidades = () => {
           {aiInsights && isAnalyzed && (
             <div className="mt-6">
               <AIInsightsDisplay insights={aiInsights} language={language} />
+            </div>
+          )}
+          
+          {/* Uncertain Rows Panel - show rows that AI is uncertain about */}
+          {uncertainRows.length > 0 && isAnalyzed && (
+            <div className="mt-6">
+              <UncertainRowsPanel 
+                uncertainRows={uncertainRows}
+                language={language}
+                onAccept={handleAcceptUncertainRow}
+                onReject={handleRejectUncertainRow}
+              />
             </div>
           )}
           
