@@ -4,11 +4,12 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Upload, FileSpreadsheet, Loader2, Trash2, MessageSquare, ChevronDown, ImagePlus, ImageIcon, Tag, X, ChevronRight, MoveRight } from "lucide-react";
+import { ArrowLeft, Upload, FileSpreadsheet, Loader2, Trash2, MessageSquare, ChevronDown, ImagePlus, ImageIcon, Tag, X, ChevronRight, MoveRight, Sparkles } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
 import ExcelJS from "exceljs";
+import { analyzeExcelWithAI } from "@/services/aiAnalysisService";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Table,
@@ -156,6 +157,8 @@ const MapaQuantidades = () => {
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [isAIAnalyzing, setIsAIAnalyzing] = useState(false);
+  const [aiInsights, setAiInsights] = useState<any>(null);
   const [chaptersWithArticles, setChaptersWithArticles] = useState<ChapterWithArticles[]>([]);
   const [selectedArticle, setSelectedArticle] = useState<Article | null>(null);
   const [editingChapterId, setEditingChapterId] = useState<string | null>(null);
@@ -1504,6 +1507,104 @@ const MapaQuantidades = () => {
     },
   });
 
+  const aiAnalyzeMutation = useMutation({
+    mutationFn: async ({ fileId }: { fileId: string }) => {
+      try {
+        // First, run the normal analysis
+        console.log("Running normal analysis first...");
+        await analyzeMutation.mutateAsync({ fileId });
+        
+        // Wait a bit for the data to be inserted
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        // Now fetch the analyzed data
+        console.log("Fetching analyzed data for AI analysis...");
+        const { data: tabs } = await supabase
+          .from("orcamento_tabs")
+          .select("id")
+          .eq("orcamento_id", id!);
+        
+        if (!tabs || tabs.length === 0) {
+          throw new Error("No tabs found after analysis");
+        }
+        
+        const tabIds = tabs.map(t => t.id);
+        
+        const { data: chapters } = await supabase
+          .from("orcamento_chapters")
+          .select("*")
+          .in("tab_id", tabIds);
+        
+        const chapterIds = chapters?.map(c => c.id) || [];
+        
+        const { data: items } = await supabase
+          .from("orcamento_items")
+          .select("*")
+          .in("chapter_id", chapterIds);
+        
+        const { data: articles } = await supabase
+          .from("orcamento_articles")
+          .select("*")
+          .in("chapter_id", chapterIds);
+        
+        // Get file name
+        const { data: fileData } = await supabase
+          .from("orcamento_files")
+          .select("file_name")
+          .eq("id", fileId)
+          .single();
+        
+        // Prepare data for AI analysis
+        const analysisData = {
+          chapters: chapters || [],
+          items: items || [],
+          articles: articles || []
+        };
+        
+        console.log("Sending data to AI for analysis...");
+        const aiResult = await analyzeExcelWithAI(analysisData, fileData?.file_name || "Unknown");
+        
+        console.log("AI Analysis complete:", aiResult);
+        return aiResult;
+      } catch (error) {
+        console.error("Error in AI analysis:", error);
+        throw error;
+      }
+    },
+    onSuccess: (data) => {
+      setIsAIAnalyzing(false);
+      setAiInsights(data.insights);
+      
+      // Show insights in toast
+      const qualityMessage = `Quality Score: ${data.insights.qualityScore}/100`;
+      const issuesMessage = data.insights.dataValidation.missingUnits > 0 || 
+                           data.insights.dataValidation.missingQuantities > 0 || 
+                           data.insights.dataValidation.missingPrices > 0
+        ? `\nIssues found: ${data.insights.dataValidation.missingUnits} missing units, ${data.insights.dataValidation.missingQuantities} missing quantities, ${data.insights.dataValidation.missingPrices} missing prices`
+        : "";
+      
+      toast.success(t('orcamento.aiAnalyzeSuccess') + "\n" + qualityMessage + issuesMessage, {
+        duration: 5000
+      });
+    },
+    onError: (error) => {
+      setIsAIAnalyzing(false);
+      console.error("AI Analysis mutation error:", error);
+      
+      let errorMessage = t('orcamento.aiAnalyzeError');
+      if (error instanceof Error) {
+        console.error("Detailed error:", error.message);
+        if (error.message.includes("API key not configured")) {
+          errorMessage += " - OpenAI API key not configured";
+        } else if (error.message.includes("OpenAI API error")) {
+          errorMessage += " - OpenAI API error";
+        }
+      }
+      
+      toast.error(errorMessage);
+    },
+  });
+
   const deleteMutation = useMutation({
     mutationFn: async (fileId: string) => {
       // Get file info first to delete from storage
@@ -1785,6 +1886,17 @@ const MapaQuantidades = () => {
     }
   };
 
+  const handleAIAnalyze = () => {
+    if (currentFile) {
+      console.log("Starting AI analysis for file:", currentFile.id, currentFile.file_name);
+      setIsAIAnalyzing(true);
+      aiAnalyzeMutation.mutate({ fileId: currentFile.id });
+    } else {
+      console.error("handleAIAnalyze called but currentFile is null");
+      toast.error("No file selected for AI analysis");
+    }
+  };
+
   const handleDeleteFile = () => {
     if (currentFile) {
       deleteMutation.mutate(currentFile.id);
@@ -2025,10 +2137,19 @@ const MapaQuantidades = () => {
                 <>
                   <Button
                     onClick={handleAnalyze}
-                    disabled={isAnalyzing}
+                    disabled={isAnalyzing || isAIAnalyzing}
                   >
                     {isAnalyzing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     {isAnalyzing ? t('orcamento.analyzing') : t('orcamento.analyze')}
+                  </Button>
+                  <Button
+                    onClick={handleAIAnalyze}
+                    disabled={isAnalyzing || isAIAnalyzing}
+                    variant="secondary"
+                  >
+                    {isAIAnalyzing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    {!isAIAnalyzing && <Sparkles className="mr-2 h-4 w-4" />}
+                    {isAIAnalyzing ? t('orcamento.aiAnalyzing') : t('orcamento.aiAnalyze')}
                   </Button>
                 </>
               )}
@@ -2067,6 +2188,72 @@ const MapaQuantidades = () => {
               </AlertDialog>
             </div>
           </div>
+
+          {/* AI Insights Display */}
+          {aiInsights && (
+            <div className="p-6 border rounded-lg bg-card space-y-4">
+              <div className="flex items-center gap-2">
+                <Sparkles className="h-5 w-5 text-purple-600" />
+                <h3 className="font-semibold text-lg">AI Analysis Insights</h3>
+              </div>
+              
+              <div className="space-y-3">
+                <div className="flex items-center gap-4">
+                  <div className="flex-1">
+                    <p className="text-sm font-medium">Quality Score</p>
+                    <div className="flex items-center gap-2 mt-1">
+                      <div className="flex-1 bg-gray-200 rounded-full h-2">
+                        <div 
+                          className={`h-2 rounded-full ${
+                            aiInsights.qualityScore >= 80 ? 'bg-green-500' :
+                            aiInsights.qualityScore >= 60 ? 'bg-yellow-500' : 'bg-red-500'
+                          }`}
+                          style={{ width: `${aiInsights.qualityScore}%` }}
+                        />
+                      </div>
+                      <span className="text-sm font-semibold">{aiInsights.qualityScore}/100</span>
+                    </div>
+                  </div>
+                </div>
+                
+                <div>
+                  <p className="text-sm font-medium">Summary</p>
+                  <p className="text-sm text-muted-foreground mt-1">{aiInsights.summary}</p>
+                </div>
+                
+                {aiInsights.suggestions && aiInsights.suggestions.length > 0 && (
+                  <div>
+                    <p className="text-sm font-medium">Suggestions</p>
+                    <ul className="list-disc list-inside text-sm text-muted-foreground mt-1 space-y-1">
+                      {aiInsights.suggestions.map((suggestion: string, index: number) => (
+                        <li key={index}>{suggestion}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                
+                {aiInsights.dataValidation && (
+                  <div>
+                    <p className="text-sm font-medium">Data Validation</p>
+                    <div className="grid grid-cols-3 gap-4 mt-2">
+                      <div className="text-center p-2 bg-muted rounded">
+                        <p className="text-xs text-muted-foreground">Missing Units</p>
+                        <p className="text-lg font-semibold">{aiInsights.dataValidation.missingUnits}</p>
+                      </div>
+                      <div className="text-center p-2 bg-muted rounded">
+                        <p className="text-xs text-muted-foreground">Missing Quantities</p>
+                        <p className="text-lg font-semibold">{aiInsights.dataValidation.missingQuantities}</p>
+                      </div>
+                      <div className="text-center p-2 bg-muted rounded">
+                        <p className="text-xs text-muted-foreground">Missing Prices</p>
+                        <p className="text-lg font-semibold">{aiInsights.dataValidation.missingPrices}</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
           
           {/* Display articles grouped by chapters */}
