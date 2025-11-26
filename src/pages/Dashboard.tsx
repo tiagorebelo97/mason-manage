@@ -203,15 +203,17 @@ const Dashboard = () => {
   }
 
   return (
-    <div className="container mx-auto py-6 px-4 space-y-6">
-      {/* Header */}
-      <div className="space-y-1">
-        <h1 className="text-3xl font-bold tracking-tight">{t('dashboard.title')}</h1>
-        <p className="text-sm text-muted-foreground">{t('dashboard.subtitle')}</p>
+    <div className="container mx-auto py-8 px-4 space-y-8">
+      {/* Header with gradient */}
+      <div className="space-y-2 pb-4 border-b-2 border-gradient-to-r from-primary/20 to-accent/20">
+        <h1 className="text-4xl font-bold tracking-tight bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+          {t('dashboard.title')}
+        </h1>
+        <p className="text-base text-muted-foreground">{t('dashboard.subtitle')}</p>
       </div>
 
       {/* Primary Stats - Most Important */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <DashboardCard
           title={t('dashboard.totalCompanies')}
           value={stats.totalCompanies}
@@ -243,7 +245,7 @@ const Dashboard = () => {
       </div>
 
       {/* Secondary Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <DashboardCard
           title={t('dashboard.totalSpecialities')}
           value={stats.totalSpecialities}
@@ -268,7 +270,7 @@ const Dashboard = () => {
       </div>
 
       {/* Charts Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <ChartCard 
           title={t('dashboard.companiesBySpecialty')} 
           description={t('dashboard.topSpecialties')}
@@ -324,7 +326,7 @@ const Dashboard = () => {
       </div>
 
       {/* Recent Lists Section */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <RecentList
           title={t('brand.title')}
           description={t('dashboard.brandsDistribution')}
@@ -336,21 +338,21 @@ const Dashboard = () => {
           emptyIcon={Package}
           renderItem={(brand) => (
             <div 
-              className="flex items-center justify-between p-3 hover:bg-muted/50 rounded-lg transition-colors cursor-pointer"
+              className="flex items-center justify-between p-3 hover:bg-gradient-to-r hover:from-primary/5 hover:to-accent/5 rounded-lg transition-all duration-200 cursor-pointer group"
               onClick={() => navigate('/brands')}
             >
               <div className="flex items-center gap-3 flex-1 min-w-0">
-                <div className="h-8 w-8 rounded-md bg-primary/10 flex items-center justify-center flex-shrink-0">
-                  <Package className="h-4 w-4 text-primary" />
+                <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center flex-shrink-0 shadow-md group-hover:shadow-lg transition-shadow">
+                  <Package className="h-5 w-5 text-white" />
                 </div>
-                <span className="font-medium truncate">{brand.name}</span>
+                <span className="font-medium truncate group-hover:text-primary transition-colors">{brand.name}</span>
               </div>
               {brand.website && (
                 <a 
                   href={brand.website} 
                   target="_blank" 
                   rel="noopener noreferrer"
-                  className="text-xs text-primary hover:underline ml-2 flex-shrink-0"
+                  className="text-xs text-primary hover:text-accent hover:underline ml-2 flex-shrink-0 font-medium"
                   onClick={(e) => e.stopPropagation()}
                 >
                   Visit
@@ -371,14 +373,14 @@ const Dashboard = () => {
           emptyIcon={Building2}
           renderItem={(company) => (
             <div 
-              className="flex items-center gap-3 p-3 hover:bg-muted/50 rounded-lg transition-colors cursor-pointer"
+              className="flex items-center gap-3 p-3 hover:bg-gradient-to-r hover:from-primary/5 hover:to-accent/5 rounded-lg transition-all duration-200 cursor-pointer group"
               onClick={() => navigate('/companies')}
             >
-              <div className="h-8 w-8 rounded-md bg-primary/10 flex items-center justify-center flex-shrink-0">
-                <Building2 className="h-4 w-4 text-primary" />
+              <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center flex-shrink-0 shadow-md group-hover:shadow-lg transition-shadow">
+                <Building2 className="h-5 w-5 text-white" />
               </div>
               <div className="flex-1 min-w-0">
-                <div className="font-medium truncate">{company.name}</div>
+                <div className="font-medium truncate group-hover:text-primary transition-colors">{company.name}</div>
                 {company.email && <div className="text-xs text-muted-foreground truncate">{company.email}</div>}
               </div>
             </div>

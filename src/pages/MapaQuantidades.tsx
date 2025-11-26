@@ -4,12 +4,15 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Upload, FileSpreadsheet, Loader2, Trash2, MessageSquare, ChevronDown, ImagePlus, ImageIcon, Tag, X, ChevronRight, MoveRight } from "lucide-react";
+import { ArrowLeft, Upload, FileSpreadsheet, Loader2, Trash2, MessageSquare, ChevronDown, ImagePlus, ImageIcon, Tag, X, ChevronRight, MoveRight, Plus, Edit, Trash, Sparkles } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
 import ExcelJS from "exceljs";
+import { analyzeWithAI, extractExcelContext, type AIAnalysisResult } from "@/services/aiAnalysisService";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Table,
   TableBody,
@@ -156,13 +159,32 @@ const MapaQuantidades = () => {
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [isAIAnalysis, setIsAIAnalysis] = useState(false); // Track if using AI analysis
   const [chaptersWithArticles, setChaptersWithArticles] = useState<ChapterWithArticles[]>([]);
   const [selectedArticle, setSelectedArticle] = useState<Article | null>(null);
   const [editingChapterId, setEditingChapterId] = useState<string | null>(null);
   const [pendingChapterSpecialities, setPendingChapterSpecialities] = useState<string[]>([]);
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [pendingItemSpecialities, setPendingItemSpecialities] = useState<string[]>([]);
+  const [editingIndividualItemId, setEditingIndividualItemId] = useState<string | null>(null);
+  const [pendingIndividualItemSpecialities, setPendingIndividualItemSpecialities] = useState<string[]>([]);
   const [collapsedArticles, setCollapsedArticles] = useState<Set<string>>(new Set());
+  
+  // Inline editing state
+  const [editingTextLine, setEditingTextLine] = useState<{articleId: string; lineIndex: number} | null>(null);
+  const [editingTextValue, setEditingTextValue] = useState<string>('');
+  const [editingItemCell, setEditingItemCell] = useState<{articleId: string; itemIndex: number; field: string} | null>(null);
+  const [editingItemValue, setEditingItemValue] = useState<string>('');
+  
+  // Dialog states for CRUD operations
+  const [chapterDialog, setChapterDialog] = useState<{open: boolean; mode: 'create' | 'edit'; data?: OrcamentoChapter}>({open: false, mode: 'create'});
+  const [separatorDialog, setSeparatorDialog] = useState<{open: boolean; mode: 'create' | 'edit'; data?: OrcamentoTab}>({open: false, mode: 'create'});
+  const [articleDialog, setArticleDialog] = useState<{open: boolean; mode: 'create' | 'edit'; data?: Article}>({open: false, mode: 'create'});
+  const [itemDialog, setItemDialog] = useState<{open: boolean; mode: 'create' | 'edit'; data?: OrcamentoItem}>({open: false, mode: 'create'});
+  
+  // Track collapsed state for chapters
+  const [collapsedChapters, setCollapsedChapters] = useState<Set<string>>(new Set());
+  
   const [collapsedSheets, setCollapsedSheets] = useState<Set<string>>(() => {
     // Load collapsed sheets state from localStorage
     if (id) {
@@ -175,7 +197,8 @@ const MapaQuantidades = () => {
         }
       }
     }
-    return new Set();
+    // Default to all sheets collapsed
+    return new Set(['__INITIAL__']); // Special marker to indicate default collapsed state
   });
 
   const { data: orcamento } = useQuery({
@@ -192,7 +215,7 @@ const MapaQuantidades = () => {
     enabled: !!id,
   });
 
-  const { data: files } = useQuery({
+  const { data: files, isLoading: isLoadingFiles, isFetching: isFetchingFiles } = useQuery({
     queryKey: ["orcamento_files", id, import.meta.env.VITE_SUPABASE_URL],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -205,7 +228,7 @@ const MapaQuantidades = () => {
     enabled: !!id,
   });
 
-  const { data: tabs } = useQuery({
+  const { data: tabs, isLoading: isLoadingTabs, isFetching: isFetchingTabs } = useQuery({
     queryKey: ["orcamento_tabs", id, import.meta.env.VITE_SUPABASE_URL],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -219,7 +242,7 @@ const MapaQuantidades = () => {
     enabled: !!id && files && files.length > 0 && files[0]?.analyzed,
   });
 
-  const { data: chapters } = useQuery({
+  const { data: chapters, isLoading: isLoadingChapters, isFetching: isFetchingChapters } = useQuery({
     queryKey: ["orcamento_chapters", id, import.meta.env.VITE_SUPABASE_URL],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -236,7 +259,7 @@ const MapaQuantidades = () => {
     enabled: !!id && tabs && tabs.length > 0,
   });
 
-  const { data: items } = useQuery({
+  const { data: items, isLoading: isLoadingItems } = useQuery({
     queryKey: ["orcamento_items", id, import.meta.env.VITE_SUPABASE_URL],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -311,6 +334,23 @@ const MapaQuantidades = () => {
     enabled: !!id && items && items.length > 0,
   });
 
+  // Query for tab specialities
+  const { data: tabSpecialities } = useQuery({
+    queryKey: ["tab_specialities", id, import.meta.env.VITE_SUPABASE_URL],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("tab_specialities")
+        .select(`
+          *,
+          orcamento_tabs!inner(orcamento_id)
+        `)
+        .eq("orcamento_tabs.orcamento_id", id);
+      if (error) throw error;
+      return data as { tab_id: string; speciality_id: string }[];
+    },
+    enabled: !!id && tabs && tabs.length > 0,
+  });
+
   // Query for articles from database
   const { data: articlesFromDB } = useQuery({
     queryKey: ["orcamento_articles", id, import.meta.env.VITE_SUPABASE_URL],
@@ -331,7 +371,42 @@ const MapaQuantidades = () => {
     },
     enabled: !!id && chapters && chapters.length > 0,
   });
+
+  // Query for article specialities
+  const { data: articleSpecialities } = useQuery({
+    queryKey: ["article_specialities", id, import.meta.env.VITE_SUPABASE_URL],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("article_specialities")
+        .select(`
+          *,
+          orcamento_articles!inner(
+            chapter_id,
+            orcamento_chapters!inner(
+              tab_id,
+              orcamento_tabs!inner(orcamento_id)
+            )
+          )
+        `)
+        .eq("orcamento_articles.orcamento_chapters.orcamento_tabs.orcamento_id", id);
+      if (error) throw error;
+      return data as { article_id: string; speciality_id: string }[];
+    },
+    enabled: !!id && articlesFromDB && articlesFromDB.length > 0,
+  });
   
+  // Initialize collapsed sheets with all sheet names on first load
+  React.useEffect(() => {
+    if (chaptersWithArticles.length > 0 && collapsedSheets.has('__INITIAL__')) {
+      const allSheetNames = new Set(
+        chaptersWithArticles
+          .filter(cwa => cwa.sheet_name)
+          .map(cwa => cwa.sheet_name!)
+      );
+      setCollapsedSheets(allSheetNames);
+    }
+  }, [chaptersWithArticles, collapsedSheets]);
+
   // Load articles data from database or sessionStorage when chapters are loaded
   React.useEffect(() => {
     if (chapters && chapters.length > 0 && id) {
@@ -476,7 +551,7 @@ const MapaQuantidades = () => {
   });
 
   const analyzeMutation = useMutation({
-    mutationFn: async ({ fileId }: { fileId: string }) => {
+    mutationFn: async ({ fileId, isAIAnalysis = false }: { fileId: string; isAIAnalysis?: boolean }) => {
       // Article-based view is always enabled
       const articleBasedView = true;
       try {
@@ -573,6 +648,20 @@ const MapaQuantidades = () => {
         if (!workbook.SheetNames || workbook.SheetNames.length === 0) {
           console.error("Excel file has no sheets");
           throw new Error("Excel file has no sheets");
+        }
+        
+        // Perform AI analysis if enabled (passed as parameter)
+        let aiAnalysisResult: AIAnalysisResult | null = null;
+        if (isAIAnalysis) {
+          console.log("Performing AI analysis...");
+          try {
+            const excelContext = extractExcelContext(workbook);
+            aiAnalysisResult = await analyzeWithAI(excelContext);
+            console.log("AI analysis completed:", aiAnalysisResult);
+          } catch (aiError) {
+            console.error("AI analysis error (continuing with normal analysis):", aiError);
+            // Don't fail the entire analysis if AI fails
+          }
         }
         
         // Also load with ExcelJS for image extraction
@@ -788,11 +877,11 @@ const MapaQuantidades = () => {
         // Find chapters (rows where ARTIGO column has a number without a dot)
         // A chapter is identified by a pure number (e.g., "1", "2") in the ARTIGO column
         // Sub-items with dots (e.g., "1.1", "2.3") are NOT considered chapters
-        // Items are rows that have BOTH UN and QT values
+        // Items are rows that have UN value (QT is optional and defaults to 0 if missing)
         // Comments are handled as follows:
         // - Chapter comments: rows without ARTIGO, UN, and QT but with DESCRIÇÃO (accumulated between chapter and first item)
         //                     OR rows with non-numeric ARTIGO (e.g., "Note", "A") before first item
-        // - Item comments: rows with ARTIGO but without BOTH QT and UN (parent for child items)
+        // - Item comments: rows with ARTIGO but without UN (parent for child items)
         // - Multi-line comments: rows without ARTIGO, UN, QT after a comment row are part of that comment
         // - Post-item comments: rows with non-numeric ARTIGO after items are appended to the previous item's comments
         // - Duplicate chapter numbers: In single-sheet files, if a chapter number appears again, treat it as a comment for the next item
@@ -828,7 +917,7 @@ const MapaQuantidades = () => {
             const artigoCell = row[artigoColumnIndex] !== null && row[artigoColumnIndex] !== undefined ? String(row[artigoColumnIndex]).trim() : "";
             const descricaoCell = row[descricaoColumnIndex] !== null && row[descricaoColumnIndex] !== undefined ? String(row[descricaoColumnIndex]).trim() : "";
             
-            // Check if this row has QT AND UN to determine if it's an item
+            // Check if this row has QT or UN to determine if it's an item
             const hasQT = qtColumnIndex !== -1 && 
               typeof row[qtColumnIndex] !== 'undefined' && 
               row[qtColumnIndex] !== null && 
@@ -924,9 +1013,9 @@ const MapaQuantidades = () => {
               currentArticleTitle = descricaoCell;
               currentArticleContents = [];
               
-              // Check if the article row itself has UN and QT values
-              // If so, add them to the article contents as an item
-              if (hasUN && hasQT) {
+              // Check if the article row itself has UN value
+              // If so, add it to the article contents as an item
+              if (hasUN) {
                 const unValue = unColumnIndex !== -1 && 
                   typeof row[unColumnIndex] !== 'undefined' && 
                   row[unColumnIndex] !== null
@@ -955,21 +1044,21 @@ const MapaQuantidades = () => {
                   }
                 }
                 
-                if (unValue && parsedQt !== null && !isNaN(parsedQt)) {
+                if (unValue) {
                   currentArticleContents.push({
                     type: 'item',
                     data: {
                       artigo: artigoCell,
                       descricao: descricaoCell,
                       un: unValue,
-                      qt: parsedQt,
+                      qt: parsedQt !== null && !isNaN(parsedQt) ? parsedQt : 0,
                       observacoes_empreiteiro: observacoesValue || undefined
                     }
                   });
                 }
               }
             }
-            // Case 2: Row with ARTIGO but no UN and QT (comment parent)
+            // Case 2: Row with ARTIGO but no UN or QT (comment parent)
             else if (artigoCell && /^\d+\./.test(artigoCell) && !hasUN && !hasQT && descricaoCell) {
               // Check if this ARTIGO is a child of the current lastCommentArtigo
               // If so, treat it as a multi-line comment instead of a new parent
@@ -1083,8 +1172,8 @@ const MapaQuantidades = () => {
                 });
               }
             }
-            // Case 6: Item (has BOTH QT AND UN)
-            else if (hasQT && hasUN) {
+            // Case 6: Item (has UN - QT is optional)
+            else if (hasUN) {
               // Mark that we found the first item in this chapter
               if (currentChapterNumber && !firstItemFoundInChapter) {
                 firstItemFoundInChapter = true;
@@ -1174,11 +1263,18 @@ const MapaQuantidades = () => {
                 }
               }
               
+              // Enhance description with AI if available
+              let enhancedDescricao = descricaoCell;
+              if (aiAnalysisResult && itemArtigoToStore && aiAnalysisResult.enhancedDescriptions[itemArtigoToStore]) {
+                enhancedDescricao = aiAnalysisResult.enhancedDescriptions[itemArtigoToStore];
+                console.log(`AI enhanced description for ${itemArtigoToStore}: ${enhancedDescricao}`);
+              }
+              
               itemsToInsert.push({
                 sheet_name: sheetName,
                 chapter_number: chapterNumber,
                 artigo: itemArtigoToStore,
-                descricao: descricaoCell,
+                descricao: enhancedDescricao,
                 un: unValue || null,
                 qt: (parsedQt !== null && !isNaN(parsedQt)) ? parsedQt : null,
                 preco_unitario: (parsedPreco !== null && !isNaN(parsedPreco)) ? parsedPreco : null,
@@ -1189,14 +1285,14 @@ const MapaQuantidades = () => {
               });
               
               // Article-based view: add to current article contents as item
-              if (articleBasedView && currentArticleArtigo && unValue && parsedQt !== null && !isNaN(parsedQt)) {
+              if (articleBasedView && currentArticleArtigo && unValue) {
                 currentArticleContents.push({
                   type: 'item',
                   data: {
                     artigo: itemArtigoToStore,
-                    descricao: descricaoCell,
+                    descricao: enhancedDescricao,
                     un: unValue,
-                    qt: parsedQt,
+                    qt: parsedQt !== null && !isNaN(parsedQt) ? parsedQt : 0,
                     observacoes_empreiteiro: observacoesValue || undefined
                   }
                 });
@@ -1226,6 +1322,20 @@ const MapaQuantidades = () => {
           }
         }
       });
+      
+      // Log extracted data for debugging
+      console.log("Excel analysis summary:");
+      console.log("- Tabs to insert:", tabsToInsert.length);
+      console.log("- Chapters to insert:", chaptersToInsert.length);
+      console.log("- Items to insert:", itemsToInsert.length);
+      console.log("- Articles extracted:", articlesData.length);
+      if (articlesData.length === 0) {
+        console.warn("⚠️ No articles were extracted from Excel. Article-based view may not work.");
+        console.warn("This could be due to:");
+        console.warn("  1. Excel structure doesn't match expected format (no items with one dot in ARTIGO column)");
+        console.warn("  2. No items with format like '1.1', '2.3' etc. were found");
+        console.warn("  3. All extracted content was classified as items or text, not articles");
+      }
 
       // Insert tabs into database
       let insertedTabs: OrcamentoTab[] = [];
@@ -1443,16 +1553,20 @@ const MapaQuantidades = () => {
             
             // Insert articles into database
             if (articlesToInsert.length > 0) {
+              console.log("Attempting to insert", articlesToInsert.length, "articles into database");
               const { error: articlesError } = await supabase
                 .from("orcamento_articles")
                 .insert(articlesToInsert);
               
               if (articlesError) {
                 console.error("Error inserting articles:", articlesError);
+                console.error("Article insertion failed. Details:", articlesError.message);
                 // Don't throw - articles in sessionStorage can still work as fallback
               } else {
-                console.log("Successfully inserted", articlesToInsert.length, "articles into database");
+                console.log("✅ Successfully inserted", articlesToInsert.length, "articles into database");
               }
+            } else {
+              console.warn("⚠️ No valid articles to insert (all articles may be missing chapter IDs)");
             }
           }
         }
@@ -1465,23 +1579,43 @@ const MapaQuantidades = () => {
         throw error;
       }
     },
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
       setIsAnalyzing(false);
-      queryClient.invalidateQueries({ queryKey: ["orcamento_files", id, import.meta.env.VITE_SUPABASE_URL] });
-      queryClient.invalidateQueries({ queryKey: ["orcamento_tabs", id, import.meta.env.VITE_SUPABASE_URL] });
-      queryClient.invalidateQueries({ queryKey: ["orcamento_chapters", id, import.meta.env.VITE_SUPABASE_URL] });
-      queryClient.invalidateQueries({ queryKey: ["orcamento_items", id, import.meta.env.VITE_SUPABASE_URL] });
-      queryClient.invalidateQueries({ queryKey: ["orcamento_articles", id, import.meta.env.VITE_SUPABASE_URL] });
+      
+      // Invalidate and refetch queries in sequence to ensure data loads properly
+      await queryClient.invalidateQueries({ queryKey: ["orcamento_files", id, import.meta.env.VITE_SUPABASE_URL] });
+      await queryClient.refetchQueries({ queryKey: ["orcamento_files", id, import.meta.env.VITE_SUPABASE_URL] });
+      
+      await queryClient.invalidateQueries({ queryKey: ["orcamento_tabs", id, import.meta.env.VITE_SUPABASE_URL] });
+      await queryClient.refetchQueries({ queryKey: ["orcamento_tabs", id, import.meta.env.VITE_SUPABASE_URL] });
+      
+      await queryClient.invalidateQueries({ queryKey: ["orcamento_chapters", id, import.meta.env.VITE_SUPABASE_URL] });
+      await queryClient.refetchQueries({ queryKey: ["orcamento_chapters", id, import.meta.env.VITE_SUPABASE_URL] });
+      
+      await queryClient.invalidateQueries({ queryKey: ["orcamento_items", id, import.meta.env.VITE_SUPABASE_URL] });
+      await queryClient.refetchQueries({ queryKey: ["orcamento_items", id, import.meta.env.VITE_SUPABASE_URL] });
+      
+      await queryClient.invalidateQueries({ queryKey: ["orcamento_articles", id, import.meta.env.VITE_SUPABASE_URL] });
+      await queryClient.refetchQueries({ queryKey: ["orcamento_articles", id, import.meta.env.VITE_SUPABASE_URL] });
       
       // Keep sessionStorage as fallback for backward compatibility
       if (data && data.articleBasedView && data.articlesData) {
         sessionStorage.setItem(`articles_${id}`, JSON.stringify(data.articlesData));
       }
       
-      toast.success(t('orcamento.analyzeSuccess'));
+      // Show success message based on analysis type
+      if (isAIAnalysis) {
+        toast.success(t('orcamento.aiAnalyzeSuccess'));
+      } else {
+        toast.success(t('orcamento.analyzeSuccess'));
+      }
+      
+      // Reset AI analysis flag
+      setIsAIAnalysis(false);
     },
     onError: (error) => {
       setIsAnalyzing(false);
+      setIsAIAnalysis(false);
       console.error("Analysis mutation error:", error);
       
       // Try to extract a meaningful error message
@@ -1763,6 +1897,305 @@ const MapaQuantidades = () => {
     },
   });
 
+  // CRUD Mutations for Separators (Tabs)
+  const createSeparatorMutation = useMutation({
+    mutationFn: async ({ name, displayOrder }: { name: string; displayOrder: number }) => {
+      const { error } = await supabase
+        .from('orcamento_tabs')
+        .insert([{ orcamento_id: id, name, display_order: displayOrder }]);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["orcamento_tabs", id, import.meta.env.VITE_SUPABASE_URL] });
+      toast.success('Separator created successfully');
+      setSeparatorDialog({ open: false, mode: 'create' });
+    },
+    onError: () => {
+      toast.error('Failed to create separator');
+    },
+  });
+
+  const updateSeparatorMutation = useMutation({
+    mutationFn: async ({ tabId, name }: { tabId: string; name: string }) => {
+      const { error } = await supabase
+        .from('orcamento_tabs')
+        .update({ name })
+        .eq('id', tabId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["orcamento_tabs", id, import.meta.env.VITE_SUPABASE_URL] });
+      toast.success('Separator updated successfully');
+      setSeparatorDialog({ open: false, mode: 'create' });
+    },
+    onError: () => {
+      toast.error('Failed to update separator');
+    },
+  });
+
+  const deleteSeparatorMutation = useMutation({
+    mutationFn: async (tabId: string) => {
+      const { error } = await supabase
+        .from('orcamento_tabs')
+        .delete()
+        .eq('id', tabId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["orcamento_tabs", id, import.meta.env.VITE_SUPABASE_URL] });
+      queryClient.invalidateQueries({ queryKey: ["orcamento_chapters", id, import.meta.env.VITE_SUPABASE_URL] });
+      toast.success('Separator deleted successfully');
+    },
+    onError: () => {
+      toast.error('Failed to delete separator');
+    },
+  });
+
+  // CRUD Mutations for Chapters
+  const createChapterMutation = useMutation({
+    mutationFn: async ({ tabId, chapterNumber, chapterName, chapterComments }: { tabId: string; chapterNumber: string; chapterName: string; chapterComments?: string }) => {
+      const { error } = await supabase
+        .from('orcamento_chapters')
+        .insert([{ tab_id: tabId, chapter_number: chapterNumber, chapter_name: chapterName, chapter_comments: chapterComments }]);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["orcamento_chapters", id, import.meta.env.VITE_SUPABASE_URL] });
+      toast.success('Chapter created successfully');
+      setChapterDialog({ open: false, mode: 'create' });
+    },
+    onError: () => {
+      toast.error('Failed to create chapter');
+    },
+  });
+
+  const updateChapterMutation = useMutation({
+    mutationFn: async ({ chapterId, chapterName, chapterComments }: { chapterId: string; chapterName: string; chapterComments?: string }) => {
+      const { error } = await supabase
+        .from('orcamento_chapters')
+        .update({ chapter_name: chapterName, chapter_comments: chapterComments })
+        .eq('id', chapterId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["orcamento_chapters", id, import.meta.env.VITE_SUPABASE_URL] });
+      toast.success('Chapter updated successfully');
+      setChapterDialog({ open: false, mode: 'create' });
+    },
+    onError: () => {
+      toast.error('Failed to update chapter');
+    },
+  });
+
+  const deleteChapterMutation = useMutation({
+    mutationFn: async (chapterId: string) => {
+      const { error } = await supabase
+        .from('orcamento_chapters')
+        .delete()
+        .eq('id', chapterId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["orcamento_chapters", id, import.meta.env.VITE_SUPABASE_URL] });
+      queryClient.invalidateQueries({ queryKey: ["orcamento_items", id, import.meta.env.VITE_SUPABASE_URL] });
+      toast.success('Chapter deleted successfully');
+    },
+    onError: () => {
+      toast.error('Failed to delete chapter');
+    },
+  });
+
+  // CRUD Mutations for Articles
+  const createArticleMutation = useMutation({
+    mutationFn: async ({ chapterId, artigo, title, contents }: { chapterId: string; artigo: string; title: string; contents: ArticleContent[] }) => {
+      const { error } = await supabase
+        .from('orcamento_articles')
+        .insert([{ chapter_id: chapterId, artigo, title, contents }]);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["orcamento_articles", id, import.meta.env.VITE_SUPABASE_URL] });
+      toast.success('Article created successfully');
+      setArticleDialog({ open: false, mode: 'create' });
+    },
+    onError: () => {
+      toast.error('Failed to create article');
+    },
+  });
+
+  const updateArticleMutation = useMutation({
+    mutationFn: async ({ articleId, title, contents }: { articleId: string; title: string; contents: ArticleContent[] }) => {
+      const { error } = await supabase
+        .from('orcamento_articles')
+        .update({ title, contents })
+        .eq('id', articleId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["orcamento_articles", id, import.meta.env.VITE_SUPABASE_URL] });
+      toast.success('Article updated successfully');
+      setArticleDialog({ open: false, mode: 'create' });
+    },
+    onError: (error) => {
+      console.error('Failed to update article:', error);
+      toast.error('Failed to update article');
+    },
+  });
+
+  const deleteArticleMutation = useMutation({
+    mutationFn: async (articleId: string) => {
+      const { error } = await supabase
+        .from('orcamento_articles')
+        .delete()
+        .eq('id', articleId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["orcamento_articles", id, import.meta.env.VITE_SUPABASE_URL] });
+      toast.success('Article deleted successfully');
+    },
+    onError: () => {
+      toast.error('Failed to delete article');
+    },
+  });
+
+  // CRUD Mutations for Items
+  const createItemMutation = useMutation({
+    mutationFn: async ({ chapterId, artigo, descricao, un, qt, precoUnitario, itemComments }: { 
+      chapterId: string; 
+      artigo: string; 
+      descricao: string; 
+      un: string | null; 
+      qt: number | null; 
+      precoUnitario: number | null;
+      itemComments?: string | null;
+    }) => {
+      const { error } = await supabase
+        .from('orcamento_items')
+        .insert([{ chapter_id: chapterId, artigo, descricao, un, qt, preco_unitario: precoUnitario, item_comments: itemComments, observacoes_empreiteiro: null, observacoes_image_url: null }]);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["orcamento_items", id, import.meta.env.VITE_SUPABASE_URL] });
+      toast.success('Item created successfully');
+      setItemDialog({ open: false, mode: 'create' });
+    },
+    onError: () => {
+      toast.error('Failed to create item');
+    },
+  });
+
+  const updateItemMutation = useMutation({
+    mutationFn: async ({ itemId, artigo, descricao, un, qt, precoUnitario, itemComments }: { 
+      itemId: string; 
+      artigo: string; 
+      descricao: string; 
+      un: string | null; 
+      qt: number | null; 
+      precoUnitario: number | null;
+      itemComments?: string | null;
+    }) => {
+      const { error } = await supabase
+        .from('orcamento_items')
+        .update({ artigo, descricao, un, qt, preco_unitario: precoUnitario, item_comments: itemComments })
+        .eq('id', itemId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["orcamento_items", id, import.meta.env.VITE_SUPABASE_URL] });
+      toast.success('Item updated successfully');
+      setItemDialog({ open: false, mode: 'create' });
+    },
+    onError: () => {
+      toast.error('Failed to update item');
+    },
+  });
+
+  const deleteItemMutation = useMutation({
+    mutationFn: async (itemId: string) => {
+      const { error } = await supabase
+        .from('orcamento_items')
+        .delete()
+        .eq('id', itemId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["orcamento_items", id, import.meta.env.VITE_SUPABASE_URL] });
+      toast.success('Item deleted successfully');
+    },
+    onError: () => {
+      toast.error('Failed to delete item');
+    },
+  });
+
+  // Speciality Mutations for Tabs/Separators
+  const updateTabSpecialitiesMutation = useMutation({
+    mutationFn: async ({ tabId, specialityIds }: { tabId: string; specialityIds: string[] }) => {
+      // Delete existing tab specialities
+      const { error: deleteError } = await supabase
+        .from('tab_specialities')
+        .delete()
+        .eq('tab_id', tabId);
+      
+      if (deleteError) throw deleteError;
+      
+      // Insert new tab specialities
+      if (specialityIds.length > 0) {
+        const { error: insertError } = await supabase
+          .from('tab_specialities')
+          .insert(
+            specialityIds.map(specialityId => ({
+              tab_id: tabId,
+              speciality_id: specialityId,
+            }))
+          );
+        
+        if (insertError) throw insertError;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["tab_specialities", id, import.meta.env.VITE_SUPABASE_URL] });
+      toast.success('Separator specialities updated successfully');
+    },
+    onError: () => {
+      toast.error('Failed to update separator specialities');
+    },
+  });
+
+  // Speciality Mutations for Articles
+  const updateArticleSpecialitiesMutation = useMutation({
+    mutationFn: async ({ articleId, specialityIds }: { articleId: string; specialityIds: string[] }) => {
+      // Delete existing article specialities
+      const { error: deleteError } = await supabase
+        .from('article_specialities')
+        .delete()
+        .eq('article_id', articleId);
+      
+      if (deleteError) throw deleteError;
+      
+      // Insert new article specialities
+      if (specialityIds.length > 0) {
+        const { error: insertError } = await supabase
+          .from('article_specialities')
+          .insert(
+            specialityIds.map(specialityId => ({
+              article_id: articleId,
+              speciality_id: specialityId,
+            }))
+          );
+        
+        if (insertError) throw insertError;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["article_specialities", id, import.meta.env.VITE_SUPABASE_URL] });
+      toast.success('Article specialities updated successfully');
+    },
+    onError: () => {
+      toast.error('Failed to update article specialities');
+    },
+  });
+
 
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -1778,9 +2211,24 @@ const MapaQuantidades = () => {
       console.log("File URL:", currentFile.file_url);
       console.log("Settings - articleBasedView: always enabled");
       setIsAnalyzing(true);
-      analyzeMutation.mutate({ fileId: currentFile.id });
+      setIsAIAnalysis(false);
+      analyzeMutation.mutate({ fileId: currentFile.id, isAIAnalysis: false });
     } else {
       console.error("handleAnalyze called but currentFile is null");
+      toast.error("No file selected for analysis");
+    }
+  };
+  
+  const handleAIAnalyze = () => {
+    if (currentFile) {
+      console.log("Starting AI analysis for file:", currentFile.id, currentFile.file_name);
+      console.log("File URL:", currentFile.file_url);
+      console.log("Settings - articleBasedView: always enabled, AI analysis: enabled");
+      setIsAnalyzing(true);
+      setIsAIAnalysis(true);
+      analyzeMutation.mutate({ fileId: currentFile.id, isAIAnalysis: true });
+    } else {
+      console.error("handleAIAnalyze called but currentFile is null");
       toast.error("No file selected for analysis");
     }
   };
@@ -1849,6 +2297,55 @@ const MapaQuantidades = () => {
   const getSpecialitiesByIds = (ids: string[]): Speciality[] => {
     if (!specialities) return [];
     return specialities.filter(s => ids.includes(s.id));
+  };
+
+  // Get specialities for an article
+  const getArticleSpecialityIds = (articleId: string): string[] => {
+    if (!articleSpecialities) return [];
+    return articleSpecialities
+      .filter(as => as.article_id === articleId)
+      .map(as => as.speciality_id);
+  };
+
+  // Get specialities for an item in an article context (with full inheritance chain)
+  const getItemSpecialitiesInArticle = (
+    itemArtigo: string, 
+    chapterId: string, 
+    articleId?: string
+  ): Speciality[] => {
+    // Find the actual item from the database by artigo and chapter_id
+    const dbItem = items?.find(item => 
+      item.artigo === itemArtigo && item.chapter_id === chapterId
+    );
+
+    if (!dbItem) {
+      // If item not found in DB, try to inherit from article or chapter
+      if (articleId) {
+        const articleSpecIds = getArticleSpecialityIds(articleId);
+        if (articleSpecIds.length > 0) {
+          return getSpecialitiesByIds(articleSpecIds);
+        }
+      }
+      // Fall back to chapter specialities
+      return getSpecialitiesByIds(getChapterSpecialityIds(chapterId));
+    }
+
+    // Check if item has its own specialities
+    const itemSpecIds = getItemOwnSpecialityIds(dbItem.id);
+    if (itemSpecIds.length > 0) {
+      return getSpecialitiesByIds(itemSpecIds);
+    }
+
+    // Inherit from article if available
+    if (articleId) {
+      const articleSpecIds = getArticleSpecialityIds(articleId);
+      if (articleSpecIds.length > 0) {
+        return getSpecialitiesByIds(articleSpecIds);
+      }
+    }
+
+    // Fall back to chapter specialities
+    return getSpecialitiesByIds(getChapterSpecialityIds(chapterId));
   };
 
   // Group specialities by main specialty for dropdown
@@ -1937,10 +2434,142 @@ const MapaQuantidades = () => {
     }
   };
 
+  // Helper function to update article text line
+  const handleUpdateArticleTextLine = (articleId: string, lineIndex: number, newText: string) => {
+    const articleFromDB = articlesFromDB?.find(a => a.id === articleId);
+    if (!articleFromDB) return;
+    
+    const updatedContents = [...articleFromDB.contents];
+    // Find the text content at lineIndex
+    let textLineCount = 0;
+    for (let i = 0; i < updatedContents.length; i++) {
+      if (updatedContents[i].type === 'text') {
+        if (textLineCount === lineIndex) {
+          updatedContents[i] = { type: 'text', data: newText };
+          break;
+        }
+        textLineCount++;
+      }
+    }
+    
+    updateArticleMutation.mutate({
+      articleId,
+      title: articleFromDB.title,
+      contents: updatedContents
+    });
+    setEditingTextLine(null);
+    setEditingTextValue('');
+  };
+
+  // Helper function to update item column
+  const handleUpdateItemColumn = (articleId: string, itemIndex: number, field: string, newValue: string) => {
+    const articleFromDB = articlesFromDB?.find(a => a.id === articleId);
+    if (!articleFromDB) return;
+    
+    const updatedContents = [...articleFromDB.contents];
+    // Find the item at itemIndex
+    let itemCount = 0;
+    for (let i = 0; i < updatedContents.length; i++) {
+      if (updatedContents[i].type === 'item') {
+        if (itemCount === itemIndex) {
+          const itemData = updatedContents[i].data as {
+            artigo: string;
+            descricao: string;
+            un: string;
+            qt: number;
+            observacoes_empreiteiro?: string;
+          };
+          
+          if (field === 'artigo') {
+            itemData.artigo = newValue;
+          } else if (field === 'descricao') {
+            itemData.descricao = newValue;
+          } else if (field === 'un') {
+            itemData.un = newValue;
+          } else if (field === 'observacoes_empreiteiro') {
+            itemData.observacoes_empreiteiro = newValue;
+          } else if (field === 'qt') {
+            itemData.qt = parseFloat(newValue) || 0;
+          }
+          
+          updatedContents[i] = { type: 'item', data: itemData };
+          break;
+        }
+        itemCount++;
+      }
+    }
+    
+    updateArticleMutation.mutate({
+      articleId,
+      title: articleFromDB.title,
+      contents: updatedContents
+    });
+    setEditingItemCell(null);
+    setEditingItemValue('');
+  };
+
+  // Helper function to add a new row to an items table
+  const handleAddItemToArticle = (articleId: string) => {
+    const articleFromDB = articlesFromDB?.find(a => a.id === articleId);
+    if (!articleFromDB) return;
+    
+    const updatedContents = [...articleFromDB.contents];
+    
+    // Add a new item at the end with default values
+    updatedContents.push({
+      type: 'item',
+      data: {
+        artigo: '',
+        descricao: '',
+        un: '',
+        qt: 0,
+        observacoes_empreiteiro: ''
+      }
+    });
+    
+    updateArticleMutation.mutate({
+      articleId,
+      title: articleFromDB.title,
+      contents: updatedContents
+    });
+  };
+
+  // Helper function to delete a row from an items table
+  const handleDeleteItemFromArticle = (articleId: string, itemIndex: number) => {
+    const articleFromDB = articlesFromDB?.find(a => a.id === articleId);
+    if (!articleFromDB) return;
+    
+    const updatedContents = [...articleFromDB.contents];
+    
+    // Find and remove the item at itemIndex
+    let currentItemIndex = 0;
+    const indexToRemove = updatedContents.findIndex((content) => {
+      if (content.type === 'item') {
+        if (currentItemIndex === itemIndex) {
+          return true;
+        }
+        currentItemIndex++;
+      }
+      return false;
+    });
+    
+    if (indexToRemove !== -1) {
+      updatedContents.splice(indexToRemove, 1);
+      
+      updateArticleMutation.mutate({
+        articleId,
+        title: articleFromDB.title,
+        contents: updatedContents
+      });
+    }
+  };;
+
 
 
   // Check if article-based view is active
-  const isArticleBasedViewActive = chaptersWithArticles.length > 0;
+  // Changed: Use tabs and chapters instead of chaptersWithArticles to avoid stuck loading state
+  // Even if no articles exist, we should show the structure (tabs/chapters/items)
+  const isArticleBasedViewActive = (tabs && tabs.length > 0) || chaptersWithArticles.length > 0;
   
   // Group chapters by tab
   const chaptersByTab = chapters?.reduce((acc, chapter) => {
@@ -1961,7 +2590,9 @@ const MapaQuantidades = () => {
   }, {} as Record<string, OrcamentoItem[]>) || {};
 
   // Helper function to display chapter/article numbers without sheet prefix
-  const displayNumber = (fullNumber: string): string => {
+  const displayNumber = (fullNumber: string | null | undefined): string => {
+    // Handle null/undefined values
+    if (!fullNumber) return '';
     // If number contains underscore (e.g., "Sheet1_1"), extract the part after underscore
     if (fullNumber.includes('_')) {
       const parts = fullNumber.split('_');
@@ -1981,10 +2612,10 @@ const MapaQuantidades = () => {
           <ArrowLeft className="mr-2 h-4 w-4" />
           {t('orcamento.backToOrcamentos')}
         </Button>
-        <h1 className="text-4xl font-bold text-foreground mb-2">
+        <h1 className="text-4xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent mb-2">
           {orcamento?.name}
         </h1>
-        <p className="text-muted-foreground">{t('orcamento.mapaQuantidades')}</p>
+        <p className="text-base text-muted-foreground">{t('orcamento.mapaQuantidades')}</p>
       </div>
 
       {!hasFile ? (
@@ -2027,9 +2658,28 @@ const MapaQuantidades = () => {
                     onClick={handleAnalyze}
                     disabled={isAnalyzing}
                   >
-                    {isAnalyzing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    {isAnalyzing ? t('orcamento.analyzing') : t('orcamento.analyze')}
+                    {isAnalyzing && !isAIAnalysis && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    {isAnalyzing && !isAIAnalysis ? t('orcamento.analyzing') : t('orcamento.analyze')}
                   </Button>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          onClick={handleAIAnalyze}
+                          disabled={isAnalyzing}
+                          variant="secondary"
+                          className="gap-2"
+                        >
+                          {isAnalyzing && isAIAnalysis && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                          <Sparkles className="h-4 w-4" />
+                          {isAnalyzing && isAIAnalysis ? t('orcamento.aiAnalyzing') : t('orcamento.aiAnalyze')}
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>{t('orcamento.aiAnalyzeDescription')}</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                 </>
               )}
               <AlertDialog>
@@ -2069,17 +2719,50 @@ const MapaQuantidades = () => {
           </div>
 
           
-          {/* Display articles grouped by chapters */}
-          {isAnalyzed && isArticleBasedViewActive && tabs && tabs.length > 0 && (
+          {/* Loading state after analysis - show loading while queries are fetching */}
+          {isAnalyzed && (isLoadingFiles || isFetchingFiles || isLoadingTabs || isFetchingTabs || isLoadingChapters || isFetchingChapters || isLoadingItems) && (
+            <div className="flex flex-col items-center justify-center border-2 border-dashed rounded-lg p-12 min-h-[400px]">
+              <Loader2 className="h-16 w-16 text-muted-foreground mb-4 animate-spin" />
+              <h3 className="text-xl font-semibold mb-2">{t('orcamento.loadingData')}</h3>
+              <p className="text-muted-foreground">{t('orcamento.pleaseWait')}</p>
+            </div>
+          )}
+
+          {/* Loading state - legacy check for backward compatibility */}
+          {isAnalyzed && !isArticleBasedViewActive && !isLoadingFiles && !isFetchingFiles && !isLoadingTabs && !isFetchingTabs && !isLoadingChapters && !isFetchingChapters && !isLoadingItems && (
+            <div className="flex flex-col items-center justify-center border-2 border-dashed rounded-lg p-12 min-h-[400px]">
+              <Loader2 className="h-16 w-16 text-muted-foreground mb-4 animate-spin" />
+              <h3 className="text-xl font-semibold mb-2">{t('orcamento.loadingData')}</h3>
+              <p className="text-muted-foreground">{t('orcamento.pleaseWait')}</p>
+            </div>
+          )}
+
+          {/* No data found after analysis */}
+          {isAnalyzed && isArticleBasedViewActive && (!tabs || tabs.length === 0) && !isLoadingTabs && !isFetchingTabs && (
+            <div className="flex flex-col items-center justify-center border-2 border-dashed rounded-lg p-12 min-h-[400px]">
+              <FileSpreadsheet className="h-16 w-16 text-muted-foreground mb-4" />
+              <h3 className="text-xl font-semibold mb-2">{t('orcamento.noDataFound')}</h3>
+              <p className="text-muted-foreground">{t('orcamento.analyzeAgain')}</p>
+            </div>
+          )}
+
+          {/* Display articles grouped by chapters 
+               NOTE: TABS are the top-level navigation items like "Principal", "Arquitetura", "Instalações Especiais"
+               SEPARATORS are the Excel sheet names that organize chapters within tabs
+          */}
+          {isAnalyzed && isArticleBasedViewActive && tabs && tabs.length > 0 && !isLoadingTabs && !isFetchingTabs && !isLoadingChapters && !isFetchingChapters && (
             <div className="space-y-8">
+              {/* TABS: Top-level navigation (Principal, Arquitetura, Instalações Especiais) */}
               <Tabs defaultValue={tabs[0]?.id} className="w-full">
-                <TabsList className="w-full justify-start overflow-x-auto flex-wrap h-auto">
-                  {tabs.map((tab) => (
-                    <TabsTrigger key={tab.id} value={tab.id}>
-                      {tab.name}
-                    </TabsTrigger>
-                  ))}
-                </TabsList>
+                <div className="flex items-center justify-between mb-4">
+                  <TabsList className="overflow-x-auto flex-wrap h-auto">
+                    {tabs.map((tab) => (
+                      <TabsTrigger key={tab.id} value={tab.id}>
+                        {tab.name}
+                      </TabsTrigger>
+                    ))}
+                  </TabsList>
+                </div>
                 
                 {tabs.map((tab) => {
                   // Calculate total unique sheets across all chapters (not just current tab)
@@ -2091,8 +2774,205 @@ const MapaQuantidades = () => {
                   
                   return (
                   <TabsContent key={tab.id} value={tab.id} className="space-y-6">
+                    {/* TAB Actions (NOT Separator - this is a top-level tab like "Principal", "Arquitetura", etc.) */}
+                    <div className="flex items-center justify-between p-4 border rounded-lg bg-card">
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-semibold">Tab: {tab.name}</h3>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  const tabSpecIds = tabSpecialities?.filter(ts => ts.tab_id === tab.id).map(ts => ts.speciality_id) || [];
+                                  setEditingChapterId(tab.id); // Reuse chapter editing state
+                                  setPendingChapterSpecialities(tabSpecIds);
+                                }}
+                              >
+                                <Tag className="h-4 w-4" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Manage Specialities for this Tab</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setSeparatorDialog({ open: true, mode: 'edit', data: tab })}
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button variant="outline" size="sm">
+                              <Trash className="h-4 w-4" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Delete Tab</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Are you sure you want to delete this tab? This will also delete all chapters, articles, and items within it.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction
+                                onClick={() => deleteSeparatorMutation.mutate(tab.id)}
+                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                              >
+                                Delete
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </div>
+                    </div>
+                    
+                    {/* Speciality Dialog for Separator */}
+                    {editingChapterId === tab.id && (
+                      <Dialog open={true} onOpenChange={(open) => {
+                        if (!open) {
+                          updateTabSpecialitiesMutation.mutate({
+                            tabId: tab.id,
+                            specialityIds: pendingChapterSpecialities,
+                          });
+                          setEditingChapterId(null);
+                          setPendingChapterSpecialities([]);
+                        }
+                      }}>
+                        <DialogContent className="max-w-2xl">
+                          <DialogHeader>
+                            <DialogTitle>Manage Specialities for Tab</DialogTitle>
+                            <DialogDescription>
+                              Select specialities to apply to all items in this tab
+                            </DialogDescription>
+                          </DialogHeader>
+                          <div className="py-4">
+                            <MultiSelect
+                              options={Object.entries(groupedSpecialityOptions).flatMap(([group, options]) => 
+                                options.map(opt => ({ ...opt, group }))
+                              )}
+                              selected={pendingChapterSpecialities}
+                              onChange={setPendingChapterSpecialities}
+                              placeholder="Select specialities..."
+                            />
+                          </div>
+                          <div className="flex justify-end gap-2">
+                            <Button
+                              variant="outline"
+                              onClick={() => {
+                                setEditingChapterId(null);
+                                setPendingChapterSpecialities([]);
+                              }}
+                            >
+                              Cancel
+                            </Button>
+                            <Button
+                              onClick={() => {
+                                updateTabSpecialitiesMutation.mutate({
+                                  tabId: tab.id,
+                                  specialityIds: pendingChapterSpecialities,
+                                });
+                                setEditingChapterId(null);
+                                setPendingChapterSpecialities([]);
+                              }}
+                            >
+                              Apply
+                            </Button>
+                          </div>
+                        </DialogContent>
+                      </Dialog>
+                    )}
+                    
                     {(() => {
                       const chaptersForTab = chaptersWithArticles.filter((cwa) => cwa.chapter.tab_id === tab.id);
+                      
+                      // Fallback: If no articles exist, use regular chapters
+                      if (chaptersForTab.length === 0 && chapters) {
+                        const regularChaptersForTab = chapters.filter(c => c.tab_id === tab.id);
+                        if (regularChaptersForTab.length > 0) {
+                          return (
+                            <div className="p-4 border rounded-lg bg-card">
+                              <div className="mb-4 text-sm text-muted-foreground">
+                                <p>No articles found in this tab. Showing chapters and items in traditional view.</p>
+                              </div>
+                              {regularChaptersForTab.map((chapter) => {
+                                const chapterItems = itemsByChapter[chapter.id] || [];
+                                const isChapterCollapsed = collapsedChapters.has(chapter.id);
+                                
+                                return (
+                                  <Collapsible 
+                                    key={chapter.id} 
+                                    open={!isChapterCollapsed}
+                                    onOpenChange={(open) => {
+                                      const newCollapsed = new Set(collapsedChapters);
+                                      if (open) {
+                                        newCollapsed.delete(chapter.id);
+                                      } else {
+                                        newCollapsed.add(chapter.id);
+                                      }
+                                      setCollapsedChapters(newCollapsed);
+                                    }}
+                                    className="border rounded-lg overflow-hidden mb-6"
+                                  >
+                                    <div className="bg-muted p-4">
+                                      <div className="flex items-center justify-between">
+                                        <CollapsibleTrigger asChild>
+                                          <Button variant="ghost" size="sm" className="flex items-center gap-2 hover:bg-transparent p-0 h-auto">
+                                            <ChevronDown className={`h-5 w-5 transition-transform duration-200 ${isChapterCollapsed ? '-rotate-90' : ''}`} />
+                                            <h3 className="text-lg font-semibold">
+                                              {displayNumber(chapter.chapter_number)}. {cleanChapterName(chapter.chapter_name)}
+                                            </h3>
+                                          </Button>
+                                        </CollapsibleTrigger>
+                                      </div>
+                                    </div>
+                                    
+                                    <CollapsibleContent>
+                                      <div className="p-4">
+                                        {chapterItems.length > 0 ? (
+                                          <Table className="border">
+                                            <TableHeader>
+                                              <TableRow>
+                                                <TableHead>{t('orcamento.artigo')}</TableHead>
+                                                <TableHead>{t('orcamento.descricao')}</TableHead>
+                                                <TableHead>{t('orcamento.unit')}</TableHead>
+                                                <TableHead className="text-right">{t('orcamento.quantity')}</TableHead>
+                                                <TableHead>{t('orcamento.observacoesEmpreiteiro')}</TableHead>
+                                              </TableRow>
+                                            </TableHeader>
+                                            <TableBody>
+                                              {chapterItems.map((item) => (
+                                                <TableRow key={item.id}>
+                                                  <TableCell>{displayNumber(item.artigo)}</TableCell>
+                                                  <TableCell>{item.descricao}</TableCell>
+                                                  <TableCell>{item.un || '-'}</TableCell>
+                                                  <TableCell className="text-right">
+                                                    {item.qt !== null ? Number(item.qt).toFixed(2) : '-'}
+                                                  </TableCell>
+                                                  <TableCell>{item.observacoes_empreiteiro || '-'}</TableCell>
+                                                </TableRow>
+                                              ))}
+                                            </TableBody>
+                                          </Table>
+                                        ) : (
+                                          <div className="text-sm text-muted-foreground">No items in this chapter.</div>
+                                        )}
+                                      </div>
+                                    </CollapsibleContent>
+                                  </Collapsible>
+                                );
+                              })}
+                            </div>
+                          );
+                        }
+                      }
                       
                       // Group chapters by sheet name for multi-sheet separators
                       const chaptersBySheet = new Map<string, typeof chaptersForTab>();
@@ -2104,14 +2984,14 @@ const MapaQuantidades = () => {
                         chaptersBySheet.get(sheetName)!.push(cwa);
                       });
                       
-                      // Display chapters grouped by sheet
+                      // Display chapters grouped by sheet (article-based view)
                       return Array.from(chaptersBySheet.entries()).map(([sheetName, chaptersInSheet]) => {
                         const isSheetCollapsed = collapsedSheets.has(sheetName);
                         const sheetChapterIds = chaptersInSheet.map(cwa => cwa.chapter.id);
                         
                         return (
                         <div key={sheetName}>
-                          {/* Sheet separator - only show if there are multiple sheets in the original file */}
+                          {/* SEPARATOR (Excel sheet name) - only show if there are multiple sheets in the original file */}
                           {totalUniqueSheets > 1 && (
                             <Collapsible open={!isSheetCollapsed} onOpenChange={(open) => {
                               const newCollapsed = new Set(collapsedSheets);
@@ -2128,62 +3008,80 @@ const MapaQuantidades = () => {
                                     <Button variant="ghost" size="sm" className="flex items-center gap-2 hover:bg-transparent p-0 h-auto">
                                       <ChevronDown className={`h-5 w-5 transition-transform duration-200 ${isSheetCollapsed ? '-rotate-90' : ''}`} />
                                       <h2 className="text-xl font-bold text-blue-900 dark:text-blue-100">
-                                        📄 {sheetName}
+                                        📄 Separator: {sheetName}
                                       </h2>
                                     </Button>
                                   </CollapsibleTrigger>
                                   
-                                  {/* Move sheet button */}
-                                  {tabs && tabs.length > 1 && (
-                                    <Sheet>
-                                      <SheetTrigger asChild>
-                                        <Button variant="ghost" size="sm" className="gap-2 text-blue-900 dark:text-blue-100 hover:bg-blue-100 dark:hover:bg-blue-900">
-                                          <MoveRight className="h-4 w-4" />
-                                          Move to tab
-                                        </Button>
-                                      </SheetTrigger>
-                                      <SheetContent>
-                                        <SheetHeader>
-                                          <SheetTitle>Move Sheet</SheetTitle>
-                                          <SheetDescription>
-                                            Select a tab to move all chapters from "{sheetName}" to
-                                          </SheetDescription>
-                                        </SheetHeader>
-                                        <div className="mt-6 space-y-2">
-                                          {tabs.filter(t => t.id !== tab.id).map((targetTab) => (
-                                            <Button
-                                              key={targetTab.id}
-                                              variant="outline"
-                                              className="w-full justify-start"
-                                              onClick={() => {
-                                                moveSheetMutation.mutate({
-                                                  chapterIds: sheetChapterIds,
-                                                  newTabId: targetTab.id
-                                                });
-                                              }}
-                                            >
-                                              <ChevronRight className="mr-2 h-4 w-4" />
-                                              {targetTab.name}
-                                            </Button>
-                                          ))}
-                                        </div>
-                                      </SheetContent>
-                                    </Sheet>
-                                  )}
+                                  <div className="flex items-center gap-2">
+                                    {/* Move sheet button */}
+                                    {tabs && tabs.length > 1 && (
+                                      <Sheet>
+                                        <SheetTrigger asChild>
+                                          <Button variant="ghost" size="sm" className="gap-2 text-blue-900 dark:text-blue-100 hover:bg-blue-100 dark:hover:bg-blue-900">
+                                            <MoveRight className="h-4 w-4" />
+                                            Move to tab
+                                          </Button>
+                                        </SheetTrigger>
+                                        <SheetContent>
+                                          <SheetHeader>
+                                            <SheetTitle>Move Sheet</SheetTitle>
+                                            <SheetDescription>
+                                              Select a tab to move all chapters from "{sheetName}" to
+                                            </SheetDescription>
+                                          </SheetHeader>
+                                          <div className="mt-6 space-y-2">
+                                            {tabs.filter(t => t.id !== tab.id).map((targetTab) => (
+                                              <Button
+                                                key={targetTab.id}
+                                                variant="outline"
+                                                className="w-full justify-start"
+                                                onClick={() => {
+                                                  moveSheetMutation.mutate({
+                                                    chapterIds: sheetChapterIds,
+                                                    newTabId: targetTab.id
+                                                  });
+                                                }}
+                                              >
+                                                <ChevronRight className="mr-2 h-4 w-4" />
+                                                {targetTab.name}
+                                              </Button>
+                                            ))}
+                                          </div>
+                                        </SheetContent>
+                                      </Sheet>
+                                    )}
+                                  </div>
                                 </div>
                               </div>
                             </Collapsible>
                           )}
                           
                           {/* Chapters in this sheet */}
-                          {(!isSheetCollapsed || totalUniqueSheets === 1) && chaptersInSheet.map((chapterWithArticles) => (
-                            <Collapsible key={chapterWithArticles.chapter.id} defaultOpen={false} className="border rounded-lg overflow-hidden mb-6">
+                          {(!isSheetCollapsed || totalUniqueSheets === 1) && chaptersInSheet.map((chapterWithArticles) => {
+                            const isChapterCollapsed = collapsedChapters.has(chapterWithArticles.chapter.id);
+                            
+                            return (
+                            <Collapsible 
+                              key={chapterWithArticles.chapter.id} 
+                              open={!isChapterCollapsed}
+                              onOpenChange={(open) => {
+                                const newCollapsed = new Set(collapsedChapters);
+                                if (open) {
+                                  newCollapsed.delete(chapterWithArticles.chapter.id);
+                                } else {
+                                  newCollapsed.add(chapterWithArticles.chapter.id);
+                                }
+                                setCollapsedChapters(newCollapsed);
+                              }}
+                              className="border rounded-lg overflow-hidden mb-6"
+                            >
                               <div className="bg-muted">
                                 <div className="flex items-center justify-between p-4">
                                   <div className="flex items-center gap-2">
                                     <CollapsibleTrigger asChild>
                                       <Button variant="ghost" size="sm" className="flex items-center gap-2 hover:bg-transparent p-0 h-auto">
-                                        <ChevronDown className="h-5 w-5 transition-transform duration-200 data-[state=open]:rotate-180" />
+                                        <ChevronDown className={`h-5 w-5 transition-transform duration-200 ${isChapterCollapsed ? '-rotate-90' : ''}`} />
                                         <h3 className="text-lg font-semibold">
                                           {displayNumber(chapterWithArticles.chapter.chapter_number)}. {cleanChapterName(chapterWithArticles.chapter.chapter_name)}
                                         </h3>
@@ -2191,45 +3089,137 @@ const MapaQuantidades = () => {
                                     </CollapsibleTrigger>
                                   </div>
                                   
-                                  {/* Move chapter button */}
-                                  {tabs && tabs.length > 1 && (
-                                    <Sheet>
-                                      <SheetTrigger asChild>
-                                        <Button variant="ghost" size="sm" className="gap-2">
-                                          <MoveRight className="h-4 w-4" />
-                                          Move to tab
+                                  <div className="flex items-center gap-2">
+                                    {/* Speciality button for chapter */}
+                                    <TooltipProvider>
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => handleOpenChapterDialog(chapterWithArticles.chapter.id)}
+                                          >
+                                            <Tag className="h-4 w-4" />
+                                          </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                          <p>Manage Specialities</p>
+                                        </TooltipContent>
+                                      </Tooltip>
+                                    </TooltipProvider>
+                                    
+                                    {/* Edit chapter button */}
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => setChapterDialog({ open: true, mode: 'edit', data: chapterWithArticles.chapter })}
+                                    >
+                                      <Edit className="h-4 w-4" />
+                                    </Button>
+                                    
+                                    {/* Delete chapter button */}
+                                    <AlertDialog>
+                                      <AlertDialogTrigger asChild>
+                                        <Button variant="outline" size="sm">
+                                          <Trash className="h-4 w-4" />
                                         </Button>
-                                      </SheetTrigger>
-                                      <SheetContent>
-                                        <SheetHeader>
-                                          <SheetTitle>Move Chapter</SheetTitle>
-                                          <SheetDescription>
-                                            Select a tab to move this chapter to
-                                          </SheetDescription>
-                                        </SheetHeader>
-                                        <div className="mt-6 space-y-2">
-                                          {tabs.filter(t => t.id !== chapterWithArticles.chapter.tab_id).map((targetTab) => (
-                                            <Button
-                                              key={targetTab.id}
-                                              variant="outline"
-                                              className="w-full justify-start"
-                                              onClick={() => {
-                                                moveChapterMutation.mutate({
-                                                  chapterId: chapterWithArticles.chapter.id,
-                                                  newTabId: targetTab.id
-                                                });
-                                              }}
-                                            >
-                                              <ChevronRight className="mr-2 h-4 w-4" />
-                                              {targetTab.name}
-                                            </Button>
-                                          ))}
-                                        </div>
-                                      </SheetContent>
-                                    </Sheet>
-                                  )}
+                                      </AlertDialogTrigger>
+                                      <AlertDialogContent>
+                                        <AlertDialogHeader>
+                                          <AlertDialogTitle>Delete Chapter</AlertDialogTitle>
+                                          <AlertDialogDescription>
+                                            Are you sure you want to delete this chapter? This will also delete all articles and items within it.
+                                          </AlertDialogDescription>
+                                        </AlertDialogHeader>
+                                        <AlertDialogFooter>
+                                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                          <AlertDialogAction
+                                            onClick={() => deleteChapterMutation.mutate(chapterWithArticles.chapter.id)}
+                                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                          >
+                                            Delete
+                                          </AlertDialogAction>
+                                        </AlertDialogFooter>
+                                      </AlertDialogContent>
+                                    </AlertDialog>
+                                    
+                                    {/* Move chapter button */}
+                                    {tabs && tabs.length > 1 && (
+                                      <Sheet>
+                                        <SheetTrigger asChild>
+                                          <Button variant="ghost" size="sm" className="gap-2">
+                                            <MoveRight className="h-4 w-4" />
+                                            Move to tab
+                                          </Button>
+                                        </SheetTrigger>
+                                        <SheetContent>
+                                          <SheetHeader>
+                                            <SheetTitle>Move Chapter</SheetTitle>
+                                            <SheetDescription>
+                                              Select a tab to move this chapter to
+                                            </SheetDescription>
+                                          </SheetHeader>
+                                          <div className="mt-6 space-y-2">
+                                            {tabs.filter(t => t.id !== chapterWithArticles.chapter.tab_id).map((targetTab) => (
+                                              <Button
+                                                key={targetTab.id}
+                                                variant="outline"
+                                                className="w-full justify-start"
+                                                onClick={() => {
+                                                  moveChapterMutation.mutate({
+                                                    chapterId: chapterWithArticles.chapter.id,
+                                                    newTabId: targetTab.id
+                                                  });
+                                                }}
+                                              >
+                                                <ChevronRight className="mr-2 h-4 w-4" />
+                                                {targetTab.name}
+                                              </Button>
+                                            ))}
+                                          </div>
+                                        </SheetContent>
+                                      </Sheet>
+                                    )}
+                                  </div>
                                 </div>
                               </div>
+                              
+                              {/* Chapter Speciality Dialog */}
+                              {editingChapterId === chapterWithArticles.chapter.id && (
+                                <Dialog open={true} onOpenChange={(open) => handleCloseChapterDialog(open)}>
+                                  <DialogContent className="max-w-2xl">
+                                    <DialogHeader>
+                                      <DialogTitle>Manage Specialities for Chapter</DialogTitle>
+                                      <DialogDescription>
+                                        Select specialities to apply to all items in this chapter
+                                      </DialogDescription>
+                                    </DialogHeader>
+                                    <div className="py-4">
+                                      <MultiSelect
+                                        options={Object.entries(groupedSpecialityOptions).flatMap(([group, options]) => 
+                                          options.map(opt => ({ ...opt, group }))
+                                        )}
+                                        selected={pendingChapterSpecialities}
+                                        onChange={setPendingChapterSpecialities}
+                                        placeholder="Select specialities..."
+                                      />
+                                    </div>
+                                    <div className="flex justify-end gap-2">
+                                      <Button
+                                        variant="outline"
+                                        onClick={() => handleCloseChapterDialog(false)}
+                                      >
+                                        Cancel
+                                      </Button>
+                                      <Button
+                                        onClick={() => handleCloseChapterDialog(false)}
+                                      >
+                                        Apply
+                                      </Button>
+                                    </div>
+                                  </DialogContent>
+                                </Dialog>
+                              )}
                               
                               <CollapsibleContent>
                                 {/* Articles displayed inline with collapsible feature */}
@@ -2237,17 +3227,18 @@ const MapaQuantidades = () => {
                                   {chapterWithArticles.articles.map((article) => {
                                     const isCollapsed = collapsedArticles.has(article.id);
                                     
-                                    // Check if the article has UN and QT by checking if first item has same artigo as article
-                                    const hasArticleUnQt = article.contents.length > 0 && 
-                                      article.contents[0].type === 'item' &&
-                                      (article.contents[0].data as {artigo: string; descricao: string; un: string; qt: number}).artigo === article.artigo;
+                                    // Check if the article title matches the first item's description
+                                    const firstItem = article.contents.find(c => c.type === 'item');
+                                    const firstItemData = firstItem?.data as {artigo: string; descricao: string; un: string; qt: number} | undefined;
+                                    const shouldShowSingleArticle = firstItemData && article.title === firstItemData.descricao;
+                                    const displayTitle = shouldShowSingleArticle ? "Single Article" : article.title;
                                     
                                     return (
                                       <div key={article.id} className="border rounded-lg overflow-hidden bg-gray-50 dark:bg-gray-900">
-                                        {/* Article header with toggle - hide if article has UN and QT */}
-                                        {!hasArticleUnQt && (
+                                        {/* Article header with toggle */}
+                                        <div className="flex items-center justify-between p-4 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
                                           <div 
-                                            className="flex items-center justify-between p-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                                            className="flex items-center gap-2 flex-1 cursor-pointer"
                                             onClick={() => {
                                               const newCollapsed = new Set(collapsedArticles);
                                               if (isCollapsed) {
@@ -2258,19 +3249,221 @@ const MapaQuantidades = () => {
                                               setCollapsedArticles(newCollapsed);
                                             }}
                                           >
-                                            <div className="flex items-center gap-2">
-                                              <ChevronDown 
-                                                className={`h-5 w-5 transition-transform duration-200 ${isCollapsed ? '-rotate-90' : ''}`}
-                                              />
-                                              <h4 className="text-base font-semibold text-primary">
-                                                {displayNumber(article.artigo)} - {article.title}
-                                              </h4>
+                                            <ChevronDown 
+                                              className={`h-5 w-5 transition-transform duration-200 ${isCollapsed ? '-rotate-90' : ''}`}
+                                            />
+                                            <h4 className="text-base font-semibold text-primary">
+                                              {displayNumber(article.artigo)} - {displayTitle}
+                                            </h4>
+                                          </div>
+                                            
+                                            {/* Article action buttons */}
+                                            <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                                              {/* Speciality button for article */}
+                                              <TooltipProvider>
+                                                <Tooltip>
+                                                  <TooltipTrigger asChild>
+                                                    <Button
+                                                      variant="ghost"
+                                                      size="sm"
+                                                      onClick={() => {
+                                                        const articleFromDB = articlesFromDB?.find(a => 
+                                                          a.chapter_id === article.chapter_id && 
+                                                          a.artigo === article.artigo
+                                                        );
+                                                        if (articleFromDB) {
+                                                          const articleSpecIds = articleSpecialities?.filter(as => as.article_id === articleFromDB.id).map(as => as.speciality_id) || [];
+                                                          setEditingItemId(articleFromDB.id); // Reuse item editing state
+                                                          setPendingItemSpecialities(articleSpecIds);
+                                                        }
+                                                      }}
+                                                    >
+                                                      <Tag className="h-3 w-3" />
+                                                    </Button>
+                                                  </TooltipTrigger>
+                                                  <TooltipContent>
+                                                    <p>Manage Specialities</p>
+                                                  </TooltipContent>
+                                                </Tooltip>
+                                              </TooltipProvider>
+                                              
+                                              {/* Edit article button - only enabled for non-single articles */}
+                                              <TooltipProvider>
+                                                <Tooltip>
+                                                  <TooltipTrigger asChild>
+                                                    <Button
+                                                      variant="ghost"
+                                                      size="sm"
+                                                      onClick={() => setArticleDialog({ open: true, mode: 'edit', data: article })}
+                                                      disabled={shouldShowSingleArticle}
+                                                    >
+                                                      <Edit className="h-3 w-3" />
+                                                    </Button>
+                                                  </TooltipTrigger>
+                                                  {shouldShowSingleArticle && (
+                                                    <TooltipContent>
+                                                      <p>Cannot edit name for single articles</p>
+                                                    </TooltipContent>
+                                                  )}
+                                                </Tooltip>
+                                              </TooltipProvider>
+                                              
+                                              {/* Delete article button */}
+                                              <AlertDialog>
+                                                <AlertDialogTrigger asChild>
+                                                  <Button variant="ghost" size="sm">
+                                                    <Trash className="h-3 w-3" />
+                                                  </Button>
+                                                </AlertDialogTrigger>
+                                                <AlertDialogContent>
+                                                  <AlertDialogHeader>
+                                                    <AlertDialogTitle>Delete Article</AlertDialogTitle>
+                                                    <AlertDialogDescription>
+                                                      Are you sure you want to delete this article?
+                                                    </AlertDialogDescription>
+                                                  </AlertDialogHeader>
+                                                  <AlertDialogFooter>
+                                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                                    <AlertDialogAction
+                                                      onClick={() => {
+                                                        const articleFromDB = articlesFromDB?.find(a => 
+                                                          a.chapter_id === article.chapter_id && 
+                                                          a.artigo === article.artigo
+                                                        );
+                                                        if (articleFromDB) {
+                                                          deleteArticleMutation.mutate(articleFromDB.id);
+                                                        }
+                                                      }}
+                                                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                                    >
+                                                      Delete
+                                                    </AlertDialogAction>
+                                                  </AlertDialogFooter>
+                                                </AlertDialogContent>
+                                              </AlertDialog>
                                             </div>
                                           </div>
+                                        
+                                        {/* Article Speciality Dialog */}
+                                        {(() => {
+                                          const articleFromDB = articlesFromDB?.find(a => 
+                                            a.chapter_id === article.chapter_id && 
+                                            a.artigo === article.artigo
+                                          );
+                                          return articleFromDB && editingItemId === articleFromDB.id && (
+                                            <Dialog open={true} onOpenChange={(open) => {
+                                              if (!open) {
+                                                updateArticleSpecialitiesMutation.mutate({
+                                                  articleId: articleFromDB.id,
+                                                  specialityIds: pendingItemSpecialities,
+                                                });
+                                                setEditingItemId(null);
+                                                setPendingItemSpecialities([]);
+                                              }
+                                            }}>
+                                              <DialogContent className="max-w-2xl">
+                                                <DialogHeader>
+                                                  <DialogTitle>Manage Specialities for Article</DialogTitle>
+                                                  <DialogDescription>
+                                                    Select specialities to apply to all items in this article
+                                                  </DialogDescription>
+                                                </DialogHeader>
+                                                <div className="py-4">
+                                                  <MultiSelect
+                                                    options={Object.entries(groupedSpecialityOptions).flatMap(([group, options]) => 
+                                                      options.map(opt => ({ ...opt, group }))
+                                                    )}
+                                                    selected={pendingItemSpecialities}
+                                                    onChange={setPendingItemSpecialities}
+                                                    placeholder="Select specialities..."
+                                                  />
+                                                </div>
+                                                <div className="flex justify-end gap-2">
+                                                  <Button
+                                                    variant="outline"
+                                                    onClick={() => {
+                                                      setEditingItemId(null);
+                                                      setPendingItemSpecialities([]);
+                                                    }}
+                                                  >
+                                                    Cancel
+                                                  </Button>
+                                                  <Button
+                                                    onClick={() => {
+                                                      updateArticleSpecialitiesMutation.mutate({
+                                                        articleId: articleFromDB.id,
+                                                        specialityIds: pendingItemSpecialities,
+                                                      });
+                                                      setEditingItemId(null);
+                                                      setPendingItemSpecialities([]);
+                                                    }}
+                                                  >
+                                                    Apply
+                                                  </Button>
+                                                </div>
+                                              </DialogContent>
+                                            </Dialog>
+                                          );
+                                        })()}
+                                        
+                                        {/* Individual Item Speciality Dialog */}
+                                        {editingIndividualItemId && (
+                                          <Dialog open={true} onOpenChange={(open) => {
+                                            if (!open) {
+                                              updateItemSpecialitiesMutation.mutate({
+                                                itemId: editingIndividualItemId,
+                                                specialityIds: pendingIndividualItemSpecialities,
+                                              });
+                                              setEditingIndividualItemId(null);
+                                              setPendingIndividualItemSpecialities([]);
+                                            }
+                                          }}>
+                                            <DialogContent className="max-w-2xl">
+                                              <DialogHeader>
+                                                <DialogTitle>Manage Specialities for Item</DialogTitle>
+                                                <DialogDescription>
+                                                  Select specialities for this specific item
+                                                </DialogDescription>
+                                              </DialogHeader>
+                                              <div className="py-4">
+                                                <MultiSelect
+                                                  options={Object.entries(groupedSpecialityOptions).flatMap(([group, options]) => 
+                                                    options.map(opt => ({ ...opt, group }))
+                                                  )}
+                                                  selected={pendingIndividualItemSpecialities}
+                                                  onChange={setPendingIndividualItemSpecialities}
+                                                  placeholder="Select specialities..."
+                                                />
+                                              </div>
+                                              <div className="flex justify-end gap-2">
+                                                <Button
+                                                  variant="outline"
+                                                  onClick={() => {
+                                                    setEditingIndividualItemId(null);
+                                                    setPendingIndividualItemSpecialities([]);
+                                                  }}
+                                                >
+                                                  Cancel
+                                                </Button>
+                                                <Button
+                                                  onClick={() => {
+                                                    updateItemSpecialitiesMutation.mutate({
+                                                      itemId: editingIndividualItemId,
+                                                      specialityIds: pendingIndividualItemSpecialities,
+                                                    });
+                                                    setEditingIndividualItemId(null);
+                                                    setPendingIndividualItemSpecialities([]);
+                                                  }}
+                                                >
+                                                  Apply
+                                                </Button>
+                                              </div>
+                                            </DialogContent>
+                                          </Dialog>
                                         )}
                                         
                                         {/* Article content */}
-                                        {(!isCollapsed || hasArticleUnQt) && (
+                                        {!isCollapsed && (
                                           <div className="p-4 pt-0 space-y-4">
                                             {(() => {
                                               const groupedContent: Array<{type: 'text', data: string} | {type: 'items', items: Array<{
@@ -2317,10 +3510,93 @@ const MapaQuantidades = () => {
                                                 groupedContent.push({ type: 'items', items: currentItemGroup });
                                               }
                                               
-                                              return groupedContent.map((group, groupIndex) => (
+                                              // Get the article ID from the database
+                                              const articleFromDB = articlesFromDB?.find(a => 
+                                                a.chapter_id === article.chapter_id && 
+                                                a.artigo === article.artigo
+                                              );
+                                              
+                                              return groupedContent.map((group, groupIndex) => {
+                                                // Track text line indices separately
+                                                let textLineIndex = 0;
+                                                if (group.type === 'text') {
+                                                  // Count how many text lines we've seen before this one
+                                                  for (let i = 0; i < groupIndex; i++) {
+                                                    if (groupedContent[i].type === 'text') {
+                                                      textLineIndex++;
+                                                    }
+                                                  }
+                                                }
+                                                
+                                                return (
                                                 <div key={groupIndex}>
                                                   {group.type === 'text' ? (
-                                                    <p className="text-sm whitespace-pre-line">{group.data}</p>
+                                                    <div className="flex items-start gap-2 group">
+                                                      {editingTextLine?.articleId === articleFromDB?.id && editingTextLine.lineIndex === textLineIndex ? (
+                                                        <div className="flex-1 flex gap-2">
+                                                          <Textarea
+                                                            value={editingTextValue}
+                                                            onChange={(e) => setEditingTextValue(e.target.value)}
+                                                            className="flex-1 text-sm"
+                                                            rows={3}
+                                                            autoFocus
+                                                          />
+                                                          <div className="flex flex-col gap-1">
+                                                            <Button
+                                                              size="sm"
+                                                              variant="default"
+                                                              onClick={() => {
+                                                                if (articleFromDB) {
+                                                                  handleUpdateArticleTextLine(articleFromDB.id, textLineIndex, editingTextValue);
+                                                                }
+                                                              }}
+                                                            >
+                                                              Save
+                                                            </Button>
+                                                            <Button
+                                                              size="sm"
+                                                              variant="outline"
+                                                              onClick={() => {
+                                                                setEditingTextLine(null);
+                                                                setEditingTextValue('');
+                                                              }}
+                                                            >
+                                                              Cancel
+                                                            </Button>
+                                                          </div>
+                                                        </div>
+                                                      ) : (
+                                                        <>
+                                                          <div className="flex-1 flex flex-wrap gap-2 items-center">
+                                                            <Badge 
+                                                              variant="outline" 
+                                                              className="text-sm cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 py-1 px-3"
+                                                              onClick={() => {
+                                                                if (articleFromDB) {
+                                                                  setEditingTextLine({ articleId: articleFromDB.id, lineIndex: textLineIndex });
+                                                                  setEditingTextValue(group.data);
+                                                                }
+                                                              }}
+                                                            >
+                                                              {group.data}
+                                                            </Badge>
+                                                          </div>
+                                                          <Button
+                                                            size="sm"
+                                                            variant="ghost"
+                                                            className="opacity-0 group-hover:opacity-100"
+                                                            onClick={() => {
+                                                              if (articleFromDB) {
+                                                                setEditingTextLine({ articleId: articleFromDB.id, lineIndex: textLineIndex });
+                                                                setEditingTextValue(group.data);
+                                                              }
+                                                            }}
+                                                          >
+                                                            <Edit className="h-3 w-3" />
+                                                          </Button>
+                                                        </>
+                                                      )}
+                                                    </div>
                                                   ) : (
                                                     <Table className="border">
                                                       <TableHeader>
@@ -2330,27 +3606,196 @@ const MapaQuantidades = () => {
                                                           <TableHead>{t('orcamento.unit')}</TableHead>
                                                           <TableHead className="text-right">{t('orcamento.quantity')}</TableHead>
                                                           <TableHead>{t('orcamento.observacoesEmpreiteiro')}</TableHead>
+                                                          <TableHead>Specialities</TableHead>
+                                                          <TableHead className="w-[50px]"></TableHead>
                                                         </TableRow>
                                                       </TableHeader>
                                                       <TableBody>
-                                                        {group.items.map((item, itemIndex) => (
+                                                        {group.items.map((item, itemIndex) => {
+                                                          // Get specialities for this item
+                                                          const itemSpecialities = getItemSpecialitiesInArticle(
+                                                            item.artigo,
+                                                            chapterWithArticles.chapter.id,
+                                                            articleFromDB?.id
+                                                          );
+                                                          
+                                                          // Helper function to render editable cell
+                                                          const renderEditableCell = (field: string, value: string | number, type: 'text' | 'number' = 'text') => {
+                                                            const isEditing = editingItemCell?.articleId === articleFromDB?.id && 
+                                                                            editingItemCell.itemIndex === itemIndex && 
+                                                                            editingItemCell.field === field;
+                                                            
+                                                            if (isEditing) {
+                                                              // Use Textarea for descricao field
+                                                              const isDescricao = field === 'descricao';
+                                                              
+                                                              return (
+                                                                <div className="flex gap-2 items-start">
+                                                                  {isDescricao ? (
+                                                                    <Textarea
+                                                                      value={editingItemValue}
+                                                                      onChange={(e) => setEditingItemValue(e.target.value)}
+                                                                      className="w-full text-sm min-h-[100px]"
+                                                                      rows={4}
+                                                                      autoFocus
+                                                                      onKeyDown={(e) => {
+                                                                        // Allow Enter in textarea, only save on Ctrl+Enter
+                                                                        if (e.key === 'Enter' && e.ctrlKey && articleFromDB) {
+                                                                          handleUpdateItemColumn(articleFromDB.id, itemIndex, field, editingItemValue);
+                                                                        } else if (e.key === 'Escape') {
+                                                                          setEditingItemCell(null);
+                                                                          setEditingItemValue('');
+                                                                        }
+                                                                      }}
+                                                                    />
+                                                                  ) : (
+                                                                    <Input
+                                                                      type={type}
+                                                                      value={editingItemValue}
+                                                                      onChange={(e) => setEditingItemValue(e.target.value)}
+                                                                      className="w-full text-sm"
+                                                                      autoFocus
+                                                                      onKeyDown={(e) => {
+                                                                        if (e.key === 'Enter' && articleFromDB) {
+                                                                          handleUpdateItemColumn(articleFromDB.id, itemIndex, field, editingItemValue);
+                                                                        } else if (e.key === 'Escape') {
+                                                                          setEditingItemCell(null);
+                                                                          setEditingItemValue('');
+                                                                        }
+                                                                      }}
+                                                                    />
+                                                                  )}
+                                                                  <div className="flex flex-col gap-1">
+                                                                    <Button
+                                                                      size="sm"
+                                                                      variant="ghost"
+                                                                      onClick={() => {
+                                                                        if (articleFromDB) {
+                                                                          handleUpdateItemColumn(articleFromDB.id, itemIndex, field, editingItemValue);
+                                                                        }
+                                                                      }}
+                                                                    >
+                                                                      ✓
+                                                                    </Button>
+                                                                    <Button
+                                                                      size="sm"
+                                                                      variant="ghost"
+                                                                      onClick={() => {
+                                                                        setEditingItemCell(null);
+                                                                        setEditingItemValue('');
+                                                                      }}
+                                                                    >
+                                                                      ✕
+                                                                    </Button>
+                                                                  </div>
+                                                                </div>
+                                                              );
+                                                            }
+                                                            
+                                                            return (
+                                                              <div 
+                                                                className="cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 p-2 rounded"
+                                                                onClick={() => {
+                                                                  if (articleFromDB) {
+                                                                    setEditingItemCell({ articleId: articleFromDB.id, itemIndex, field });
+                                                                    setEditingItemValue(String(value));
+                                                                  }
+                                                                }}
+                                                              >
+                                                                {type === 'number' && field === 'qt' ? Number(value).toFixed(2) : value || '-'}
+                                                              </div>
+                                                            );
+                                                          };
+                                                          
+                                                          return (
                                                           <TableRow key={itemIndex}>
-                                                            <TableCell>{displayNumber(item.artigo)}</TableCell>
-                                                            <TableCell>{item.descricao}</TableCell>
-                                                            <TableCell>{item.un}</TableCell>
+                                                            <TableCell>{renderEditableCell('artigo', displayNumber(item.artigo))}</TableCell>
+                                                            <TableCell>{renderEditableCell('descricao', item.descricao)}</TableCell>
+                                                            <TableCell>{renderEditableCell('un', item.un)}</TableCell>
                                                             <TableCell className="text-right">
-                                                              {Number(item.qt).toFixed(2)}
+                                                              {renderEditableCell('qt', item.qt, 'number')}
                                                             </TableCell>
                                                             <TableCell>
-                                                              {item.observacoes_empreiteiro || '-'}
+                                                              {renderEditableCell('observacoes_empreiteiro', item.observacoes_empreiteiro || '')}
+                                                            </TableCell>
+                                                            <TableCell>
+                                                              <div className="flex items-center gap-2">
+                                                                <div className="flex flex-wrap gap-1 flex-1">
+                                                                  {itemSpecialities.length > 0 ? (
+                                                                    itemSpecialities.map((spec) => (
+                                                                      <Badge 
+                                                                        key={spec.id} 
+                                                                        variant="secondary"
+                                                                        className="text-xs"
+                                                                      >
+                                                                        {language === 'pt' ? spec.name_pt : spec.name_en}
+                                                                      </Badge>
+                                                                    ))
+                                                                  ) : (
+                                                                    <span className="text-muted-foreground text-sm">-</span>
+                                                                  )}
+                                                                </div>
+                                                                <Button
+                                                                  variant="ghost"
+                                                                  size="sm"
+                                                                  onClick={() => {
+                                                                    // Find the database item for this artigo
+                                                                    const dbItem = items?.find(i => 
+                                                                      i.chapter_id === chapterWithArticles.chapter.id && 
+                                                                      i.artigo === item.artigo
+                                                                    );
+                                                                    if (dbItem) {
+                                                                      const itemSpecIds = getItemOwnSpecialityIds(dbItem.id);
+                                                                      setEditingIndividualItemId(dbItem.id);
+                                                                      setPendingIndividualItemSpecialities(itemSpecIds);
+                                                                    }
+                                                                  }}
+                                                                  className="h-8 w-8 p-0"
+                                                                >
+                                                                  <Tag className="h-4 w-4" />
+                                                                </Button>
+                                                              </div>
+                                                            </TableCell>
+                                                            <TableCell>
+                                                              <Button
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                onClick={() => {
+                                                                  if (articleFromDB) {
+                                                                    handleDeleteItemFromArticle(articleFromDB.id, itemIndex);
+                                                                  }
+                                                                }}
+                                                                className="h-8 w-8 p-0"
+                                                              >
+                                                                <Trash2 className="h-4 w-4 text-destructive" />
+                                                              </Button>
                                                             </TableCell>
                                                           </TableRow>
-                                                        ))}
+                                                        )})}
+                                                        {/* Add row button as a table row */}
+                                                        <TableRow>
+                                                          <TableCell colSpan={7} className="text-center">
+                                                            <Button
+                                                              size="sm"
+                                                              variant="outline"
+                                                              onClick={() => {
+                                                                if (articleFromDB) {
+                                                                  handleAddItemToArticle(articleFromDB.id);
+                                                                }
+                                                              }}
+                                                              className="gap-2"
+                                                            >
+                                                              <Plus className="h-4 w-4" />
+                                                              Add Row
+                                                            </Button>
+                                                          </TableCell>
+                                                        </TableRow>
                                                       </TableBody>
                                                     </Table>
                                                   )}
                                                 </div>
-                                              ));
+                                              )
+                                            });
                                             })()}
                                           </div>
                                         )}
@@ -2360,7 +3805,8 @@ const MapaQuantidades = () => {
                                 </div>
                               </CollapsibleContent>
                             </Collapsible>
-                          ))}
+                          );
+                          })}
                         </div>
                       );
                       });
@@ -2372,6 +3818,67 @@ const MapaQuantidades = () => {
             </div>
           )}
         </div>
+      )}
+      
+      {/* Article Edit Dialog */}
+      {articleDialog.open && articleDialog.data && (
+        <Dialog open={articleDialog.open} onOpenChange={(open) => {
+          if (!open) {
+            setArticleDialog({ open: false, mode: 'create' });
+          }
+        }}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Edit Article Name</DialogTitle>
+              <DialogDescription>
+                Change the name/title of this article
+              </DialogDescription>
+            </DialogHeader>
+            <div className="py-4">
+              <Input
+                value={articleDialog.data.title}
+                onChange={(e) => {
+                  setArticleDialog({
+                    ...articleDialog,
+                    data: {
+                      ...articleDialog.data!,
+                      title: e.target.value
+                    }
+                  });
+                }}
+                placeholder="Article name..."
+                className="w-full"
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setArticleDialog({ open: false, mode: 'create' });
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={() => {
+                  const articleFromDB = articlesFromDB?.find(a => 
+                    a.chapter_id === articleDialog.data?.chapter_id && 
+                    a.artigo === articleDialog.data?.artigo
+                  );
+                  if (articleFromDB && articleDialog.data) {
+                    updateArticleMutation.mutate({
+                      articleId: articleFromDB.id,
+                      title: articleDialog.data.title,
+                      contents: articleDialog.data.contents
+                    });
+                  }
+                }}
+              >
+                Save
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
       )}
     </div>
   );
