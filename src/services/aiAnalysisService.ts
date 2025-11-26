@@ -59,6 +59,16 @@ export interface AIAnalysisResult {
 /**
  * Calculate data validation metrics from Excel context
  */
+const REQUIRED_FIELDS_PER_ITEM = 3; // UN, QT, PRECO
+
+// Common header patterns to search for
+const HEADER_PATTERNS = {
+  UN: ['UN', 'UNIDADE', 'UNI'],
+  QT: ['QT', 'QUANTIDADE', 'QUANT'],
+  PRECO: ['PRECO', 'PREÇO', 'PU', 'UNITARIO', 'UNITÁRIO'],
+  ARTIGO: ['ARTIGO']
+};
+
 function calculateValidationMetrics(context: ExcelAnalysisContext): DataValidationMetrics {
   let missingUnits = 0;
   let missingQuantities = 0;
@@ -66,13 +76,22 @@ function calculateValidationMetrics(context: ExcelAnalysisContext): DataValidati
   let totalItems = 0;
 
   context.sampleData.forEach(sheet => {
-    const unIndex = sheet.headers.findIndex(h => h.toUpperCase().includes('UN'));
-    const qtIndex = sheet.headers.findIndex(h => h.toUpperCase().includes('QT') || h.toUpperCase().includes('QUANTIDADE'));
-    const precoIndex = sheet.headers.findIndex(h => h.toUpperCase().includes('PRECO') || h.toUpperCase().includes('PREÇO') || h === 'PU');
+    const unIndex = sheet.headers.findIndex(h => 
+      HEADER_PATTERNS.UN.some(pattern => h.toUpperCase().includes(pattern))
+    );
+    const qtIndex = sheet.headers.findIndex(h => 
+      HEADER_PATTERNS.QT.some(pattern => h.toUpperCase().includes(pattern) && !h.toUpperCase().includes('MAPA'))
+    );
+    const precoIndex = sheet.headers.findIndex(h => 
+      HEADER_PATTERNS.PRECO.some(pattern => h.toUpperCase().includes(pattern))
+    );
+    const artigoIndex = sheet.headers.findIndex(h =>
+      HEADER_PATTERNS.ARTIGO.some(pattern => h.toUpperCase().includes(pattern))
+    );
 
     sheet.sampleRows.forEach(row => {
-      // Check if this is a data row (has artigo column typically)
-      const hasData = row.some(cell => cell && cell.trim() !== '');
+      // Check if this is a data row by checking artigo column (more efficient)
+      const hasData = artigoIndex >= 0 && row[artigoIndex] && String(row[artigoIndex]).trim() !== '';
       if (hasData) {
         totalItems++;
         if (unIndex >= 0 && (!row[unIndex] || row[unIndex].trim() === '')) missingUnits++;
@@ -83,7 +102,7 @@ function calculateValidationMetrics(context: ExcelAnalysisContext): DataValidati
   });
 
   const completenessPercentage = totalItems > 0 
-    ? Math.round(((totalItems * 3 - missingUnits - missingQuantities - missingPrices) / (totalItems * 3)) * 100)
+    ? Math.round(((totalItems * REQUIRED_FIELDS_PER_ITEM - missingUnits - missingQuantities - missingPrices) / (totalItems * REQUIRED_FIELDS_PER_ITEM)) * 100)
     : 0;
 
   return {

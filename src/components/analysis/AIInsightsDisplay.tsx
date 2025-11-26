@@ -164,6 +164,7 @@ export function AIInsightsDisplay({ insights, language }: AIInsightsDisplayProps
               <Progress 
                 value={insights.validationMetrics.completenessPercentage} 
                 className="w-32 h-2"
+                indicatorClassName={getQualityBgColor(insights.validationMetrics.completenessPercentage)}
               />
               <span className="font-bold">{insights.validationMetrics.completenessPercentage}%</span>
             </div>
