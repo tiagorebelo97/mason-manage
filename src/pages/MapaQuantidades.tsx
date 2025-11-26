@@ -158,7 +158,17 @@ const MapaQuantidades = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isAIAnalyzing, setIsAIAnalyzing] = useState(false);
-  const [aiInsights, setAiInsights] = useState<any>(null);
+  const [aiInsights, setAiInsights] = useState<{
+    summary: string;
+    qualityScore: number;
+    suggestions: string[];
+    dataValidation: {
+      missingUnits: number;
+      missingQuantities: number;
+      missingPrices: number;
+      inconsistencies: string[];
+    };
+  } | null>(null);
   const [chaptersWithArticles, setChaptersWithArticles] = useState<ChapterWithArticles[]>([]);
   const [selectedArticle, setSelectedArticle] = useState<Article | null>(null);
   const [editingChapterId, setEditingChapterId] = useState<string | null>(null);
@@ -1514,16 +1524,27 @@ const MapaQuantidades = () => {
         console.log("Running normal analysis first...");
         await analyzeMutation.mutateAsync({ fileId });
         
-        // Wait a bit for the data to be inserted
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        // Poll for data insertion completion (max 10 attempts, 500ms intervals)
+        console.log("Waiting for data insertion to complete...");
+        let tabs = null;
+        for (let attempt = 0; attempt < 10; attempt++) {
+          const { data } = await supabase
+            .from("orcamento_tabs")
+            .select("id")
+            .eq("orcamento_id", id!);
+          
+          if (data && data.length > 0) {
+            tabs = data;
+            console.log(`Data found after ${attempt + 1} attempts`);
+            break;
+          }
+          
+          // Wait 500ms before next attempt
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
         
         // Now fetch the analyzed data
         console.log("Fetching analyzed data for AI analysis...");
-        const { data: tabs } = await supabase
-          .from("orcamento_tabs")
-          .select("id")
-          .eq("orcamento_id", id!);
-        
         if (!tabs || tabs.length === 0) {
           throw new Error("No tabs found after analysis");
         }

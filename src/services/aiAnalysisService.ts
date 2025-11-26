@@ -22,7 +22,13 @@ export interface ExcelAnalysisData {
     title: string;
     contents: Array<{
       type: 'text' | 'item';
-      data: string | any;
+      data: string | {
+        artigo: string;
+        descricao: string;
+        un: string;
+        qt: number;
+        observacoes_empreiteiro?: string;
+      };
     }>;
   }>;
 }
@@ -141,7 +147,27 @@ Respond in JSON format with the following structure:
     }
 
     const result = await response.json();
-    const aiAnalysis = JSON.parse(result.choices[0].message.content);
+    
+    // Validate response structure
+    if (!result.choices || !Array.isArray(result.choices) || result.choices.length === 0) {
+      console.error('Invalid OpenAI API response structure:', result);
+      throw new Error('Invalid response from OpenAI API');
+    }
+    
+    const messageContent = result.choices[0]?.message?.content;
+    if (!messageContent) {
+      console.error('No message content in OpenAI response');
+      throw new Error('No content in OpenAI API response');
+    }
+    
+    let aiAnalysis;
+    try {
+      aiAnalysis = JSON.parse(messageContent);
+    } catch (parseError) {
+      console.error('Failed to parse AI response as JSON:', parseError);
+      console.error('Raw content:', messageContent);
+      throw new Error('Failed to parse AI response');
+    }
 
     // Count actual data quality issues
     const missingUnits = data.items.filter(i => !i.un).length;
@@ -186,12 +212,17 @@ Respond in JSON format with the following structure:
     if (missingQuantities > 0) suggestions.push(`${missingQuantities} items are missing quantities`);
     if (missingPrices > 0) suggestions.push(`${missingPrices} items are missing prices`);
     
+    // Calculate quality score with proper clamping to prevent negative values
+    const totalIssues = missingUnits + missingQuantities + missingPrices;
+    const baseScore = 70;
+    const qualityScore = Math.max(0, Math.min(100, baseScore - totalIssues));
+    
     return {
       enhancedChapters: data.chapters,
       enhancedItems: data.items,
       insights: {
         summary: 'Analysis completed with basic validation (AI analysis unavailable)',
-        qualityScore: 70 - (missingUnits + missingQuantities + missingPrices),
+        qualityScore,
         suggestions,
         dataValidation: {
           missingUnits,
