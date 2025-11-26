@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import * as XLSX from "xlsx";
 import ExcelJS from "exceljs";
 import { analyzeWithAI, extractExcelContext, type AIAnalysisResult } from "@/services/aiAnalysisService";
+import { AIInsightsDisplay } from "@/components/analysis/AIInsightsDisplay";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -160,6 +161,7 @@ const MapaQuantidades = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isAIAnalysis, setIsAIAnalysis] = useState(false); // Track if using AI analysis
+  const [aiInsights, setAiInsights] = useState<AIAnalysisResult | null>(null); // Store AI analysis results
   const [chaptersWithArticles, setChaptersWithArticles] = useState<ChapterWithArticles[]>([]);
   const [selectedArticle, setSelectedArticle] = useState<Article | null>(null);
   const [editingChapterId, setEditingChapterId] = useState<string | null>(null);
@@ -1571,8 +1573,8 @@ const MapaQuantidades = () => {
           }
         }
         
-        // Return articlesData for article-based view processing
-        return { articlesData, articleBasedView };
+        // Return articlesData for article-based view processing and AI insights
+        return { articlesData, articleBasedView, aiAnalysisResult };
       } catch (error) {
         console.error("Error in analyzeMutation:", error);
         // Re-throw to let the onError handler display the toast
@@ -1581,6 +1583,11 @@ const MapaQuantidades = () => {
     },
     onSuccess: async (data) => {
       setIsAnalyzing(false);
+      
+      // Store AI insights if available
+      if (data && data.aiAnalysisResult) {
+        setAiInsights(data.aiAnalysisResult);
+      }
       
       // Invalidate and refetch queries in sequence to ensure data loads properly
       await queryClient.invalidateQueries({ queryKey: ["orcamento_files", id, import.meta.env.VITE_SUPABASE_URL] });
@@ -2718,6 +2725,12 @@ const MapaQuantidades = () => {
             </div>
           </div>
 
+          {/* AI Insights Display - show after analysis if insights are available */}
+          {aiInsights && isAnalyzed && (
+            <div className="mt-6">
+              <AIInsightsDisplay insights={aiInsights} language={language} />
+            </div>
+          )}
           
           {/* Loading state after analysis - show loading while queries are fetching */}
           {isAnalyzed && (isLoadingFiles || isFetchingFiles || isLoadingTabs || isFetchingTabs || isLoadingChapters || isFetchingChapters || isLoadingItems) && (
