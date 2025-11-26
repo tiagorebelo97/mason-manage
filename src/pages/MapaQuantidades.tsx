@@ -13,6 +13,7 @@ import { analyzeWithAI, extractExcelContext, type AIAnalysisResult, type Uncerta
 import { AIInsightsDisplay } from "@/components/analysis/AIInsightsDisplay";
 import { AISuggestionCard } from "@/components/analysis/AISuggestionCard";
 import { UncertainRowsPanel } from "@/components/analysis/UncertainRowsPanel";
+import { AIAnalysisSummary } from "@/components/analysis/AIAnalysisSummary";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -169,6 +170,8 @@ const MapaQuantidades = () => {
   const { t, language } = useLanguage();
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const aiInsightsRef = useRef<HTMLDivElement>(null);
+  const uncertainRowsRef = useRef<HTMLDivElement>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isAIAnalysis, setIsAIAnalysis] = useState(false); // Track if using AI analysis
   const [aiInsights, setAiInsights] = useState<AIAnalysisResult | null>(null); // Store AI analysis results
@@ -2302,6 +2305,15 @@ const MapaQuantidades = () => {
     }
   };
 
+  // Scroll handlers for navigating to AI sections
+  const scrollToAIInsights = () => {
+    aiInsightsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
+  const scrollToUncertainRows = () => {
+    uncertainRowsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
   // Handler for accepting an uncertain row
   const handleAcceptUncertainRow = (row: UncertainRow, modifiedData?: UncertainRow['suggestedData']) => {
     const rowKey = `${row.sheetName}-${row.rowIndex}`;
@@ -2928,22 +2940,35 @@ const MapaQuantidades = () => {
             </div>
           </div>
 
-          {/* AI Insights Display - show after analysis if insights are available */}
-          {aiInsights && isAnalyzed && (
+          {/* AI Analysis Summary - show at the top with key metrics and shortcuts */}
+          {(aiInsights || uncertainRows.length > 0) && isAnalyzed && (
             <div className="mt-6">
-              <AIInsightsDisplay insights={aiInsights} language={language} />
+              <AIAnalysisSummary 
+                insights={aiInsights}
+                uncertainRows={uncertainRows}
+                language={language}
+                onScrollToInsights={aiInsights ? scrollToAIInsights : undefined}
+                onScrollToUncertain={uncertainRows.length > 0 ? scrollToUncertainRows : undefined}
+              />
             </div>
           )}
-          
-          {/* Uncertain Rows Panel - show rows that AI is uncertain about */}
+
+          {/* Uncertain Rows Panel - show rows that AI is uncertain about (FIRST after summary for prominence) */}
           {uncertainRows.length > 0 && isAnalyzed && (
-            <div className="mt-6">
+            <div className="mt-6" ref={uncertainRowsRef}>
               <UncertainRowsPanel 
                 uncertainRows={uncertainRows}
                 language={language}
                 onAccept={handleAcceptUncertainRow}
                 onReject={handleRejectUncertainRow}
               />
+            </div>
+          )}
+
+          {/* AI Insights Display - show after uncertain rows if insights are available */}
+          {aiInsights && isAnalyzed && (
+            <div className="mt-6" ref={aiInsightsRef}>
+              <AIInsightsDisplay insights={aiInsights} language={language} />
             </div>
           )}
           
