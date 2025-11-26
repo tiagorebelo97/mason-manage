@@ -7,10 +7,23 @@ import OpenAI from 'openai';
 import * as XLSX from 'xlsx';
 
 // Initialize OpenAI client
-const openai = new OpenAI({
-  apiKey: import.meta.env.VITE_OPENAI_API_KEY || '',
-  dangerouslyAllowBrowser: true // Required for client-side usage
-});
+let openai: OpenAI | null = null;
+
+// Check if API key is configured before initializing
+function getOpenAIClient(): OpenAI | null {
+  if (!import.meta.env.VITE_OPENAI_API_KEY) {
+    return null;
+  }
+  
+  if (!openai) {
+    openai = new OpenAI({
+      apiKey: import.meta.env.VITE_OPENAI_API_KEY,
+      dangerouslyAllowBrowser: true // Required for client-side usage
+    });
+  }
+  
+  return openai;
+}
 
 export interface ExcelAnalysisContext {
   sheetNames: string[];
@@ -39,7 +52,8 @@ export async function analyzeWithAI(
 ): Promise<AIAnalysisResult> {
   try {
     // Check if API key is configured
-    if (!import.meta.env.VITE_OPENAI_API_KEY) {
+    const client = getOpenAIClient();
+    if (!client) {
       console.warn('OpenAI API key not configured, skipping AI analysis');
       return {
         enhancedDescriptions: {},
@@ -53,7 +67,7 @@ export async function analyzeWithAI(
 
     const prompt = buildAnalysisPrompt(context);
     
-    const completion = await openai.chat.completions.create({
+    const completion = await client.chat.completions.create({
       model: 'gpt-4o-mini', // Use the more affordable mini model
       messages: [
         {
@@ -88,10 +102,20 @@ Respond in JSON format with the following structure:
 
     const responseContent = completion.choices[0]?.message?.content;
     if (!responseContent) {
-      throw new Error('No response from AI');
+      console.error('AI response was empty or missing. Completion:', completion);
+      throw new Error('No response from AI: empty or missing content in completion');
     }
 
-    const result: AIAnalysisResult = JSON.parse(responseContent);
+    // Parse JSON response with error handling
+    let result: AIAnalysisResult;
+    try {
+      result = JSON.parse(responseContent);
+    } catch (parseError) {
+      console.error('Failed to parse AI response as JSON:', parseError);
+      console.error('Response content:', responseContent);
+      throw new Error(`Invalid JSON response from AI: ${parseError instanceof Error ? parseError.message : 'Unknown parse error'}`);
+    }
+    
     return result;
   } catch (error) {
     console.error('AI analysis error:', error);
