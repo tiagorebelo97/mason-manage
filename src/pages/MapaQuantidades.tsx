@@ -167,6 +167,7 @@ const MapaQuantidades = () => {
   const [uncertainRows, setUncertainRows] = useState<UncertainRow[]>([]); // Track uncertain rows
   const [acceptedRows, setAcceptedRows] = useState<Set<string>>(new Set()); // Track accepted rows by key
   const [rejectedRows, setRejectedRows] = useState<Set<string>>(new Set()); // Track rejected rows by key
+  const [aiAcceptedItems, setAiAcceptedItems] = useState<Set<string>>(new Set()); // Track items accepted from AI suggestions (for highlighting)
   const [chaptersWithArticles, setChaptersWithArticles] = useState<ChapterWithArticles[]>([]);
   const [selectedArticle, setSelectedArticle] = useState<Article | null>(null);
   const [editingChapterId, setEditingChapterId] = useState<string | null>(null);
@@ -2260,6 +2261,11 @@ const MapaQuantidades = () => {
     });
     setUncertainRows(prev => prev.filter(r => `${r.sheetName}-${r.rowIndex}` !== rowKey));
     
+    // Mark this item as AI-accepted for visual highlighting
+    // Use artigo as the key if available, otherwise use the row key
+    const itemKey = row.artigo || rowKey;
+    setAiAcceptedItems(prev => new Set(prev).add(itemKey));
+    
     // Show success message
     toast.success(
       language === 'en' 
@@ -3812,9 +3818,24 @@ const MapaQuantidades = () => {
                                                             );
                                                           };
                                                           
+                                                          // Check if this item was accepted from AI suggestions
+                                                          const isAiAccepted = aiAcceptedItems.has(item.artigo);
+                                                          
                                                           return (
-                                                          <TableRow key={itemIndex}>
-                                                            <TableCell>{renderEditableCell('artigo', displayNumber(item.artigo))}</TableCell>
+                                                          <TableRow 
+                                                            key={itemIndex}
+                                                            className={isAiAccepted ? 'bg-blue-50 dark:bg-blue-950/20 hover:bg-blue-100 dark:hover:bg-blue-900/30' : ''}
+                                                          >
+                                                            <TableCell>
+                                                              <div className="flex items-center gap-2">
+                                                                {renderEditableCell('artigo', displayNumber(item.artigo))}
+                                                                {isAiAccepted && (
+                                                                  <Badge variant="secondary" className="text-xs bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300">
+                                                                    AI
+                                                                  </Badge>
+                                                                )}
+                                                              </div>
+                                                            </TableCell>
                                                             <TableCell>{renderEditableCell('descricao', item.descricao)}</TableCell>
                                                             <TableCell>{renderEditableCell('un', item.un)}</TableCell>
                                                             <TableCell className="text-right">
