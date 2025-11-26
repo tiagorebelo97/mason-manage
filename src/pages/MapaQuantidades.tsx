@@ -156,6 +156,14 @@ type ChapterWithArticles = {
 };
 
 const MapaQuantidades = () => {
+  // Constants for uncertain item defaults
+  const UNCERTAIN_ITEM_DEFAULTS = {
+    UNIT: 'UN',
+    QUANTITY: 0,
+    ARTIGO_PREFIX: 'uncertain',
+    ARTICLE_TITLE: 'Uncertain Items (Accepted)',
+  } as const;
+
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { t, language } = useLanguage();
@@ -1319,22 +1327,27 @@ const MapaQuantidades = () => {
               // - Row has ARTIGO but doesn't match chapter/article/item patterns
               // - Row has DESCRIÇÃO but not in a context where it can be categorized
               // - Row has some data but is missing key identifiers
+              
+              // Determine the reason for uncertainty
+              let uncertainReason: string;
+              if (!artigoCell) {
+                uncertainReason = 'Row has description but no article number and is not in a recognizable context';
+              } else if (!hasUN && !hasQT) {
+                uncertainReason = 'Row has article number but no unit or quantity';
+              } else {
+                uncertainReason = 'Row does not match any expected pattern (chapter, article, item, or comment)';
+              }
+              
               localUncertainRows.push({
                 sheetName: sheetName,
                 rowIndex: rowIndex + 1, // 1-indexed for display
                 artigo: artigoCell || undefined,
                 descricao: descricaoCell,
-                reason: !artigoCell 
-                  ? 'Row has description but no article number and is not in a recognizable context'
-                  : !hasUN && !hasQT 
-                    ? 'Row has article number but no unit or quantity'
-                    : 'Row does not match any expected pattern (chapter, article, item, or comment)',
+                reason: uncertainReason,
                 suggestedAction: 'include'
               });
               
-              // If we're in article-based view and have a current article,
-              // the uncertain row can still be added to the article contents as text
-              // but it will be marked for user review
+              // Log for debugging purposes
               console.log(`Uncertain row at ${sheetName}:${rowIndex + 1}: ARTIGO="${artigoCell}", DESCRIÇÃO="${descricaoCell}", UN=${hasUN}, QT=${hasQT}`);
             }
           });
@@ -2333,10 +2346,10 @@ const MapaQuantidades = () => {
           const newContent: ArticleContent = {
             type: 'item' as const,
             data: {
-              artigo: dataToInsert.artigo || `uncertain_${rowKey}`,
+              artigo: dataToInsert.artigo || `${UNCERTAIN_ITEM_DEFAULTS.ARTIGO_PREFIX}_${rowKey}`,
               descricao: dataToInsert.descricao || row.descricao,
-              un: dataToInsert.un || 'UN',
-              qt: dataToInsert.qt || 0,
+              un: dataToInsert.un || UNCERTAIN_ITEM_DEFAULTS.UNIT,
+              qt: dataToInsert.qt || UNCERTAIN_ITEM_DEFAULTS.QUANTITY,
               observacoes_empreiteiro: `[AI Uncertain - Accepted] From row ${row.rowIndex}`
             }
           };
@@ -2344,17 +2357,17 @@ const MapaQuantidades = () => {
         } else {
           // No articles in chapter - create a new article for uncertain items
           const newArticle: Article = {
-            id: `uncertain_article_${rowKey}`,
+            id: `${UNCERTAIN_ITEM_DEFAULTS.ARTIGO_PREFIX}_article_${rowKey}`,
             chapter_id: chapter.chapter.id,
-            artigo: 'uncertain',
-            title: 'Uncertain Items (Accepted)',
+            artigo: UNCERTAIN_ITEM_DEFAULTS.ARTIGO_PREFIX,
+            title: UNCERTAIN_ITEM_DEFAULTS.ARTICLE_TITLE,
             contents: [{
               type: 'item' as const,
               data: {
-                artigo: dataToInsert.artigo || `uncertain_${rowKey}`,
+                artigo: dataToInsert.artigo || `${UNCERTAIN_ITEM_DEFAULTS.ARTIGO_PREFIX}_${rowKey}`,
                 descricao: dataToInsert.descricao || row.descricao,
-                un: dataToInsert.un || 'UN',
-                qt: dataToInsert.qt || 0,
+                un: dataToInsert.un || UNCERTAIN_ITEM_DEFAULTS.UNIT,
+                qt: dataToInsert.qt || UNCERTAIN_ITEM_DEFAULTS.QUANTITY,
                 observacoes_empreiteiro: `[AI Uncertain - Accepted] From row ${row.rowIndex}`
               }
             }],
