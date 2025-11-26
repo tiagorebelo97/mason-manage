@@ -35,12 +35,82 @@ export interface ExcelAnalysisContext {
   totalRows: number;
 }
 
+export interface DataValidationMetrics {
+  missingUnits: number;
+  missingQuantities: number;
+  missingPrices: number;
+  totalItems: number;
+  completenessPercentage: number;
+}
+
 export interface AIAnalysisResult {
   enhancedDescriptions: Record<string, string>; // artigo -> enhanced description
   suggestedSpecialities: Record<string, string[]>; // artigo -> speciality suggestions
   structureInsights: {
     sheetPurpose: Record<string, string>; // sheet name -> purpose
     chapterSummaries: Record<string, string>; // chapter number -> summary
+  };
+  qualityScore: number; // 0-100 score based on data completeness and structure
+  summary: string; // AI-generated summary of the file
+  suggestions: string[]; // List of AI suggestions for improvement
+  validationMetrics: DataValidationMetrics;
+}
+
+/**
+ * Calculate data validation metrics from Excel context
+ */
+const REQUIRED_FIELDS_PER_ITEM = 3; // UN, QT, PRECO
+
+// Common header patterns to search for
+const HEADER_PATTERNS = {
+  UN: ['UN', 'UNIDADE', 'UNI'],
+  QT: ['QT', 'QUANTIDADE', 'QUANT'],
+  PRECO: ['PRECO', 'PREÇO', 'PU', 'UNITARIO', 'UNITÁRIO'],
+  ARTIGO: ['ARTIGO']
+};
+
+function calculateValidationMetrics(context: ExcelAnalysisContext): DataValidationMetrics {
+  let missingUnits = 0;
+  let missingQuantities = 0;
+  let missingPrices = 0;
+  let totalItems = 0;
+
+  context.sampleData.forEach(sheet => {
+    const unIndex = sheet.headers.findIndex(h => 
+      HEADER_PATTERNS.UN.some(pattern => h.toUpperCase().includes(pattern))
+    );
+    const qtIndex = sheet.headers.findIndex(h => 
+      HEADER_PATTERNS.QT.some(pattern => h.toUpperCase().includes(pattern) && !h.toUpperCase().includes('MAPA'))
+    );
+    const precoIndex = sheet.headers.findIndex(h => 
+      HEADER_PATTERNS.PRECO.some(pattern => h.toUpperCase().includes(pattern))
+    );
+    const artigoIndex = sheet.headers.findIndex(h =>
+      HEADER_PATTERNS.ARTIGO.some(pattern => h.toUpperCase().includes(pattern))
+    );
+
+    sheet.sampleRows.forEach(row => {
+      // Check if this is a data row by checking artigo column (more efficient)
+      const hasData = artigoIndex >= 0 && row[artigoIndex] && String(row[artigoIndex]).trim() !== '';
+      if (hasData) {
+        totalItems++;
+        if (unIndex >= 0 && (!row[unIndex] || row[unIndex].trim() === '')) missingUnits++;
+        if (qtIndex >= 0 && (!row[qtIndex] || row[qtIndex].trim() === '')) missingQuantities++;
+        if (precoIndex >= 0 && (!row[precoIndex] || row[precoIndex].trim() === '')) missingPrices++;
+      }
+    });
+  });
+
+  const completenessPercentage = totalItems > 0 
+    ? Math.round(((totalItems * REQUIRED_FIELDS_PER_ITEM - missingUnits - missingQuantities - missingPrices) / (totalItems * REQUIRED_FIELDS_PER_ITEM)) * 100)
+    : 0;
+
+  return {
+    missingUnits,
+    missingQuantities,
+    missingPrices,
+    totalItems,
+    completenessPercentage
   };
 }
 
@@ -51,6 +121,9 @@ export async function analyzeWithAI(
   context: ExcelAnalysisContext
 ): Promise<AIAnalysisResult> {
   try {
+    // Calculate validation metrics first (doesn't require AI)
+    const validationMetrics = calculateValidationMetrics(context);
+    
     // Check if API key is configured
     const client = getOpenAIClient();
     if (!client) {
@@ -61,7 +134,15 @@ export async function analyzeWithAI(
         structureInsights: {
           sheetPurpose: {},
           chapterSummaries: {}
-        }
+        },
+        qualityScore: validationMetrics.completenessPercentage,
+        summary: 'AI analysis skipped - OpenAI API key not configured',
+        suggestions: [
+          'Configure OpenAI API key to enable AI-powered insights',
+          'Review items with missing units, quantities, or prices',
+          'Ensure all data fields are properly filled'
+        ],
+        validationMetrics
       };
     }
 
@@ -79,6 +160,9 @@ You should:
 2. Understand chapter structures and provide summaries
 3. Enhance item descriptions to be clearer and more comprehensive
 4. Suggest relevant construction specialities for each item (e.g., Electrical, Plumbing, HVAC, Masonry, Carpentry, etc.)
+5. Calculate a quality score (0-100) based on data completeness, organization, and clarity
+6. Provide a summary of the overall file
+7. Give practical suggestions for improvement
 
 Respond in JSON format with the following structure:
 {
@@ -87,7 +171,10 @@ Respond in JSON format with the following structure:
   "structureInsights": {
     "sheetPurpose": { "sheet_name": "purpose_description" },
     "chapterSummaries": { "chapter_number": "chapter_summary" }
-  }
+  },
+  "qualityScore": 85,
+  "summary": "Overall file summary",
+  "suggestions": ["suggestion1", "suggestion2", "suggestion3"]
 }`
         },
         {
@@ -109,7 +196,23 @@ Respond in JSON format with the following structure:
     // Parse JSON response with error handling
     let result: AIAnalysisResult;
     try {
-      result = JSON.parse(responseContent);
+      const parsedResult = JSON.parse(responseContent);
+      
+      // Merge with validation metrics
+      result = {
+        ...parsedResult,
+        validationMetrics,
+        // Ensure we have all required fields with defaults
+        qualityScore: parsedResult.qualityScore || validationMetrics.completenessPercentage,
+        summary: parsedResult.summary || 'AI analysis completed',
+        suggestions: parsedResult.suggestions || [],
+        enhancedDescriptions: parsedResult.enhancedDescriptions || {},
+        suggestedSpecialities: parsedResult.suggestedSpecialities || {},
+        structureInsights: parsedResult.structureInsights || {
+          sheetPurpose: {},
+          chapterSummaries: {}
+        }
+      };
     } catch (parseError) {
       console.error('Failed to parse AI response as JSON:', parseError);
       console.error('Response content:', responseContent);
@@ -119,14 +222,24 @@ Respond in JSON format with the following structure:
     return result;
   } catch (error) {
     console.error('AI analysis error:', error);
-    // Return empty result on error, don't fail the entire analysis
+    // Calculate fallback metrics
+    const validationMetrics = calculateValidationMetrics(context);
+    // Return result with metrics but no AI enhancements on error
     return {
       enhancedDescriptions: {},
       suggestedSpecialities: {},
       structureInsights: {
         sheetPurpose: {},
         chapterSummaries: {}
-      }
+      },
+      qualityScore: validationMetrics.completenessPercentage,
+      summary: 'AI analysis encountered an error. Basic metrics calculated.',
+      suggestions: [
+        'Review items with missing data',
+        'Ensure all required fields are filled',
+        'Check data consistency across sheets'
+      ],
+      validationMetrics
     };
   }
 }
@@ -156,8 +269,15 @@ function buildAnalysisPrompt(context: ExcelAnalysisContext): string {
 2. Suggested construction specialities for categorization
 3. Purpose of each sheet in the workbook
 4. Summaries of chapter content
+5. A quality score (0-100) based on completeness, organization, and clarity
+6. An overall summary of the file
+7. Practical suggestions for improvement
 
-Focus on the most important items and provide practical insights that will help with budget organization and speciality assignment.`;
+Focus on the most important items and provide practical insights that will help with budget organization and speciality assignment.
+
+Note: Initial data validation shows:
+- Total items: ${context.totalRows}
+- Some items may be missing units, quantities, or prices which should be noted in your suggestions.`;
   
   return prompt;
 }

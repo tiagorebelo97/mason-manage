@@ -10,6 +10,8 @@ import { toast } from "sonner";
 import * as XLSX from "xlsx";
 import ExcelJS from "exceljs";
 import { analyzeWithAI, extractExcelContext, type AIAnalysisResult } from "@/services/aiAnalysisService";
+import { AIInsightsDisplay } from "@/components/analysis/AIInsightsDisplay";
+import { AISuggestionCard } from "@/components/analysis/AISuggestionCard";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -160,6 +162,7 @@ const MapaQuantidades = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isAIAnalysis, setIsAIAnalysis] = useState(false); // Track if using AI analysis
+  const [aiInsights, setAiInsights] = useState<AIAnalysisResult | null>(null); // Store AI analysis results
   const [chaptersWithArticles, setChaptersWithArticles] = useState<ChapterWithArticles[]>([]);
   const [selectedArticle, setSelectedArticle] = useState<Article | null>(null);
   const [editingChapterId, setEditingChapterId] = useState<string | null>(null);
@@ -1571,8 +1574,8 @@ const MapaQuantidades = () => {
           }
         }
         
-        // Return articlesData for article-based view processing
-        return { articlesData, articleBasedView };
+        // Return articlesData for article-based view processing and AI insights
+        return { articlesData, articleBasedView, aiAnalysisResult };
       } catch (error) {
         console.error("Error in analyzeMutation:", error);
         // Re-throw to let the onError handler display the toast
@@ -1581,6 +1584,11 @@ const MapaQuantidades = () => {
     },
     onSuccess: async (data) => {
       setIsAnalyzing(false);
+      
+      // Store AI insights if available
+      if (data && data.aiAnalysisResult) {
+        setAiInsights(data.aiAnalysisResult);
+      }
       
       // Invalidate and refetch queries in sequence to ensure data loads properly
       await queryClient.invalidateQueries({ queryKey: ["orcamento_files", id, import.meta.env.VITE_SUPABASE_URL] });
@@ -2619,7 +2627,18 @@ const MapaQuantidades = () => {
       </div>
 
       {!hasFile ? (
-        <div className="flex flex-col items-center justify-center border-2 border-dashed rounded-lg p-12 min-h-[400px]">
+        <div className="space-y-6">
+          {/* AI Suggestion - Before Upload */}
+          <AISuggestionCard
+            title={language === 'en' ? "💡 Pro Tip" : "💡 Dica Profissional"}
+            description={
+              language === 'en' 
+                ? "After uploading your Excel file, use the 'AI Analyze' button (✨) to get smart insights about your budget, including quality scores, data validation, and AI-powered suggestions for improvement."
+                : "Após carregar o ficheiro Excel, use o botão 'Análise IA' (✨) para obter insights inteligentes sobre o seu orçamento, incluindo pontuações de qualidade, validação de dados e sugestões de melhoria com IA."
+            }
+          />
+          
+          <div className="flex flex-col items-center justify-center border-2 border-dashed rounded-lg p-12 min-h-[400px]">
           <Upload className="h-16 w-16 text-muted-foreground mb-4" />
           <h3 className="text-xl font-semibold mb-2">{t('orcamento.noFile')}</h3>
           <p className="text-muted-foreground mb-4">{t('orcamento.uploadFile')}</p>
@@ -2639,8 +2658,25 @@ const MapaQuantidades = () => {
             {t('orcamento.uploadFile')}
           </Button>
         </div>
+        </div>
       ) : (
         <div className="space-y-6">
+          {/* AI Suggestion - After Upload, Before Analysis */}
+          {!isAnalyzed && (
+            <AISuggestionCard
+              variant="compact"
+              description={
+                language === 'en'
+                  ? "Try the AI Analysis for intelligent insights! It will check data quality, identify missing information, and provide improvement suggestions."
+                  : "Experimente a Análise IA para insights inteligentes! Verificará a qualidade dos dados, identificará informação em falta e fornecerá sugestões de melhoria."
+              }
+              action={{
+                label: language === 'en' ? "Use AI Analyze" : "Usar Análise IA",
+                onClick: handleAIAnalyze
+              }}
+            />
+          )}
+          
           <div className="flex items-center justify-between p-6 border rounded-lg bg-card">
             <div className="flex items-center gap-4">
               <FileSpreadsheet className="h-10 w-10 text-green-600" />
@@ -2718,6 +2754,12 @@ const MapaQuantidades = () => {
             </div>
           </div>
 
+          {/* AI Insights Display - show after analysis if insights are available */}
+          {aiInsights && isAnalyzed && (
+            <div className="mt-6">
+              <AIInsightsDisplay insights={aiInsights} language={language} />
+            </div>
+          )}
           
           {/* Loading state after analysis - show loading while queries are fetching */}
           {isAnalyzed && (isLoadingFiles || isFetchingFiles || isLoadingTabs || isFetchingTabs || isLoadingChapters || isFetchingChapters || isLoadingItems) && (
