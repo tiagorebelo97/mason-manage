@@ -77,20 +77,20 @@ export function AIAnalysisSummary({
     return t.needsImprovement;
   };
 
-  // Don't render if no insights
-  if (!insights) {
+  // Don't render if no insights and no uncertain rows
+  if (!insights && uncertainRows.length === 0) {
     return null;
   }
 
   const hasUncertainRows = uncertainRows.length > 0;
-  const qualityScore = insights.qualityScore || 0;
-  const metrics = insights.validationMetrics;
+  const qualityScore = insights?.qualityScore || 0;
+  const metrics = insights?.validationMetrics;
 
   // Build missing data summary
   const missingDataParts: string[] = [];
-  if (metrics.missingUnits > 0) missingDataParts.push(`${metrics.missingUnits} ${t.units}`);
-  if (metrics.missingQuantities > 0) missingDataParts.push(`${metrics.missingQuantities} ${t.quantities}`);
-  if (metrics.missingPrices > 0) missingDataParts.push(`${metrics.missingPrices} ${t.prices}`);
+  if (metrics?.missingUnits && metrics.missingUnits > 0) missingDataParts.push(`${metrics.missingUnits} ${t.units}`);
+  if (metrics?.missingQuantities && metrics.missingQuantities > 0) missingDataParts.push(`${metrics.missingQuantities} ${t.quantities}`);
+  if (metrics?.missingPrices && metrics.missingPrices > 0) missingDataParts.push(`${metrics.missingPrices} ${t.prices}`);
   const missingDataSummary = missingDataParts.join(', ');
 
   return (
@@ -109,20 +109,22 @@ export function AIAnalysisSummary({
 
             {/* Key Metrics Row */}
             <div className="flex flex-wrap gap-4 items-center">
-              {/* Quality Score */}
-              <div className="flex items-center gap-3 bg-background/50 rounded-lg px-4 py-3 border">
-                <div>
-                  <p className="text-xs text-muted-foreground mb-1">{t.qualityScore}</p>
-                  <div className="flex items-center gap-2">
-                    <span className={`text-2xl font-bold ${getQualityColor(qualityScore)}`}>
-                      {qualityScore}/100
-                    </span>
-                    <Badge variant="outline" className={getQualityColor(qualityScore)}>
-                      {getQualityLabel(qualityScore)}
-                    </Badge>
+              {/* Quality Score - only show if insights available */}
+              {insights && (
+                <div className="flex items-center gap-3 bg-background/50 rounded-lg px-4 py-3 border">
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1">{t.qualityScore}</p>
+                    <div className="flex items-center gap-2">
+                      <span className={`text-2xl font-bold ${getQualityColor(qualityScore)}`}>
+                        {qualityScore}/100
+                      </span>
+                      <Badge variant="outline" className={getQualityColor(qualityScore)}>
+                        {getQualityLabel(qualityScore)}
+                      </Badge>
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
 
               {/* Uncertain Items */}
               <div className="flex items-center gap-3 bg-background/50 rounded-lg px-4 py-3 border">
@@ -148,8 +150,8 @@ export function AIAnalysisSummary({
                 </div>
               </div>
 
-              {/* Missing Data */}
-              {missingDataSummary && (
+              {/* Missing Data - only show if insights available and data is missing */}
+              {insights && missingDataSummary && (
                 <div className="flex items-center gap-3 bg-background/50 rounded-lg px-4 py-3 border">
                   <div>
                     <p className="text-xs text-muted-foreground mb-1">{t.missingData}</p>
@@ -163,7 +165,7 @@ export function AIAnalysisSummary({
 
             {/* Action Buttons */}
             <div className="flex flex-wrap gap-2">
-              {onScrollToInsights && (
+              {insights && onScrollToInsights && (
                 <Button
                   variant="outline"
                   size="sm"
