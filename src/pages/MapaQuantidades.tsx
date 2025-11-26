@@ -4,11 +4,12 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Upload, FileSpreadsheet, Loader2, Trash2, MessageSquare, ChevronDown, ImagePlus, ImageIcon, Tag, X, ChevronRight, MoveRight, Plus, Edit, Trash } from "lucide-react";
+import { ArrowLeft, Upload, FileSpreadsheet, Loader2, Trash2, MessageSquare, ChevronDown, ImagePlus, ImageIcon, Tag, X, ChevronRight, MoveRight, Plus, Edit, Trash, Sparkles } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
 import ExcelJS from "exceljs";
+import { analyzeWithAI, extractExcelContext, type AIAnalysisResult } from "@/services/aiAnalysisService";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -158,6 +159,7 @@ const MapaQuantidades = () => {
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [isAIAnalysis, setIsAIAnalysis] = useState(false); // Track if using AI analysis
   const [chaptersWithArticles, setChaptersWithArticles] = useState<ChapterWithArticles[]>([]);
   const [selectedArticle, setSelectedArticle] = useState<Article | null>(null);
   const [editingChapterId, setEditingChapterId] = useState<string | null>(null);
@@ -549,7 +551,7 @@ const MapaQuantidades = () => {
   });
 
   const analyzeMutation = useMutation({
-    mutationFn: async ({ fileId }: { fileId: string }) => {
+    mutationFn: async ({ fileId, isAIAnalysis = false }: { fileId: string; isAIAnalysis?: boolean }) => {
       // Article-based view is always enabled
       const articleBasedView = true;
       try {
@@ -646,6 +648,20 @@ const MapaQuantidades = () => {
         if (!workbook.SheetNames || workbook.SheetNames.length === 0) {
           console.error("Excel file has no sheets");
           throw new Error("Excel file has no sheets");
+        }
+        
+        // Perform AI analysis if enabled (passed as parameter)
+        let aiAnalysisResult: AIAnalysisResult | null = null;
+        if (isAIAnalysis) {
+          console.log("Performing AI analysis...");
+          try {
+            const excelContext = extractExcelContext(workbook);
+            aiAnalysisResult = await analyzeWithAI(excelContext);
+            console.log("AI analysis completed:", aiAnalysisResult);
+          } catch (aiError) {
+            console.error("AI analysis error (continuing with normal analysis):", aiError);
+            // Don't fail the entire analysis if AI fails
+          }
         }
         
         // Also load with ExcelJS for image extraction
@@ -1247,11 +1263,18 @@ const MapaQuantidades = () => {
                 }
               }
               
+              // Enhance description with AI if available
+              let enhancedDescricao = descricaoCell;
+              if (aiAnalysisResult && itemArtigoToStore && aiAnalysisResult.enhancedDescriptions[itemArtigoToStore]) {
+                enhancedDescricao = aiAnalysisResult.enhancedDescriptions[itemArtigoToStore];
+                console.log(`AI enhanced description for ${itemArtigoToStore}: ${enhancedDescricao}`);
+              }
+              
               itemsToInsert.push({
                 sheet_name: sheetName,
                 chapter_number: chapterNumber,
                 artigo: itemArtigoToStore,
-                descricao: descricaoCell,
+                descricao: enhancedDescricao,
                 un: unValue || null,
                 qt: (parsedQt !== null && !isNaN(parsedQt)) ? parsedQt : null,
                 preco_unitario: (parsedPreco !== null && !isNaN(parsedPreco)) ? parsedPreco : null,
@@ -1267,7 +1290,7 @@ const MapaQuantidades = () => {
                   type: 'item',
                   data: {
                     artigo: itemArtigoToStore,
-                    descricao: descricaoCell,
+                    descricao: enhancedDescricao,
                     un: unValue,
                     qt: parsedQt !== null && !isNaN(parsedQt) ? parsedQt : 0,
                     observacoes_empreiteiro: observacoesValue || undefined
@@ -1580,10 +1603,19 @@ const MapaQuantidades = () => {
         sessionStorage.setItem(`articles_${id}`, JSON.stringify(data.articlesData));
       }
       
-      toast.success(t('orcamento.analyzeSuccess'));
+      // Show success message based on analysis type
+      if (isAIAnalysis) {
+        toast.success(t('orcamento.aiAnalyzeSuccess'));
+      } else {
+        toast.success(t('orcamento.analyzeSuccess'));
+      }
+      
+      // Reset AI analysis flag
+      setIsAIAnalysis(false);
     },
     onError: (error) => {
       setIsAnalyzing(false);
+      setIsAIAnalysis(false);
       console.error("Analysis mutation error:", error);
       
       // Try to extract a meaningful error message
@@ -2179,9 +2211,24 @@ const MapaQuantidades = () => {
       console.log("File URL:", currentFile.file_url);
       console.log("Settings - articleBasedView: always enabled");
       setIsAnalyzing(true);
-      analyzeMutation.mutate({ fileId: currentFile.id });
+      setIsAIAnalysis(false);
+      analyzeMutation.mutate({ fileId: currentFile.id, isAIAnalysis: false });
     } else {
       console.error("handleAnalyze called but currentFile is null");
+      toast.error("No file selected for analysis");
+    }
+  };
+  
+  const handleAIAnalyze = () => {
+    if (currentFile) {
+      console.log("Starting AI analysis for file:", currentFile.id, currentFile.file_name);
+      console.log("File URL:", currentFile.file_url);
+      console.log("Settings - articleBasedView: always enabled, AI analysis: enabled");
+      setIsAnalyzing(true);
+      setIsAIAnalysis(true);
+      analyzeMutation.mutate({ fileId: currentFile.id, isAIAnalysis: true });
+    } else {
+      console.error("handleAIAnalyze called but currentFile is null");
       toast.error("No file selected for analysis");
     }
   };
@@ -2611,9 +2658,28 @@ const MapaQuantidades = () => {
                     onClick={handleAnalyze}
                     disabled={isAnalyzing}
                   >
-                    {isAnalyzing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    {isAnalyzing ? t('orcamento.analyzing') : t('orcamento.analyze')}
+                    {isAnalyzing && !isAIAnalysis && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    {isAnalyzing && !isAIAnalysis ? t('orcamento.analyzing') : t('orcamento.analyze')}
                   </Button>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          onClick={handleAIAnalyze}
+                          disabled={isAnalyzing}
+                          variant="secondary"
+                          className="gap-2"
+                        >
+                          {isAnalyzing && isAIAnalysis && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                          <Sparkles className="h-4 w-4" />
+                          {isAnalyzing && isAIAnalysis ? t('orcamento.aiAnalyzing') : t('orcamento.aiAnalyze')}
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>{t('orcamento.aiAnalyzeDescription')}</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                 </>
               )}
               <AlertDialog>
