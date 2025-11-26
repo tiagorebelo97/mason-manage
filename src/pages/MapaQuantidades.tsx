@@ -156,6 +156,14 @@ type ChapterWithArticles = {
 };
 
 const MapaQuantidades = () => {
+  // Constants for uncertain item defaults
+  const UNCERTAIN_ITEM_DEFAULTS = {
+    UNIT: 'UN',
+    QUANTITY: 0,
+    ARTIGO_PREFIX: 'uncertain',
+    ARTICLE_TITLE: 'Uncertain Items (Accepted)',
+  } as const;
+
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { t, language } = useLanguage();
@@ -753,6 +761,10 @@ const MapaQuantidades = () => {
         }>;
       }> = [];
 
+      // Local uncertain rows - rows that don't match any analysis case
+      // These are rows that the analysis doesn't know how to categorize
+      const localUncertainRows: UncertainRow[] = [];
+
       // Process each sheet and create tabs
       // For article-based view (always enabled), always create 3 tabs regardless of sheet count
       const hasMultipleSheets = false;
@@ -1306,6 +1318,38 @@ const MapaQuantidades = () => {
                 });
               }
             }
+            // Case 7: Unmatched rows - rows that don't fit any of the above cases
+            // These are rows that the analysis doesn't know how to categorize
+            // They will be displayed to the user for manual accept/reject decision
+            else if (descricaoCell) {
+              // Capture this row as uncertain since it doesn't match any known pattern
+              // This happens when:
+              // - Row has ARTIGO but doesn't match chapter/article/item patterns
+              // - Row has DESCRIÇÃO but not in a context where it can be categorized
+              // - Row has some data but is missing key identifiers
+              
+              // Determine the reason for uncertainty
+              let uncertainReason: string;
+              if (!artigoCell) {
+                uncertainReason = 'Row has description but no article number and is not in a recognizable context';
+              } else if (!hasUN && !hasQT) {
+                uncertainReason = 'Row has article number but no unit or quantity';
+              } else {
+                uncertainReason = 'Row does not match any expected pattern (chapter, article, item, or comment)';
+              }
+              
+              localUncertainRows.push({
+                sheetName: sheetName,
+                rowIndex: rowIndex + 1, // 1-indexed for display
+                artigo: artigoCell || undefined,
+                descricao: descricaoCell,
+                reason: uncertainReason,
+                suggestedAction: 'include'
+              });
+              
+              // Log for debugging purposes
+              console.log(`Uncertain row at ${sheetName}:${rowIndex + 1}: ARTIGO="${artigoCell}", DESCRIÇÃO="${descricaoCell}", UN=${hasUN}, QT=${hasQT}`);
+            }
           });
           
           // Article-based view: save the last article if exists
@@ -1580,7 +1624,8 @@ const MapaQuantidades = () => {
         }
         
         // Return articlesData for article-based view processing and AI insights
-        return { articlesData, articleBasedView, aiAnalysisResult };
+        // Also return local uncertain rows captured during analysis
+        return { articlesData, articleBasedView, aiAnalysisResult, localUncertainRows };
       } catch (error) {
         console.error("Error in analyzeMutation:", error);
         // Re-throw to let the onError handler display the toast
@@ -1593,10 +1638,17 @@ const MapaQuantidades = () => {
       // Store AI insights if available
       if (data && data.aiAnalysisResult) {
         setAiInsights(data.aiAnalysisResult);
-        // Store uncertain rows if available
-        if (data.aiAnalysisResult.uncertainRows && data.aiAnalysisResult.uncertainRows.length > 0) {
-          setUncertainRows(data.aiAnalysisResult.uncertainRows);
-        }
+      }
+      
+      // Merge AI uncertain rows with locally captured uncertain rows
+      // Local uncertain rows are captured during analysis for rows that don't match any case
+      const aiUncertainRows = data?.aiAnalysisResult?.uncertainRows || [];
+      const localRows = data?.localUncertainRows || [];
+      const allUncertainRows = [...aiUncertainRows, ...localRows];
+      
+      if (allUncertainRows.length > 0) {
+        setUncertainRows(allUncertainRows);
+        console.log(`Found ${allUncertainRows.length} uncertain rows (${aiUncertainRows.length} from AI, ${localRows.length} from local analysis)`);
       }
       
       // Invalidate and refetch queries in sequence to ensure data loads properly
@@ -2266,16 +2318,79 @@ const MapaQuantidades = () => {
     const itemKey = row.artigo || rowKey;
     setAiAcceptedItems(prev => new Set(prev).add(itemKey));
     
+    // Use modified data if provided, otherwise use original row data
+    const dataToInsert = modifiedData || {
+      artigo: row.artigo,
+      descricao: row.descricao,
+      un: row.suggestedData?.un,
+      qt: row.suggestedData?.qt,
+      preco_unitario: row.suggestedData?.preco_unitario
+    };
+    
+    // Find the appropriate chapter to insert into based on sheet name
+    // Add to the first chapter in that sheet, or create a special "Uncertain Items" section
+    setChaptersWithArticles(prev => {
+      const updated = [...prev];
+      
+      // Find a chapter in the same sheet
+      const chapterIndex = updated.findIndex(cwa => cwa.sheet_name === row.sheetName);
+      
+      if (chapterIndex !== -1) {
+        // Found a chapter in the same sheet - add as a new item in its first article
+        // Or if no articles exist, create a special article for uncertain items
+        const chapter = updated[chapterIndex];
+        
+        if (chapter.articles.length > 0) {
+          // Add to the first article of this chapter
+          const firstArticle = chapter.articles[0];
+          const newContent: ArticleContent = {
+            type: 'item' as const,
+            data: {
+              artigo: dataToInsert.artigo || `${UNCERTAIN_ITEM_DEFAULTS.ARTIGO_PREFIX}_${rowKey}`,
+              descricao: dataToInsert.descricao || row.descricao,
+              un: dataToInsert.un || UNCERTAIN_ITEM_DEFAULTS.UNIT,
+              qt: dataToInsert.qt || UNCERTAIN_ITEM_DEFAULTS.QUANTITY,
+              observacoes_empreiteiro: `[AI Uncertain - Accepted] From row ${row.rowIndex}`
+            }
+          };
+          firstArticle.contents.push(newContent);
+        } else {
+          // No articles in chapter - create a new article for uncertain items
+          const newArticle: Article = {
+            id: `${UNCERTAIN_ITEM_DEFAULTS.ARTIGO_PREFIX}_article_${rowKey}`,
+            chapter_id: chapter.chapter.id,
+            artigo: UNCERTAIN_ITEM_DEFAULTS.ARTIGO_PREFIX,
+            title: UNCERTAIN_ITEM_DEFAULTS.ARTICLE_TITLE,
+            contents: [{
+              type: 'item' as const,
+              data: {
+                artigo: dataToInsert.artigo || `${UNCERTAIN_ITEM_DEFAULTS.ARTIGO_PREFIX}_${rowKey}`,
+                descricao: dataToInsert.descricao || row.descricao,
+                un: dataToInsert.un || UNCERTAIN_ITEM_DEFAULTS.UNIT,
+                qt: dataToInsert.qt || UNCERTAIN_ITEM_DEFAULTS.QUANTITY,
+                observacoes_empreiteiro: `[AI Uncertain - Accepted] From row ${row.rowIndex}`
+              }
+            }],
+            sheet_name: row.sheetName
+          };
+          chapter.articles.push(newArticle);
+        }
+      } else {
+        // No chapter found in this sheet - the row will be tracked but not immediately visible
+        // The user can see it in the aiAcceptedItems tracking
+        console.log(`No chapter found for sheet ${row.sheetName}, accepted row tracked in aiAcceptedItems`);
+      }
+      
+      return updated;
+    });
+    
     // Show success message
     toast.success(
       language === 'en' 
-        ? 'Row accepted and will be included in the analysis' 
-        : 'Linha aceite e será incluída na análise'
+        ? 'Row accepted and added to the analysis' 
+        : 'Linha aceite e adicionada à análise'
     );
     
-    // Note: Currently storing accepted rows in state for visual tracking.
-    // Future enhancement: Persist to database and automatically insert into analysis
-    // See GitHub issue for database schema design
     console.log('Accepted row:', row, 'with modified data:', modifiedData);
   };
 
