@@ -9,7 +9,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
 import ExcelJS from "exceljs";
-import { analyzeWithAI, extractExcelContext, type AIAnalysisResult, type UncertainRow } from "@/services/aiAnalysisService";
+import { analyzeWithAI, extractExcelContext, analyzeItemWithInstruction, type AIAnalysisResult, type UncertainRow } from "@/services/aiAnalysisService";
 import { AIInsightsDisplay } from "@/components/analysis/AIInsightsDisplay";
 import { AISuggestionCard } from "@/components/analysis/AISuggestionCard";
 import { UncertainRowsPanel } from "@/components/analysis/UncertainRowsPanel";
@@ -2315,8 +2315,85 @@ const MapaQuantidades = () => {
   };
 
   // Handler for accepting an uncertain row
-  const handleAcceptUncertainRow = (row: UncertainRow, modifiedData?: UncertainRow['suggestedData']) => {
+  const handleAcceptUncertainRow = async (row: UncertainRow, modifiedData?: UncertainRow['suggestedData']) => {
     const rowKey = `${row.sheetName}-${row.rowIndex}`;
+    
+    // Check if this is a user instruction (custom suggestion)
+    // User instructions are stored in aiSuggestion with prefix "[User instruction]:"
+    const USER_INSTRUCTION_PREFIX = '[User instruction]:';
+    const hasUserInstruction = row.aiSuggestion?.startsWith(USER_INSTRUCTION_PREFIX);
+    const userInstruction = hasUserInstruction 
+      ? row.aiSuggestion.slice(USER_INSTRUCTION_PREFIX.length).trim()
+      : null;
+    
+    // If user provided instructions, re-analyze with AI
+    let dataToInsert = modifiedData || {
+      artigo: row.artigo,
+      descricao: row.descricao,
+      un: row.suggestedData?.un,
+      qt: row.suggestedData?.qt,
+      preco_unitario: row.suggestedData?.preco_unitario
+    };
+    
+    if (userInstruction) {
+      // Show loading toast
+      const loadingToastId = toast.loading(
+        language === 'en'
+          ? 'Processing your instructions with AI...'
+          : 'A processar as suas instruções com IA...'
+      );
+      
+      try {
+        // Create the original row without the user instruction prefix for re-analysis
+        const originalRow: UncertainRow = {
+          ...row,
+          aiSuggestion: row.aiSuggestion?.startsWith(USER_INSTRUCTION_PREFIX) 
+            ? row.aiSuggestion.slice(USER_INSTRUCTION_PREFIX.length).trim() 
+            : row.aiSuggestion
+        };
+        
+        const reanalyzedResult = await analyzeItemWithInstruction(originalRow, userInstruction);
+        
+        // Dismiss loading toast
+        toast.dismiss(loadingToastId);
+        
+        if (reanalyzedResult.success) {
+          // Use the AI's re-analyzed data
+          dataToInsert = {
+            artigo: reanalyzedResult.artigo,
+            descricao: reanalyzedResult.descricao,
+            un: reanalyzedResult.un,
+            qt: reanalyzedResult.qt,
+            preco_unitario: reanalyzedResult.preco_unitario
+          };
+          
+          // Show success toast with interpretation
+          toast.success(
+            language === 'en'
+              ? `AI processed your instructions: ${reanalyzedResult.interpretation}`
+              : `IA processou as suas instruções: ${reanalyzedResult.interpretation}`,
+            { duration: 5000 }
+          );
+        } else {
+          // Show warning that AI processing failed but we'll proceed with original data
+          toast.warning(
+            language === 'en'
+              ? `AI processing failed: ${reanalyzedResult.error}. Using original data.`
+              : `Processamento IA falhou: ${reanalyzedResult.error}. A usar dados originais.`,
+            { duration: 5000 }
+          );
+        }
+      } catch (error) {
+        toast.dismiss(loadingToastId);
+        toast.error(
+          language === 'en'
+            ? 'Error processing instructions with AI. Using original data.'
+            : 'Erro ao processar instruções com IA. A usar dados originais.'
+        );
+        console.error('Error in AI re-analysis:', error);
+      }
+    }
+    
     setAcceptedRows(prev => new Set(prev).add(rowKey));
     setRejectedRows(prev => {
       const newSet = new Set(prev);
@@ -2327,17 +2404,8 @@ const MapaQuantidades = () => {
     
     // Mark this item as AI-accepted for visual highlighting
     // Use artigo as the key if available, otherwise use the row key
-    const itemKey = row.artigo || rowKey;
+    const itemKey = dataToInsert.artigo || row.artigo || rowKey;
     setAiAcceptedItems(prev => new Set(prev).add(itemKey));
-    
-    // Use modified data if provided, otherwise use original row data
-    const dataToInsert = modifiedData || {
-      artigo: row.artigo,
-      descricao: row.descricao,
-      un: row.suggestedData?.un,
-      qt: row.suggestedData?.qt,
-      preco_unitario: row.suggestedData?.preco_unitario
-    };
     
     // Find the appropriate chapter to insert into based on sheet name
     // Add to the first chapter in that sheet, or create a special "Uncertain Items" section
@@ -2352,6 +2420,11 @@ const MapaQuantidades = () => {
         // Or if no articles exist, create a special article for uncertain items
         const chapter = updated[chapterIndex];
         
+        // Build observation note
+        const observationNote = userInstruction
+          ? `[AI Processed - User instruction: "${userInstruction}"] From row ${row.rowIndex}`
+          : `[AI Uncertain - Accepted] From row ${row.rowIndex}`;
+        
         if (chapter.articles.length > 0) {
           // Add to the first article of this chapter
           const firstArticle = chapter.articles[0];
@@ -2362,7 +2435,7 @@ const MapaQuantidades = () => {
               descricao: dataToInsert.descricao || row.descricao,
               un: dataToInsert.un || UNCERTAIN_ITEM_DEFAULTS.UNIT,
               qt: dataToInsert.qt || UNCERTAIN_ITEM_DEFAULTS.QUANTITY,
-              observacoes_empreiteiro: `[AI Uncertain - Accepted] From row ${row.rowIndex}`
+              observacoes_empreiteiro: observationNote
             }
           };
           firstArticle.contents.push(newContent);
@@ -2380,7 +2453,7 @@ const MapaQuantidades = () => {
                 descricao: dataToInsert.descricao || row.descricao,
                 un: dataToInsert.un || UNCERTAIN_ITEM_DEFAULTS.UNIT,
                 qt: dataToInsert.qt || UNCERTAIN_ITEM_DEFAULTS.QUANTITY,
-                observacoes_empreiteiro: `[AI Uncertain - Accepted] From row ${row.rowIndex}`
+                observacoes_empreiteiro: observationNote
               }
             }],
             sheet_name: row.sheetName
@@ -2396,14 +2469,16 @@ const MapaQuantidades = () => {
       return updated;
     });
     
-    // Show success message
-    toast.success(
-      language === 'en' 
-        ? 'Row accepted and added to the analysis' 
-        : 'Linha aceite e adicionada à análise'
-    );
+    // Show success message only if we didn't already show a more specific message
+    if (!userInstruction) {
+      toast.success(
+        language === 'en' 
+          ? 'Row accepted and added to the analysis' 
+          : 'Linha aceite e adicionada à análise'
+      );
+    }
     
-    console.log('Accepted row:', row, 'with modified data:', modifiedData);
+    console.log('Accepted row:', row, 'with modified data:', dataToInsert);
   };
 
   // Handler for rejecting an uncertain row
