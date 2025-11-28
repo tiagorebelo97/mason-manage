@@ -2320,9 +2320,10 @@ const MapaQuantidades = () => {
     
     // Check if this is a user instruction (custom suggestion)
     // User instructions are stored in aiSuggestion with prefix "[User instruction]:"
-    const hasUserInstruction = row.aiSuggestion?.startsWith('[User instruction]:');
+    const USER_INSTRUCTION_PREFIX = '[User instruction]:';
+    const hasUserInstruction = row.aiSuggestion?.startsWith(USER_INSTRUCTION_PREFIX);
     const userInstruction = hasUserInstruction 
-      ? row.aiSuggestion.replace('[User instruction]:', '').trim()
+      ? row.aiSuggestion.slice(USER_INSTRUCTION_PREFIX.length).trim()
       : null;
     
     // If user provided instructions, re-analyze with AI
@@ -2346,7 +2347,9 @@ const MapaQuantidades = () => {
         // Create the original row without the user instruction prefix for re-analysis
         const originalRow: UncertainRow = {
           ...row,
-          aiSuggestion: row.aiSuggestion?.replace('[User instruction]:', '').trim() || undefined
+          aiSuggestion: row.aiSuggestion?.startsWith(USER_INSTRUCTION_PREFIX) 
+            ? row.aiSuggestion.slice(USER_INSTRUCTION_PREFIX.length).trim() 
+            : row.aiSuggestion
         };
         
         const reanalyzedResult = await analyzeItemWithInstruction(originalRow, userInstruction);

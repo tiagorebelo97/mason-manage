@@ -416,6 +416,13 @@ export async function analyzeItemWithInstruction(
       };
     }
 
+    // Sanitize user instruction to prevent prompt injection
+    // Remove common prompt injection patterns and limit length
+    const sanitizedInstruction = userInstruction
+      .replace(/```/g, '') // Remove code blocks
+      .replace(/\n{3,}/g, '\n\n') // Limit consecutive newlines
+      .slice(0, 1000); // Limit length
+
     const prompt = `You are analyzing a row from a Portuguese construction budget Excel file that was marked as uncertain.
 
 Here is the uncertain row data:
@@ -428,7 +435,7 @@ Here is the uncertain row data:
 - Suggested Data: ${JSON.stringify(row.suggestedData || {})}
 
 The user has provided the following instruction for how this item should be handled:
-"${userInstruction}"
+"${sanitizedInstruction}"
 
 Based on the user's instruction, please re-analyze this item and provide the corrected data.
 
@@ -470,7 +477,14 @@ Important:
       throw new Error('No response from AI');
     }
 
-    const result = JSON.parse(responseContent);
+    // Parse JSON response with error handling
+    let result;
+    try {
+      result = JSON.parse(responseContent);
+    } catch (parseError) {
+      console.error('Failed to parse AI response as JSON:', parseError);
+      throw new Error('AI returned invalid JSON response');
+    }
     
     return {
       artigo: result.artigo || row.artigo,
