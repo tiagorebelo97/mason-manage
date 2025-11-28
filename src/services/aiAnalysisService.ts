@@ -223,10 +223,13 @@ Respond in JSON format with the following structure:
       ],
       response_format: { type: 'json_object' },
       temperature: 0.3, // Lower temperature for more consistent results
-      // Increased from 2000 to 3500 to accommodate uncertainRows array with aiSuggestion field
-      // The additional tokens allow AI to provide detailed uncertainty reasons,
-      // suggestions, and AI recommendations for up to ~10-15 uncertain rows without truncation
-      max_tokens: 3500
+      // Token limit set to 3000 to balance response detail with cost efficiency
+      // This allows AI to provide:
+      // - Enhanced descriptions and speciality suggestions
+      // - Structure insights and summaries  
+      // - Up to ~8-10 uncertain rows with detailed aiSuggestion field
+      // Note: GPT-4o-mini is cost-effective (~$0.15/1M input, ~$0.60/1M output tokens)
+      max_tokens: 3000
     });
 
     const responseContent = completion.choices[0]?.message?.content;

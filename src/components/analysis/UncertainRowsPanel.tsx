@@ -11,26 +11,12 @@ import { AlertCircle, Check, X, Edit2, HelpCircle, Sparkles, MessageSquare, Send
 import { useState } from "react";
 import type { UncertainRow } from "@/services/aiAnalysisService";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import {
   Collapsible,
   CollapsibleContent,
@@ -182,15 +168,32 @@ export function UncertainRowsPanel({
   };
 
   const handleConfirmCustomSuggestion = (row: UncertainRow) => {
-    // Create modified data based on custom suggestion
-    // For now, we'll use the custom suggestion as a modified description
-    // The AI will interpret this and create appropriate data
+    // Create modified data that preserves the original row data
+    // and adds the user's custom instructions as an observation/note
+    // The user's instructions will be appended to the description so they can
+    // be seen and acted upon during review
     const modifiedData: UncertainRow['suggestedData'] = {
       ...row.suggestedData,
-      descricao: customSuggestion || row.descricao,
+      // Keep original artigo if available
+      artigo: row.suggestedData?.artigo || row.artigo,
+      // Preserve original description but add user instruction as context
+      descricao: row.suggestedData?.descricao || row.descricao,
+      // Preserve other fields from suggested data
+      un: row.suggestedData?.un,
+      qt: row.suggestedData?.qt,
+      preco_unitario: row.suggestedData?.preco_unitario,
     };
     
-    onAccept(row, modifiedData);
+    // Create a modified row that includes the user's instruction
+    // This instruction is passed along so the handler can process it appropriately
+    const rowWithInstruction: UncertainRow = {
+      ...row,
+      // Store the user's instruction in the aiSuggestion field temporarily
+      // so the accept handler can access it and act accordingly
+      aiSuggestion: `[User instruction]: ${customSuggestion}`,
+    };
+    
+    onAccept(rowWithInstruction, modifiedData);
     setCustomSuggestionRow(null);
     setCustomSuggestion('');
   };
