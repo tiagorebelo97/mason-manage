@@ -271,7 +271,7 @@ const MapaQuantidades = () => {
           orcamento_tabs!inner(orcamento_id)
         `)
         .eq("orcamento_tabs.orcamento_id", id)
-        .order("chapter_number");
+        .order("created_at"); // Preserve Excel/insertion order instead of sorting by chapter_number
       if (error) throw error;
       return data as OrcamentoChapter[];
     },
@@ -291,7 +291,7 @@ const MapaQuantidades = () => {
           )
         `)
         .eq("orcamento_chapters.orcamento_tabs.orcamento_id", id)
-        .order("artigo");
+        .order("created_at"); // Preserve Excel/insertion order instead of sorting by artigo
       if (error) throw error;
       return data as OrcamentoItem[];
     },
@@ -384,7 +384,7 @@ const MapaQuantidades = () => {
           )
         `)
         .eq("orcamento_chapters.orcamento_tabs.orcamento_id", id)
-        .order("artigo");
+        .order("created_at"); // Preserve Excel/insertion order instead of sorting by artigo
       if (error) throw error;
       return data;
     },

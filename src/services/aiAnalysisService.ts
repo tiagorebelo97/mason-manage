@@ -57,6 +57,7 @@ export interface UncertainRow {
     qt?: number;
     preco_unitario?: number;
   };
+  aiSuggestion?: string; // AI's interpretation and suggestion for what to do with this row
 }
 
 export interface AIAnalysisResult {
@@ -186,6 +187,7 @@ You should:
    - The reason for uncertainty
    - A suggested action (include, exclude, or modify)
    - If modifying, suggest the corrected data
+   - **An aiSuggestion field with your interpretation and specific recommendation for what to do with this row** - explain in detail what you think this row represents and how it should be handled
 
 Respond in JSON format with the following structure:
 {
@@ -208,7 +210,8 @@ Respond in JSON format with the following structure:
       "suggestedAction": "modify",
       "suggestedData": {
         "descricao": "Clearer description suggestion"
-      }
+      },
+      "aiSuggestion": "This appears to be a header or section title rather than a budget item. I recommend either excluding it or treating it as a text comment under the previous chapter."
     }
   ]
 }`
@@ -220,10 +223,10 @@ Respond in JSON format with the following structure:
       ],
       response_format: { type: 'json_object' },
       temperature: 0.3, // Lower temperature for more consistent results
-      // Increased from 2000 to 3000 to accommodate uncertainRows array
-      // The additional 1000 tokens allow AI to provide detailed uncertainty reasons
-      // and suggestions for up to ~10-15 uncertain rows without truncation
-      max_tokens: 3000
+      // Increased from 2000 to 3500 to accommodate uncertainRows array with aiSuggestion field
+      // The additional tokens allow AI to provide detailed uncertainty reasons,
+      // suggestions, and AI recommendations for up to ~10-15 uncertain rows without truncation
+      max_tokens: 3500
     });
 
     const responseContent = completion.choices[0]?.message?.content;
