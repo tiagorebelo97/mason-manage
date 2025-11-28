@@ -382,3 +382,114 @@ export function extractExcelContext(
   
   return context;
 }
+
+/**
+ * Re-analyze a single uncertain item with user-provided instructions
+ * This allows the AI to re-interpret the item based on user guidance
+ */
+export interface ReanalyzedItem {
+  artigo?: string;
+  descricao?: string;
+  un?: string;
+  qt?: number;
+  preco_unitario?: number;
+  interpretation: string; // AI's interpretation based on user instructions
+  success: boolean;
+  error?: string;
+}
+
+export async function analyzeItemWithInstruction(
+  row: UncertainRow,
+  userInstruction: string
+): Promise<ReanalyzedItem> {
+  try {
+    const client = getOpenAIClient();
+    if (!client) {
+      console.warn('OpenAI API key not configured, cannot re-analyze with instructions');
+      return {
+        ...row.suggestedData,
+        artigo: row.artigo,
+        descricao: row.descricao,
+        interpretation: 'AI analysis skipped - OpenAI API key not configured. User instruction preserved but not processed.',
+        success: false,
+        error: 'OpenAI API key not configured'
+      };
+    }
+
+    const prompt = `You are analyzing a row from a Portuguese construction budget Excel file that was marked as uncertain.
+
+Here is the uncertain row data:
+- Sheet Name: ${row.sheetName}
+- Row Index: ${row.rowIndex}
+- Artigo (Item Code): ${row.artigo || 'Not provided'}
+- Descrição (Description): ${row.descricao}
+- Original Reason for Uncertainty: ${row.reason}
+- AI's Original Suggestion: ${row.aiSuggestion || 'None'}
+- Suggested Data: ${JSON.stringify(row.suggestedData || {})}
+
+The user has provided the following instruction for how this item should be handled:
+"${userInstruction}"
+
+Based on the user's instruction, please re-analyze this item and provide the corrected data.
+
+Respond in JSON format with the following structure:
+{
+  "artigo": "corrected_item_code_or_original",
+  "descricao": "corrected_or_enhanced_description",
+  "un": "unit_if_applicable_like_UN_m2_kg",
+  "qt": 0,
+  "preco_unitario": 0,
+  "interpretation": "Explanation of how you interpreted the user's instruction and what changes were made"
+}
+
+Important:
+- If the user wants to include this as an item, provide appropriate values
+- If the user wants to treat it as text/comment, set un to null and qt to 0
+- Follow the user's instruction as closely as possible
+- The interpretation field should explain what you understood from the user's instruction`;
+
+    const completion = await client.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [
+        {
+          role: 'system',
+          content: 'You are an expert construction budget analyst helping to interpret and categorize budget items based on user instructions. Always respond with valid JSON.'
+        },
+        {
+          role: 'user',
+          content: prompt
+        }
+      ],
+      response_format: { type: 'json_object' },
+      temperature: 0.3,
+      max_tokens: 1000
+    });
+
+    const responseContent = completion.choices[0]?.message?.content;
+    if (!responseContent) {
+      throw new Error('No response from AI');
+    }
+
+    const result = JSON.parse(responseContent);
+    
+    return {
+      artigo: result.artigo || row.artigo,
+      descricao: result.descricao || row.descricao,
+      un: result.un || undefined,
+      qt: typeof result.qt === 'number' ? result.qt : 0,
+      preco_unitario: typeof result.preco_unitario === 'number' ? result.preco_unitario : undefined,
+      interpretation: result.interpretation || 'Item processed successfully',
+      success: true
+    };
+  } catch (error) {
+    console.error('Error re-analyzing item with instruction:', error);
+    return {
+      artigo: row.artigo,
+      descricao: row.descricao,
+      ...row.suggestedData,
+      interpretation: `Error during re-analysis: ${error instanceof Error ? error.message : 'Unknown error'}. Original data preserved.`,
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    };
+  }
+}
