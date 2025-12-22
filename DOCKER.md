@@ -18,7 +18,7 @@ To build and run the application in production mode:
 docker build -t mason-manage .
 
 # Run the container
-docker run -p 8080:80 mason-manage
+docker run -p 80:80 mason-manage
 ```
 
 Or use Docker Compose:
@@ -28,7 +28,7 @@ Or use Docker Compose:
 docker compose up web
 ```
 
-The application will be available at `http://localhost:8080`
+The application will be available at `http://localhost`
 
 ### Development Mode
 
@@ -39,7 +39,7 @@ To run the application in development mode with hot reload:
 docker compose up dev
 ```
 
-The development server will be available at `http://localhost:5173`
+The development server will be available at `http://localhost:8080`
 
 ## Docker Files
 
@@ -52,8 +52,8 @@ The `Dockerfile` uses a multi-stage build:
 ### docker-compose.yml
 
 The `docker-compose.yml` defines two services:
-- **web**: Production build served with nginx on port 8080
-- **dev**: Development server with hot reload on port 5173
+- **web**: Production build served with nginx on port 80
+- **dev**: Development server with hot reload on port 8080 (matching vite.config.ts configuration)
 
 ## Environment Variables
 
@@ -69,7 +69,19 @@ Or create a `.env` file in the project root (already supported by docker-compose
 
 ### SSL Certificate Issues
 
-If you encounter SSL certificate errors during the build, the Dockerfile includes a workaround that disables strict SSL checking for npm. This is necessary in some corporate or restricted network environments.
+If you encounter SSL certificate errors during the build, the Dockerfile includes a workaround that disables strict SSL checking for npm (`npm config set strict-ssl false`). This is necessary in some corporate or restricted network environments with proxy servers or self-signed certificates.
+
+**Security Note**: For production deployments in secure environments, you should:
+1. Remove the `npm config set strict-ssl false` line from the Dockerfile
+2. Properly configure CA certificates in the build environment
+3. Or use build arguments to make SSL verification optional
+
+To build without the SSL workaround (if your environment supports it):
+```bash
+# Edit Dockerfile and remove the "npm config set strict-ssl false" line
+# Then rebuild
+docker build -t mason-manage .
+```
 
 ### Build Cache
 
@@ -86,5 +98,8 @@ If npm install fails in the container, ensure you have sufficient disk space and
 ## Notes
 
 - The `.dockerignore` file excludes unnecessary files from the Docker build context
+- DOCKER.md is included in the container for reference
 - Node modules are installed inside the container, not copied from the host
+- The development service uses a named volume for node_modules to persist dependencies and improve startup time
 - The development service mounts the source code as a volume for hot reload
+- Both services include SSL workarounds for restricted network environments - remove these for secure production deployments

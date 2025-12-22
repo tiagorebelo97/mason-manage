@@ -42,10 +42,10 @@ If you prefer to use Docker, see the [Docker documentation](DOCKER.md) for detai
 
 Quick start with Docker:
 ```sh
-# Production build
+# Production build (runs on http://localhost)
 docker compose up web
 
-# Development mode with hot reload  
+# Development mode with hot reload (runs on http://localhost:8080)
 docker compose up dev
 ```
 

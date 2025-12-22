@@ -3,7 +3,9 @@ FROM node:20-alpine AS build
 
 WORKDIR /app
 
-# Set npm to ignore SSL errors (workaround for certificate issues in build environment)
+# Workaround for SSL certificate issues in restricted network environments
+# This is necessary when building behind corporate proxies or in environments with self-signed certificates
+# For production use in secure environments, consider removing this line or using a CA bundle
 RUN npm config set strict-ssl false
 
 # Copy package files
