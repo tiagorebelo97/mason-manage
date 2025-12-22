@@ -36,6 +36,19 @@ npm i
 npm run dev
 ```
 
+**Use Docker**
+
+If you prefer to use Docker, see the [Docker documentation](DOCKER.md) for detailed instructions.
+
+Quick start with Docker:
+```sh
+# Production build (runs on http://localhost)
+docker compose up web
+
+# Development mode with hot reload (runs on http://localhost:8080)
+docker compose up dev
+```
+
 **Edit a file directly in GitHub**
 
 - Navigate to the desired file(s).
