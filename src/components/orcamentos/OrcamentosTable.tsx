@@ -78,7 +78,7 @@ export const OrcamentosTable = () => {
     });
 
     if (stateFilter.length > 0) {
-      filtered = filtered.filter((orcamento) => 
+      filtered = filtered.filter((orcamento) =>
         stateFilter.includes(orcamento.state)
       );
     }
@@ -225,7 +225,10 @@ export const OrcamentosTable = () => {
                     </button>
                   </div>
                   <ColumnFilter
-                    options={uniqueStates}
+                    options={uniqueStates.map(state => ({
+                      label: t(`orcamento.state${state.charAt(0).toUpperCase() + state.slice(1)}`),
+                      value: state
+                    }))}
                     selected={stateFilter}
                     onChange={setStateFilter}
                     placeholder={t('orcamento.filterState')}
@@ -248,7 +251,7 @@ export const OrcamentosTable = () => {
               </TableRow>
             ) : (
               filteredAndSortedOrcamentos.map((orcamento) => (
-                <TableRow 
+                <TableRow
                   key={orcamento.id}
                   className="cursor-pointer hover:bg-muted/50"
                   onClick={() => setViewingOrcamento(orcamento)}
@@ -257,7 +260,7 @@ export const OrcamentosTable = () => {
                   <TableCell>{formatDate(orcamento.creation_date)}</TableCell>
                   <TableCell>{formatDate(orcamento.delivery_date)}</TableCell>
                   <TableCell>
-                    <Badge 
+                    <Badge
                       variant={orcamento.state === "open" ? "default" : "destructive"}
                       className={orcamento.state === "open" ? "bg-green-600 hover:bg-green-700" : ""}
                     >

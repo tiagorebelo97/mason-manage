@@ -14,14 +14,14 @@ function getOpenAIClient(): OpenAI | null {
   if (!import.meta.env.VITE_OPENAI_API_KEY) {
     return null;
   }
-  
+
   if (!openai) {
     openai = new OpenAI({
       apiKey: import.meta.env.VITE_OPENAI_API_KEY,
       dangerouslyAllowBrowser: true // Required for client-side usage
     });
   }
-  
+
   return openai;
 }
 
@@ -79,12 +79,12 @@ export interface AIAnalysisResult {
  */
 const REQUIRED_FIELDS_PER_ITEM = 3; // UN, QT, PRECO
 
-// Common header patterns to search for
+// Common header patterns to search for - more comprehensive list
 const HEADER_PATTERNS = {
-  UN: ['UN', 'UNIDADE', 'UNI'],
-  QT: ['QT', 'QUANTIDADE', 'QUANT'],
-  PRECO: ['PRECO', 'PREÇO', 'PU', 'UNITARIO', 'UNITÁRIO'],
-  ARTIGO: ['ARTIGO']
+  UN: ['UN', 'UNIDADE', 'UNI', 'UNID', 'UNID.'],
+  QT: ['QT', 'QUANTIDADE', 'QUANT', 'QUANT.', 'QTY', 'QNT', 'TOTAIS', 'TOTAL'],
+  PRECO: ['PRECO', 'PREÇO', 'PU', 'UNITARIO', 'UNITÁRIO', 'P.U.', 'P.UNITARIO', 'PRECO UNIT.', 'PREÇO UNIT.'],
+  ARTIGO: ['ARTIGO', 'ART', 'ART.', 'CAP', 'CAP.', 'CODIGO', 'CÓDIGO', 'COD', 'COD.', 'ITEM']
 };
 
 function calculateValidationMetrics(context: ExcelAnalysisContext): DataValidationMetrics {
@@ -94,18 +94,14 @@ function calculateValidationMetrics(context: ExcelAnalysisContext): DataValidati
   let totalItems = 0;
 
   context.sampleData.forEach(sheet => {
-    const unIndex = sheet.headers.findIndex(h => 
-      HEADER_PATTERNS.UN.some(pattern => h.toUpperCase().includes(pattern))
+    const findIndex = (headers: string[], patterns: string[]) => headers.findIndex(h =>
+      h && patterns.some(p => h.toUpperCase().trim() === p)
     );
-    const qtIndex = sheet.headers.findIndex(h => 
-      HEADER_PATTERNS.QT.some(pattern => h.toUpperCase().includes(pattern) && !h.toUpperCase().includes('MAPA'))
-    );
-    const precoIndex = sheet.headers.findIndex(h => 
-      HEADER_PATTERNS.PRECO.some(pattern => h.toUpperCase().includes(pattern))
-    );
-    const artigoIndex = sheet.headers.findIndex(h =>
-      HEADER_PATTERNS.ARTIGO.some(pattern => h.toUpperCase().includes(pattern))
-    );
+
+    const unIndex = findIndex(sheet.headers, HEADER_PATTERNS.UN);
+    const qtIndex = findIndex(sheet.headers, HEADER_PATTERNS.QT);
+    const precoIndex = findIndex(sheet.headers, HEADER_PATTERNS.PRECO);
+    const artigoIndex = findIndex(sheet.headers, HEADER_PATTERNS.ARTIGO);
 
     sheet.sampleRows.forEach(row => {
       // Check if this is a data row by checking artigo column (more efficient)
@@ -119,7 +115,7 @@ function calculateValidationMetrics(context: ExcelAnalysisContext): DataValidati
     });
   });
 
-  const completenessPercentage = totalItems > 0 
+  const completenessPercentage = totalItems > 0
     ? Math.round(((totalItems * REQUIRED_FIELDS_PER_ITEM - missingUnits - missingQuantities - missingPrices) / (totalItems * REQUIRED_FIELDS_PER_ITEM)) * 100)
     : 0;
 
@@ -141,7 +137,7 @@ export async function analyzeWithAI(
   try {
     // Calculate validation metrics first (doesn't require AI)
     const validationMetrics = calculateValidationMetrics(context);
-    
+
     // Check if API key is configured
     const client = getOpenAIClient();
     if (!client) {
@@ -166,7 +162,7 @@ export async function analyzeWithAI(
     }
 
     const prompt = buildAnalysisPrompt(context);
-    
+
     const completion = await client.chat.completions.create({
       model: 'gpt-4o-mini', // Use the more affordable mini model
       messages: [
@@ -182,12 +178,24 @@ You should:
 5. Calculate a quality score (0-100) based on data completeness, organization, and clarity
 6. Provide a summary of the overall file
 7. Give practical suggestions for improvement
-8. **Identify rows/items that are uncertain or ambiguous** - rows where you're not sure how to classify them, rows with unclear descriptions, rows missing critical data, or rows that don't fit the expected pattern. For each uncertain row, provide:
+8. **Identify rows/items that are truly uncertain or ambiguous** - rows where you cannot reasonably determine the content or where the data is clearly corrupted.
+9. **Do NOT flag rows as uncertain if they are obviously:**
+   - Section headers or subtitles (even if they have alphanumeric labels like "A", "I", "1.1").
+   - Summary rows (e.g., "Total", "Valor a transportar").
+   - Purely descriptive text that provides context for following items.
+   - Items missing a unit or price but with a clear description (these are common in many budgets).
+10. For each truly uncertain row, provide:
    - The sheet name and row index
    - The reason for uncertainty
    - A suggested action (include, exclude, or modify)
    - If modifying, suggest the corrected data
-   - **An aiSuggestion field with your interpretation and specific recommendation for what to do with this row** - explain in detail what you think this row represents and how it should be handled
+   - **An aiSuggestion field with your interpretation and specific recommendation** - explain why it's confusing and how a human should handle it.
+
+**CRITICAL RULES:**
+1. **STRICT ROW ORDERING**: Preserve the EXACT physical order of rows.
+2. **ALPHANUMERIC IDENTIFIERS**: Treat "A", "B", "1.1.a", "IV" as VALID identifiers.
+3. **PORTUGUESE TERMINOLOGY**: Understand common Portuguese construction terms (e.g., "Alvenaria", "Revestimento", "Betão").
+4. **SELECTIVE UNCERTAINTY**: Only flag a row as uncertain if it is genuinely impossible to categorize or if it looks like a parsing error. If it's just a descriptive header, ignore it or treat it as an enhancement.
 
 Respond in JSON format with the following structure:
 {
@@ -206,12 +214,12 @@ Respond in JSON format with the following structure:
       "rowIndex": 5,
       "artigo": "1.2.3",
       "descricao": "Unclear item description",
-      "reason": "Description is too vague to determine the proper category",
+      "reason": "Data appears corrupted or is completely unreadable in this context",
       "suggestedAction": "modify",
       "suggestedData": {
         "descricao": "Clearer description suggestion"
       },
-      "aiSuggestion": "This appears to be a header or section title rather than a budget item. I recommend either excluding it or treating it as a text comment under the previous chapter."
+      "aiSuggestion": "This row contains garbled characters and cannot be identified. Please check the original Excel file."
     }
   ]
 }`
@@ -242,7 +250,7 @@ Respond in JSON format with the following structure:
     let result: AIAnalysisResult;
     try {
       const parsedResult = JSON.parse(responseContent);
-      
+
       // Merge with validation metrics
       result = {
         ...parsedResult,
@@ -264,7 +272,7 @@ Respond in JSON format with the following structure:
       console.error('Response content:', responseContent);
       throw new Error(`Invalid JSON response from AI: ${parseError instanceof Error ? parseError.message : 'Unknown parse error'}`);
     }
-    
+
     return result;
   } catch (error) {
     console.error('AI analysis error:', error);
@@ -296,11 +304,11 @@ Respond in JSON format with the following structure:
  */
 function buildAnalysisPrompt(context: ExcelAnalysisContext): string {
   let prompt = `Analyze this Portuguese construction budget Excel file:\n\n`;
-  
+
   prompt += `Total rows across all sheets: ${context.totalRows}\n`;
   prompt += `Number of sheets: ${context.sheetNames.length}\n`;
   prompt += `Sheet names: ${context.sheetNames.join(', ')}\n\n`;
-  
+
   // Add sample data from each sheet
   context.sampleData.forEach((sheet) => {
     prompt += `\n--- Sheet: ${sheet.sheetName} ---\n`;
@@ -310,7 +318,7 @@ function buildAnalysisPrompt(context: ExcelAnalysisContext): string {
       prompt += `  ${idx + 1}. ${row.join(' | ')}\n`;
     });
   });
-  
+
   prompt += `\n\nPlease analyze this data and provide:
 1. Enhanced descriptions for items to make them clearer
 2. Suggested construction specialities for categorization
@@ -325,7 +333,7 @@ Focus on the most important items and provide practical insights that will help 
 Note: Initial data validation shows:
 - Total items: ${context.totalRows}
 - Some items may be missing units, quantities, or prices which should be noted in your suggestions.`;
-  
+
   return prompt;
 }
 
@@ -345,23 +353,36 @@ export function extractExcelContext(
   workbook.SheetNames.forEach((sheetName: string) => {
     const worksheet = workbook.Sheets[sheetName];
     const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as string[][];
-    
+
     if (jsonData.length === 0) return;
-    
+
     context.totalRows += jsonData.length;
-    
+
     // Extract headers (first non-empty row)
     const headers: string[] = [];
     let headerRowIndex = -1;
-    for (let i = 0; i < Math.min(5, jsonData.length); i++) {
+    for (let i = 0; i < Math.min(20, jsonData.length); i++) {
       const row = jsonData[i];
       if (Array.isArray(row) && row.some(cell => cell && String(cell).trim() !== '')) {
-        headers.push(...row.map(cell => String(cell || '').trim()));
-        headerRowIndex = i;
-        break;
+        // Robust header detection (requires multiple keywords or multiple non-empty cells)
+        const matchCount = row.filter(cell => {
+          if (!cell) return false;
+          const upCell = String(cell).toUpperCase().trim();
+          return Object.values(HEADER_PATTERNS).flat().some(p =>
+            upCell === p || upCell.startsWith(`${p} `) || upCell.includes(` ${p}`)
+          );
+        }).length;
+
+        const nonEmptyCells = row.filter(cell => cell && String(cell).trim() !== '').length;
+
+        if (matchCount >= 2 || (matchCount >= 1 && nonEmptyCells >= 4)) {
+          headers.push(...row.map(cell => String(cell || '').trim()));
+          headerRowIndex = i;
+          break;
+        }
       }
     }
-    
+
     // Extract sample rows (after headers)
     const sampleRows: string[][] = [];
     if (headerRowIndex !== -1) {
@@ -372,14 +393,14 @@ export function extractExcelContext(
         }
       }
     }
-    
+
     context.sampleData.push({
       sheetName,
       headers,
       sampleRows
     });
   });
-  
+
   return context;
 }
 
@@ -485,7 +506,7 @@ Important:
       console.error('Failed to parse AI response as JSON:', parseError);
       throw new Error('AI returned invalid JSON response');
     }
-    
+
     return {
       artigo: result.artigo || row.artigo,
       descricao: result.descricao || row.descricao,
